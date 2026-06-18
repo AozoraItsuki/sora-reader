@@ -1,0 +1,23 @@
+body.page-reader {
+  overflow: hidden;
+  padding-bottom: unset;
+}
+
+body.page-reader > #LNReader-chapter {
+  height: calc(90vh);
+  column-width: calc(100vw - var(--readerSettings-padding) * 2);
+  column-gap: calc(var(--readerSettings-padding) * 2);
+  transition: 200ms;
+}
+.transition-chapter {
+  height: calc(90vh);
+  break-after: column;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-size: 2rem;
+  box-sizing: border-box;
+  padding: var(--readerSettings-padding);
+}

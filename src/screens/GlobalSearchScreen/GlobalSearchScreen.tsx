@@ -1,0 +1,117 @@
+import {
+  EmptyView,
+  SafeAreaView,
+  SearchbarV2,
+  SelectableChip,
+} from '@components/index';
+import SearchHistoryList from '@components/SearchHistoryList/SearchHistoryList';
+import { useSearch } from '@hooks';
+import { useSearchHistory, useTheme } from '@hooks/persisted';
+import { getString } from '@strings/translations';
+import React, { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { ProgressBar } from 'react-native-paper';
+
+import GlobalSearchResultsList from './components/GlobalSearchResultsList';
+import { useGlobalSearch } from './hooks/useGlobalSearch';
+
+interface Props {
+  route?: {
+    params?: {
+      searchText?: string;
+    };
+  };
+}
+
+const GlobalSearchScreen = (props: Props) => {
+  const theme = useTheme();
+  const { searchText, setSearchText, clearSearchbar } = useSearch(
+    props?.route?.params?.searchText,
+    false,
+  );
+  const onChangeText = useCallback(
+    (text: string) => setSearchText(text),
+    [setSearchText],
+  );
+
+  const [hasResultsOnly, setHasResultsOnly] = useState(false);
+
+  const { searchResults, progress } = useGlobalSearch({
+    defaultSearchText: searchText,
+    hasResultsOnly,
+  });
+
+  const { addSearchKey } = useSearchHistory();
+  const onSubmitEditing = useCallback(() => {
+    addSearchKey(searchText);
+  }, [addSearchKey, searchText]);
+
+  const handleHistorySearch = useCallback(
+    (keyword: string) => {
+      setSearchText(keyword);
+    },
+    [setSearchText],
+  );
+
+  return (
+    <SafeAreaView>
+      <SearchbarV2
+        searchText={searchText}
+        placeholder={getString('browseScreen.globalSearch')}
+        leftIcon="magnify"
+        onChangeText={onChangeText}
+        onSubmitEditing={onSubmitEditing}
+        clearSearchbar={clearSearchbar}
+        theme={theme}
+      />
+      {!searchText ? (
+        <SearchHistoryList theme={theme} onSearch={handleHistorySearch} />
+      ) : (
+        <>
+          {progress ? (
+            <ProgressBar
+              color={theme.primary}
+              progress={Math.round(1000 * progress) / 1000}
+            />
+          ) : null}
+          {progress > 0 ? (
+            <View style={styles.filterContainer}>
+              <SelectableChip
+                label="Has results"
+                selected={hasResultsOnly}
+                icon="filter-variant"
+                showCheckIcon={false}
+                theme={theme}
+                onPress={() => setHasResultsOnly(!hasResultsOnly)}
+                mode="outlined"
+              />
+            </View>
+          ) : null}
+          <GlobalSearchResultsList
+            searchText={searchText}
+            searchResults={searchResults}
+            ListEmptyComponent={
+              <EmptyView
+                icon="__φ(．．)"
+                description={`${getString('globalSearch.searchIn')} ${getString(
+                  'globalSearch.allSources',
+                )}`}
+                theme={theme}
+              />
+            }
+          />
+        </>
+      )}
+    </SafeAreaView>
+  );
+};
+
+export default GlobalSearchScreen;
+
+const styles = StyleSheet.create({
+  filterContainer: {
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    flexDirection: 'row',
+  },
+});

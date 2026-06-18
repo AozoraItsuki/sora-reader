@@ -1,0 +1,191 @@
+import { open } from '@op-engineering/op-sqlite';
+import { Logger } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/op-sqlite';
+import { migrate } from 'drizzle-orm/op-sqlite/migrator';
+import { useEffect, useReducer } from 'react';
+
+import migrations from '../../drizzle/migrations';
+import { createDbManager } from './manager/manager';
+import {
+  createCategoryDefaultQuery,
+  createDefaultRepositoryQuery,
+} from './queryStrings/populate';
+import {
+  createCategoryTriggerQuery,
+  createNovelTriggerQueryDelete,
+  createNovelTriggerQueryInsert,
+  createNovelTriggerQueryUpdate,
+  dropCategoryTriggerQuery,
+  dropNovelTriggerQueryDelete,
+  dropNovelTriggerQueryInsert,
+  dropNovelTriggerQueryUpdate,
+} from './queryStrings/triggers';
+import { schema } from './schema';
+
+class MyLogger implements Logger {
+  logQuery(_query: string, _params: unknown[]): void {
+    // console.trace('DB Query: ', { query, params });
+  }
+}
+
+const DB_NAME = 'lnreader.db';
+const _db = open({ name: DB_NAME, location: '../files/SQLite' });
+
+/**
+ * Raw SQLite database instance
+ * @deprecated Use `drizzleDb` for new code
+ */
+export const db = _db;
+
+/**
+ * Drizzle ORM database instance with type-safe query builder
+ * Use this for all new database operations
+ */
+export const drizzleDb = drizzle(_db, {
+  schema,
+  logger: __DEV__ ? new MyLogger() : false,
+});
+
+export const dbManager = createDbManager(drizzleDb);
+
+type SqlExecutor = {
+  executeSync: (
+    sql: string,
+    params?: Parameters<typeof _db.executeSync>[1],
+  ) => void;
+};
+
+const setPragmas = (executor: SqlExecutor) => {
+  console.log('Setting database Pragmas');
+  const queries = [
+    'PRAGMA journal_mode = WAL',
+    'PRAGMA synchronous = NORMAL',
+    'PRAGMA temp_store = MEMORY',
+    'PRAGMA busy_timeout = 5000',
+    'PRAGMA cache_size = 10000',
+    'PRAGMA foreign_keys = ON',
+  ];
+  queries.forEach(query => executor.executeSync(query));
+};
+const populateDatabase = (executor: SqlExecutor) => {
+  console.log('Populating database');
+  executor.executeSync(createCategoryDefaultQuery);
+  executor.executeSync(createDefaultRepositoryQuery);
+};
+
+export const runDatabaseBootstrap = (executor: SqlExecutor) => {
+  createDbTriggers(executor);
+  populateDatabase(executor);
+};
+
+const createDbTriggers = (executor: SqlExecutor) => {
+  console.log('Creating database triggers');
+  // --- drop ---
+  executor.executeSync(dropNovelTriggerQueryInsert);
+  executor.executeSync(dropNovelTriggerQueryUpdate);
+  executor.executeSync(dropNovelTriggerQueryDelete);
+  executor.executeSync(dropCategoryTriggerQuery);
+  // --- create ---
+  executor.executeSync(createNovelTriggerQueryInsert);
+  executor.executeSync(createNovelTriggerQueryUpdate);
+  executor.executeSync(createNovelTriggerQueryDelete);
+  executor.executeSync(createCategoryTriggerQuery);
+};
+
+type InitDbState = {
+  success?: boolean;
+  error?: Error;
+};
+const initialState = {
+  success: false,
+  error: undefined,
+};
+const fetchReducer = (
+  state$1: InitDbState,
+  action:
+    | {
+        type: 'migrating' | 'migrated';
+        payload?: boolean | undefined;
+      }
+    | {
+        type: 'error';
+        payload: Error;
+      },
+) => {
+  switch (action.type) {
+    case 'migrating':
+      return { ...initialState };
+    case 'migrated':
+      return {
+        ...initialState,
+        success: action.payload,
+      };
+    case 'error':
+      return {
+        ...initialState,
+        error: action.payload,
+      };
+    default:
+      return state$1;
+  }
+};
+
+export const useInitDatabase = () => {
+  const [state, dispatch] = useReducer(fetchReducer, initialState);
+  useEffect(() => {
+    dispatch({ type: 'migrating' });
+    setPragmas(_db);
+
+    // To resolve issue in drizzle before beta 16
+    const results = db.executeRawSync(
+      `PRAGMA table_info(__drizzle_migrations);`,
+    );
+    const resolved = results.some((row: unknown[]) => row[1] === 'applied_at');
+    if (!resolved && results.length > 0) {
+      _db.executeRawSync(
+        "ALTER TABLE '__drizzle_migrations' ADD COLUMN 'applied_at' text;",
+      );
+      _db.executeRawSync(
+        "ALTER TABLE '__drizzle_migrations' ADD COLUMN 'name' text;",
+      );
+    }
+
+    migrate(drizzleDb, migrations)
+      .then(() => {
+        // Fix database migrations
+        const queryChapter = db.executeRawSync(`PRAGMA table_info(Chapter);`);
+        const readDurationCheck = queryChapter.some(
+          (row: unknown[]) => row[1] === 'readDuration',
+        );
+        const dateFetchCheck = queryChapter.some(
+          (row: unknown[]) => row[1] === 'dateFetch',
+        );
+        if (dateFetchCheck) {
+          db.executeRawSync('ALTER TABLE Chapter DROP COLUMN dateFetch;');
+        }
+        if (readDurationCheck) {
+          // 1. Migrate existing readDuration data to a new table
+          db.executeRawSync(`
+            INSERT OR IGNORE INTO LNReader_eXtended_Chapter_History (chapterId, readDuration)
+            SELECT id, readDuration 
+            FROM Chapter 
+            WHERE readDuration IS NOT NULL AND readDuration > 0;
+          `);
+          // 2. Drop the readDuration column from Chapter table
+          db.executeRawSync('ALTER TABLE Chapter DROP COLUMN readDuration;');
+        }
+        runDatabaseBootstrap(_db);
+        dispatch({
+          type: 'migrated',
+          payload: true,
+        });
+      })
+      .catch((error: Error) => {
+        dispatch({
+          type: 'error',
+          payload: error,
+        });
+      });
+  }, []);
+  return state;
+};

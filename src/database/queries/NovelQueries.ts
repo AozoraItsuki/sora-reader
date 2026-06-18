@@ -1,0 +1,586 @@
+import { dbManager } from '@database/db';
+import {
+  categorySchema,
+  chapterSchema,
+  extendedChapterHistorySchema,
+  novelCategorySchema,
+  novelSchema,
+} from '@database/schema';
+import { downloadFile } from '@plugins/helpers/fetch';
+import { getPlugin, LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
+import { SourceNovel } from '@plugins/types';
+import { fetchNovel } from '@services/plugin/fetch';
+import NativeFile from '@specs/NativeFile';
+import { getString } from '@strings/translations';
+import { showToast } from '@utils/showToast';
+import { NOVEL_STORAGE } from '@utils/Storages';
+import { and, eq, inArray, ne } from 'drizzle-orm';
+import * as DocumentPicker from 'expo-document-picker';
+
+import { BackupNovel, ChapterInfo, DBNovelInfo, NovelInfo } from '../types';
+import { insertChapters } from './ChapterQueries';
+
+/**
+ * Inserts a novel and its chapters into the database using Drizzle ORM.
+ * Also handles downloading the novel cover if available.
+ */
+export const insertNovelAndChapters = async (
+  pluginId: string,
+  sourceNovel: SourceNovel,
+): Promise<number | undefined> => {
+  const result = await dbManager.write(async tx => {
+    return tx
+      .insert(novelSchema)
+      .values({
+        path: sourceNovel.path,
+        pluginId,
+        name: sourceNovel.name,
+        cover: sourceNovel.cover || null,
+        summary: sourceNovel.summary || null,
+        author: sourceNovel.author || null,
+        artist: sourceNovel.artist || null,
+        status: sourceNovel.status || null,
+        genres: sourceNovel.genres || null,
+        totalPages: sourceNovel.totalPages || 0,
+      })
+      .onConflictDoNothing()
+      .returning()
+      .all();
+  });
+
+  const novelId = result?.[0]?.id;
+
+  if (novelId) {
+    if (sourceNovel.cover) {
+      const novelDir = NOVEL_STORAGE + '/' + pluginId + '/' + novelId;
+      NativeFile.mkdir(novelDir);
+      const novelCoverPath = novelDir + '/cover.png';
+      const novelCoverUri = 'file://' + novelCoverPath;
+
+      try {
+        await downloadFile(
+          sourceNovel.cover,
+          novelCoverPath,
+          getPlugin(pluginId)?.imageRequestInit,
+        );
+        await dbManager.write(async tx => {
+          await tx
+            .update(novelSchema)
+            .set({ cover: novelCoverUri })
+            .where(eq(novelSchema.id, novelId))
+            .run();
+        });
+      } catch {
+        // Silently fail cover download
+      }
+    }
+    await insertChapters(novelId, sourceNovel.chapters);
+  }
+  return novelId;
+};
+
+export const getAllNovels = async (): Promise<NovelInfo[]> => {
+  return dbManager.select().from(novelSchema).all();
+};
+
+export const getNovelById = (novelId: number): DBNovelInfo | undefined => {
+  return dbManager.getSync(
+    dbManager.select().from(novelSchema).where(eq(novelSchema.id, novelId)),
+  );
+};
+
+export const getNovelByPath = (
+  novelPath: string,
+  pluginId: string,
+): DBNovelInfo | undefined => {
+  const res = dbManager.getSync(
+    dbManager
+      .select()
+      .from(novelSchema)
+      .where(
+        and(
+          eq(novelSchema.path, novelPath),
+          eq(novelSchema.pluginId, pluginId),
+        ),
+      ),
+  );
+  return res;
+};
+
+/**
+ * Toggles a novel's presence in the library.
+ * Manages category associations and novel info retrieval if it doesn't exist.
+ */
+export const switchNovelToLibraryQuery = async (
+  novelPath: string,
+  pluginId: string,
+): Promise<NovelInfo | undefined> => {
+  const novel = getNovelByPath(novelPath, pluginId);
+  if (novel) {
+    const newInLibrary = !novel.inLibrary;
+    const isLocalRemoval = !newInLibrary && novel.pluginId === LOCAL_PLUGIN_ID;
+
+    await dbManager.write(async tx => {
+      await tx
+        .update(novelSchema)
+        .set({ inLibrary: newInLibrary })
+        .where(eq(novelSchema.id, novel.id))
+        .run();
+
+      if (!newInLibrary) {
+        // Remove from library: delete categories
+        await tx
+          .delete(novelCategorySchema)
+          .where(eq(novelCategorySchema.novelId, novel.id))
+          .run();
+      } else {
+        // Add to library: add to default category
+        const defaultCategory = await tx
+          .select({ id: categorySchema.id })
+          .from(categorySchema)
+          .where(eq(categorySchema.id, 1))
+          .get();
+
+        if (defaultCategory) {
+          await tx
+            .insert(novelCategorySchema)
+            .values({
+              novelId: novel.id,
+              categoryId: defaultCategory.id,
+            })
+            .run();
+        }
+
+        if (novel.pluginId === LOCAL_PLUGIN_ID) {
+          await tx
+            .insert(novelCategorySchema)
+            .values({
+              novelId: novel.id,
+              categoryId: 2,
+            })
+            .onConflictDoNothing()
+            .run();
+        }
+      }
+    });
+
+    // For local novels: fully delete only if novel is no longer in ANY category
+    if (isLocalRemoval) {
+      const remaining = await dbManager
+        .select({ id: novelCategorySchema.novelId })
+        .from(novelCategorySchema)
+        .where(eq(novelCategorySchema.novelId, novel.id))
+        .get();
+
+      if (!remaining) {
+        // Novel is orphaned — safe to fully delete
+        await dbManager.write(async tx => {
+          await tx
+            .delete(chapterSchema)
+            .where(eq(chapterSchema.novelId, novel.id))
+            .run();
+          await tx
+            .delete(novelSchema)
+            .where(eq(novelSchema.id, novel.id))
+            .run();
+        });
+
+        try {
+          const novelDir = `${NOVEL_STORAGE}/local/${novel.id}`;
+          if (NativeFile.exists(novelDir)) {
+            NativeFile.unlink(novelDir);
+          }
+        } catch (e: any) {
+          console.error('[LocalNovel] Failed to delete files:', e.message);
+        }
+
+        showToast(getString('browseScreen.removeFromLibrary'));
+        return undefined;
+      }
+    }
+
+    showToast(
+      newInLibrary
+        ? getString('browseScreen.addedToLibrary')
+        : getString('browseScreen.removeFromLibrary'),
+    );
+    return { ...novel, inLibrary: newInLibrary };
+  } else {
+    const sourceNovel = await fetchNovel(pluginId, novelPath);
+    const novelId = await insertNovelAndChapters(pluginId, sourceNovel);
+    if (novelId) {
+      await dbManager.write(async tx => {
+        await tx
+          .update(novelSchema)
+          .set({ inLibrary: true })
+          .where(eq(novelSchema.id, novelId))
+          .run();
+
+        const defaultCategory = await tx
+          .select({ id: categorySchema.id })
+          .from(categorySchema)
+          .where(eq(categorySchema.id, 1))
+          .get();
+
+        if (defaultCategory) {
+          await tx
+            .insert(novelCategorySchema)
+            .values({
+              novelId: novelId,
+              categoryId: defaultCategory.id,
+            })
+            .run();
+        }
+      });
+      showToast(getString('browseScreen.addedToLibrary'));
+      return getNovelById(novelId);
+    }
+  }
+};
+
+/**
+ * Removes multiple novels from the library and clears their categories.
+ */
+export const removeNovelsFromLibrary = async (novelIds: Array<number>) => {
+  if (!novelIds.length) return;
+
+  const novels = await dbManager
+    .select()
+    .from(novelSchema)
+    .where(inArray(novelSchema.id, novelIds))
+    .all();
+  const localNovelIds = novels
+    .filter(n => n.pluginId === LOCAL_PLUGIN_ID)
+    .map(n => n.id);
+
+  // Step 1: Remove all novels from library (same as remote behavior)
+  await dbManager.write(async tx => {
+    await tx
+      .update(novelSchema)
+      .set({ inLibrary: false })
+      .where(inArray(novelSchema.id, novelIds))
+      .run();
+
+    await tx
+      .delete(novelCategorySchema)
+      .where(inArray(novelCategorySchema.novelId, novelIds))
+      .run();
+  });
+
+  // Step 2: For local novels, check which ones are truly orphaned
+  // (no remaining category associations) and fully delete only those
+  if (localNovelIds.length) {
+    const stillLinked = await dbManager
+      .select({ novelId: novelCategorySchema.novelId })
+      .from(novelCategorySchema)
+      .where(inArray(novelCategorySchema.novelId, localNovelIds))
+      .all();
+    const stillLinkedIds = new Set(stillLinked.map(r => r.novelId));
+    const orphanedIds = localNovelIds.filter(id => !stillLinkedIds.has(id));
+
+    if (orphanedIds.length) {
+      await dbManager.write(async tx => {
+        await tx
+          .delete(chapterSchema)
+          .where(inArray(chapterSchema.novelId, orphanedIds))
+          .run();
+        await tx
+          .delete(novelSchema)
+          .where(inArray(novelSchema.id, orphanedIds))
+          .run();
+      });
+
+      try {
+        for (const id of orphanedIds) {
+          const novelDir = `${NOVEL_STORAGE}/local/${id}`;
+          if (NativeFile.exists(novelDir)) {
+            NativeFile.unlink(novelDir);
+          }
+        }
+      } catch (e) {
+        console.error('[LocalNovel] Failed to delete files:', e);
+      }
+    }
+  }
+
+  showToast(getString('browseScreen.removeFromLibrary'));
+};
+
+export const getCachedNovels = async (): Promise<NovelInfo[]> => {
+  return dbManager
+    .select()
+    .from(novelSchema)
+    .where(eq(novelSchema.inLibrary, false))
+    .all();
+};
+
+export const deleteCachedNovels = async () => {
+  const cachedNovels = await getCachedNovels();
+
+  for (const novel of cachedNovels) {
+    const novelDir = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}`;
+    if (NativeFile.exists(novelDir)) {
+      NativeFile.unlink(novelDir);
+    }
+  }
+
+  await dbManager.write(async tx => {
+    await tx.delete(novelSchema).where(eq(novelSchema.inLibrary, false)).run();
+  });
+  showToast(getString('advancedSettingsScreen.cachedNovelsDeletedToast'));
+};
+
+/**
+ * Restore a novel from backup using Drizzle ORM.
+ */
+export const restoreLibrary = async (novel: NovelInfo) => {
+  const sourceNovel = await fetchNovel(novel.pluginId, novel.path).catch(e => {
+    throw e;
+  });
+
+  const novelId = await dbManager.write(async tx => {
+    const row = await tx
+      .insert(novelSchema)
+      .values({
+        path: sourceNovel.path,
+        name: novel.name,
+        pluginId: novel.pluginId,
+        cover: novel.cover || '',
+        summary: novel.summary || '',
+        author: novel.author || '',
+        artist: novel.artist || '',
+        status: novel.status || '',
+        genres: novel.genres || '',
+        totalPages: sourceNovel.totalPages || 0,
+        inLibrary: true,
+      })
+      .onConflictDoUpdate({
+        target: [novelSchema.path, novelSchema.pluginId],
+        set: {
+          name: novel.name,
+          cover: novel.cover || '',
+          summary: novel.summary || '',
+          author: novel.author || '',
+          artist: novel.artist || '',
+          status: novel.status || '',
+          genres: novel.genres || '',
+          totalPages: sourceNovel.totalPages || 0,
+          inLibrary: true,
+        },
+      })
+      .returning()
+      .get();
+
+    if (row) {
+      const defaultCategory = await tx
+        .select({ id: categorySchema.id })
+        .from(categorySchema)
+        .where(eq(categorySchema.id, 1))
+        .get();
+
+      if (defaultCategory) {
+        await tx
+          .insert(novelCategorySchema)
+          .values({
+            novelId: row.id,
+            categoryId: defaultCategory.id,
+          })
+          .onConflictDoNothing()
+          .run();
+      }
+    }
+    return row?.id;
+  });
+
+  if (novelId && sourceNovel.chapters) {
+    await insertChapters(novelId, sourceNovel.chapters);
+  }
+};
+
+export const updateNovelInfo = async (info: NovelInfo) => {
+  await dbManager.write(async tx => {
+    await tx
+      .update(novelSchema)
+      .set({
+        name: info.name,
+        cover: info.cover || '',
+        path: info.path,
+        summary: info.summary || '',
+        author: info.author || '',
+        artist: info.artist || '',
+        genres: info.genres || '',
+        status: info.status || '',
+        isLocal: info.isLocal,
+      })
+      .where(eq(novelSchema.id, info.id))
+      .run();
+  });
+};
+
+/**
+ * Handles picking and saving a custom novel cover.
+ */
+export const pickCustomNovelCover = async (novel: NovelInfo) => {
+  const image = await DocumentPicker.getDocumentAsync({ type: 'image/*' });
+  if (image.assets && image.assets[0]) {
+    const novelDir = NOVEL_STORAGE + '/' + novel.pluginId + '/' + novel.id;
+    let novelCoverUri = 'file://' + novelDir + '/cover.png';
+    if (!NativeFile.exists(novelDir)) {
+      NativeFile.mkdir(novelDir);
+    }
+    NativeFile.copyFile(image.assets[0].uri, novelCoverUri);
+    novelCoverUri += '?' + Date.now();
+    await dbManager.write(async tx => {
+      await tx
+        .update(novelSchema)
+        .set({ cover: novelCoverUri })
+        .where(eq(novelSchema.id, novel.id))
+        .run();
+    });
+    return novelCoverUri;
+  }
+};
+
+export const updateNovelCategoryById = async (
+  novelId: number,
+  categoryIds: number[],
+) => {
+  await dbManager.write(async tx => {
+    for (const categoryId of categoryIds) {
+      await tx
+        .insert(novelCategorySchema)
+        .values({ novelId, categoryId })
+        .onConflictDoNothing()
+        .run();
+    }
+  });
+};
+
+export const updateNovelCategories = async (
+  novelIds: number[],
+  categoryIds: number[],
+): Promise<void> => {
+  if (!novelIds.length) return;
+
+  await dbManager.write(async tx => {
+    // Ensure novels are in library when added to a category
+    await tx
+      .update(novelSchema)
+      .set({ inLibrary: true })
+      .where(inArray(novelSchema.id, novelIds))
+      .run();
+
+    // Delete existing categories (keeping local category if present)
+    await tx
+      .delete(novelCategorySchema)
+      .where(
+        and(
+          inArray(novelCategorySchema.novelId, novelIds),
+          ne(novelCategorySchema.categoryId, 2),
+        ),
+      )
+      .run();
+
+    if (categoryIds.length) {
+      const inserts = [];
+      for (const novelId of novelIds) {
+        for (const categoryId of categoryIds) {
+          inserts.push({ novelId, categoryId });
+        }
+      }
+      if (inserts.length > 0) {
+        await tx
+          .insert(novelCategorySchema)
+          .values(inserts)
+          .onConflictDoNothing()
+          .run();
+      }
+    } else {
+      // If no category is selected, set to the default category (sort = 1)
+      const defaultCategory = await tx
+        .select({ id: categorySchema.id })
+        .from(categorySchema)
+        .where(eq(categorySchema.id, 1))
+        .get();
+
+      if (defaultCategory) {
+        // Bulk check which novels already have a category
+        const existingCategoryRecords = await tx
+          .select({ novelId: novelCategorySchema.novelId })
+          .from(novelCategorySchema)
+          .where(inArray(novelCategorySchema.novelId, novelIds))
+          .all();
+
+        const categorizedNovelIds = new Set(
+          existingCategoryRecords.map(r => r.novelId),
+        );
+
+        const toInsert = novelIds
+          .filter(id => !categorizedNovelIds.has(id))
+          .map(id => ({ novelId: id, categoryId: defaultCategory.id }));
+
+        if (toInsert.length > 0) {
+          await tx.insert(novelCategorySchema).values(toInsert).run();
+        }
+      }
+    }
+  });
+};
+
+/**
+ * Restores novel and chapters from a backup object.
+ */
+export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
+  const { chapters, ...novel } = backupNovel;
+  await dbManager.write(async tx => {
+    // Delete existing novel data
+    await tx.delete(novelSchema).where(eq(novelSchema.id, novel.id)).run();
+    await tx
+      .delete(chapterSchema)
+      .where(eq(chapterSchema.novelId, novel.id))
+      .run();
+
+    // Restore novel
+    await tx
+      .insert(novelSchema)
+      .values({
+        ...novel,
+        totalChapters: 0,
+        chaptersDownloaded: 0,
+        chaptersUnread: 0,
+      })
+      .run();
+
+    // Restore chapters in batches
+    if (chapters.length > 0) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < chapters.length; i += BATCH_SIZE) {
+        const batch = chapters.slice(i, i + BATCH_SIZE);
+        // Get `readDuration` from chapters, removing it from chapter and inserting into `ExtendedChapterHistory`
+        const filteredBatch: ChapterInfo[] = [];
+        const historyInserts: { chapterId: number; readDuration: number }[] =
+          [];
+        batch.map(chapter => {
+          const { readDuration, ...chapterFiltered } = chapter;
+          filteredBatch.push(chapterFiltered);
+          historyInserts.push({
+            chapterId: chapter.id,
+            readDuration: readDuration || 0,
+          });
+        });
+        await tx
+          .insert(chapterSchema)
+          .values(filteredBatch)
+          .onConflictDoNothing({ target: chapterSchema.id })
+          .run();
+        await tx
+          .insert(extendedChapterHistorySchema)
+          .values(historyInserts)
+          .onConflictDoNothing({
+            target: extendedChapterHistorySchema.chapterId,
+          })
+          .run();
+      }
+    }
+  });
+};
