@@ -3,7 +3,7 @@ name: Beta Release
 on:
   push:
     branches:
-      - master
+      - main
   workflow_dispatch:
     inputs:
       build_target:
@@ -149,7 +149,7 @@ jobs:
           else
             pnpm rock build:android --variant release --extra-params "--build-cache -PreactNativeArchitectures=${{ matrix.abi }}"
           fi
-          mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/LNReader-beta-${{ matrix.apk_suffix }}.apk
+          mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/Sora-LNReader-beta-${{ matrix.apk_suffix }}.apk
 
       - name: Create Release Note
         run: |
@@ -161,7 +161,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: beta
-          name: "LNReader Beta"
+          name: "Sora LNReader Beta"
           body_path: release_note.txt
           prerelease: true
           make_latest: false

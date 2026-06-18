@@ -91,6 +91,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     webViewRef,
     resetAutoScroll,
     refetch,
+    nextChapterHtml,
   } = useChapterContext();
   const theme = useTheme();
   const { bottom } = useSafeAreaInsets();
@@ -109,6 +110,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     );
   }, [chapter.id]);
   const readerBottomInset = chapterGeneralSettings.fullScreenMode ? 0 : bottom;
+  const seamlessChapterLoading =
+    chapterGeneralSettings.seamlessChapterLoading ?? true;
 
   // Update readerSettings when chapter changes
   useEffect(() => {
@@ -496,6 +499,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         pendingScrollPosition: pendingScrollPositionRef.current,
         getLocalServerUrl,
         isSettingsPreview: false,
+        nextChapterHtml: (nextChapter && seamlessChapterLoading) ? nextChapterHtml : '',
         strings: {
           finished: `${getString(
             'readerScreen.finished',
@@ -522,6 +526,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       prevChapter,
       pluginCustomCSS,
       pluginCustomJS,
+      nextChapterHtml,
     ],
   );
 
@@ -568,6 +573,27 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               })();
             `);
           }, 300);
+        }
+
+        // Seamless next chapter: detect when user scrolls into the next chapter block
+        if (seamlessChapterLoading) {
+          webViewRef.current?.injectJavaScript(`
+            (function() {
+              var nextBlock = document.getElementById('LNReader-next-chapter-seamless');
+              if (!nextBlock) return;
+              var triggered = false;
+              function checkSeamless() {
+                if (triggered) return;
+                var rect = nextBlock.getBoundingClientRect();
+                // Fire when top of next chapter block is within 80px of top of viewport
+                if (rect.top <= 80) {
+                  triggered = true;
+                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'seamless-next' }));
+                }
+              }
+              window.addEventListener('scroll', checkSeamless, { passive: true });
+            })();
+          `);
         }
       }}
       onMessage={(ev: { nativeEvent: { data: string } }) => {
@@ -712,6 +738,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             break;
           case 'refetch':
             refetch();
+            break;
+          case 'seamless-next':
+            // User scrolled into the next chapter block — update app state
+            // without reloading the WebView (content already visible)
+            navigateChapter('NEXT');
             break;
           case 'video-fullscreen-enter':
             ScreenOrientation.lockAsync(

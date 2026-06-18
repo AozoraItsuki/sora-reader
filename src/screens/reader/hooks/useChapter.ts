@@ -111,6 +111,7 @@ export default function useChapter(
   const [[nextChapter, prevChapter], setAdjacentChapter] = useState<
     ChapterInfo[] | undefined[]
   >([]);
+  const [nextChapterHtml, setNextChapterHtml] = useState<string>('');
   const {
     autoScroll,
     autoScrollInterval,
@@ -118,6 +119,7 @@ export default function useChapter(
     useVolumeButtons,
     volumeButtonsOffset,
     pageReader: isPageReaderMode,
+    seamlessChapterLoading = true,
   } = useChapterGeneralSettings();
   const { incognitoMode } = useLibrarySettings();
   const [error, setError] = useState<string>();
@@ -488,6 +490,27 @@ export default function useChapter(
               ),
             );
             setAdjacentChapter([nextChap!, prevChap!]);
+            // Preload next chapter HTML for seamless reading
+            setNextChapterHtml('');
+            if (!noPrefetch && nextChap && seamlessChapterLoading) {
+              Promise.resolve(
+                chapterTextCache.read(nextChap.id) ??
+                  loadChapterText(nextChap.id, nextChap.path),
+              )
+                .then(nextText => {
+                  if (chapterIdRef.current === chap.id) {
+                    setNextChapterHtml(
+                      sanitizeChapterText(
+                        novel.pluginId,
+                        novel.name,
+                        nextChap!.name,
+                        nextText,
+                      ),
+                    );
+                  }
+                })
+                .catch(() => {});
+            }
           }
         }
       } catch (e: any) {
@@ -508,6 +531,7 @@ export default function useChapter(
       novel.totalPages,
       setLoading,
       startBackgroundTranslate,
+      seamlessChapterLoading,
     ],
   );
 
@@ -642,6 +666,7 @@ export default function useChapter(
 
         resetAutoScroll();
         setLoading(true);
+        setNextChapterHtml('');
         getChapter(nextNavChapter);
       } else {
         showToast(
@@ -846,6 +871,7 @@ export default function useChapter(
       error,
       loading,
       chapterText,
+      nextChapterHtml,
       setHidden,
       saveProgress,
       hideHeader,
@@ -870,6 +896,7 @@ export default function useChapter(
       error,
       loading,
       chapterText,
+      nextChapterHtml,
       setHidden,
       saveProgress,
       hideHeader,

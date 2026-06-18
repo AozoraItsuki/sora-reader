@@ -31,6 +31,7 @@ export interface HtmlTemplateOptions {
     nextChapter: string;
     noNextChapter: string;
   };
+  nextChapterHtml?: string;
 }
 
 export const generateReaderHtml = (options: HtmlTemplateOptions) => {
@@ -54,6 +55,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     getLocalServerUrl,
     isSettingsPreview = false,
     strings,
+    nextChapterHtml = '',
   } = options;
 
   const readerDir =
@@ -192,6 +194,16 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
       </div>
       ${html}  
     </div>
+    ${
+      nextChapterHtml && nextChapter
+        ? `<div id="LNReader-next-chapter-seamless" data-chapter-id="${nextChapter.id}" style="margin-top:32px; border-top: 1.5px solid var(--theme-outline, #888); padding-top: 8px;">
+        <div class="transition-chapter" style="text-align:center; padding: 12px 0 8px 0; font-size:0.97em; opacity:0.7;">
+          ${strings.nextChapter}
+        </div>
+        ${nextChapterHtml}
+      </div>`
+        : ''
+    }
     <div id="reader-ui"></div>
   </body>
   <script>
