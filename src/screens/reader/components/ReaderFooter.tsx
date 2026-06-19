@@ -1,6 +1,10 @@
 import { useTheme } from '@hooks/persisted';
 import { ChapterScreenProps } from '@navigators/types';
-import { useNovelActions, useNovelLayout } from '@screens/novel/NovelContext';
+import {
+  useNovelActions,
+  useNovelLayout,
+  useNovelValue,
+} from '@screens/novel/NovelContext';
 import color from 'color';
 import React, { useMemo } from 'react';
 import {
@@ -17,7 +21,6 @@ import Animated, {
   ReduceMotion,
   withTiming,
 } from 'react-native-reanimated';
-
 import { useChapterContext } from '../ChapterContext';
 
 const SCREEN_HEIGHT = Dimensions.get('screen').height;
@@ -56,6 +59,11 @@ const ChapterFooter = ({
   const theme = useTheme();
   const { navigationBarHeight } = useNovelLayout();
   const { followNovel } = useNovelActions();
+
+  const chapters = useNovelValue('chapters');
+  const chapterIndex = chapters.findIndex(c => c.id === chapter.id);
+  const currentPosition = chapterIndex >= 0 ? chapterIndex + 1 : null;
+  const totalChapters = novel.totalChapters || chapters.length || null;
 
   const rippleConfig = {
     color: theme.rippleColor,
@@ -116,7 +124,10 @@ const ChapterFooter = ({
     followNovel();
   };
 
-  const progressText = chapter.progress != null ? `${Math.round(chapter.progress)}%` : '';
+  const progressText =
+    currentPosition && totalChapters
+      ? `${currentPosition}/${totalChapters}`
+      : '';
 
   return (
     <Animated.View

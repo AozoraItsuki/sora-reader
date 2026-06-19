@@ -578,7 +578,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       name: nextChapter.name,
     });
     const safeHtml = JSON.stringify(
-      `<div class="transition-chapter" style="text-align:center;padding:12px 0 8px 0;font-size:0.97em;opacity:0.7;">${chapterTitle}</div>${processedNextHtml}`,
+      `<div class="chapter-title-divider">${chapterTitle}</div>${processedNextHtml}`,
     );
     webViewRef.current?.injectJavaScript(
       `(function(){` +

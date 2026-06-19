@@ -176,6 +176,28 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         --theme-rippleColor: ${theme.rippleColor};
         --reader-bottomInset: ${readerBottomInset}px;
       }
+
+      #LNReader-title-novel {
+        display: block;
+        font-size: 1.25em;
+        font-weight: bold;
+        text-align: center;
+        padding: 1.2em var(--readerSettings-padding) 0.8em;
+        color: var(--readerSettings-textColor);
+        opacity: 0.8;
+        line-height: 1.4;
+      }
+
+      .chapter-title-divider {
+        display: block;
+        font-size: 1.1em;
+        font-weight: bold;
+        text-align: center;
+        padding: 1em var(--readerSettings-padding) 0.6em;
+        color: var(--readerSettings-textColor);
+        opacity: 0.75;
+        line-height: 1.4;
+      }
       
       @font-face {
         font-family: ${readerSettings.fontFamily};
@@ -189,7 +211,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
   </head>
   <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
     <div id="LNReader-chapter">
-      <div class="transition-chapter" id="LNReader-title-novel">
+      <div id="LNReader-title-novel">
         ${chapter.name}
       </div>
       ${html}  
