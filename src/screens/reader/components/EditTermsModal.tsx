@@ -27,6 +27,7 @@ interface Props {
   onClose: () => void;
   novelId: number;
   novelName: string;
+  onTermsChanged?: () => void;
 }
 
 const generateId = () => Math.random().toString(36).slice(2, 10);
@@ -36,6 +37,7 @@ const EditTermsModal: React.FC<Props> = ({
   onClose,
   novelId,
   novelName,
+  onTermsChanged,
 }) => {
   const theme = useTheme();
   const [terms, setTerms] = useState<ReaderTerm[]>([]);
@@ -122,6 +124,7 @@ const EditTermsModal: React.FC<Props> = ({
 
     setShowForm(false);
     loadTerms();
+    onTermsChanged?.();
   };
 
   const deleteTerm = (term: ReaderTerm) => {
@@ -136,6 +139,7 @@ const EditTermsModal: React.FC<Props> = ({
       );
     }
     loadTerms();
+    onTermsChanged?.();
   };
 
   const renderTerm = ({ item }: { item: ReaderTerm }) => (

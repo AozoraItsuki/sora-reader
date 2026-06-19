@@ -12,10 +12,10 @@ import { StyleSheet, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getAllTermsForNovel } from '@utils/readerTerms';
 import { ChapterContextProvider, useChapterContext } from './ChapterContext';
 import ChapterLoadingScreen from './ChapterLoadingScreen/ChapterLoadingScreen';
 import ChapterDrawer from './components/ChapterDrawer';
-import EditTermsModal from './components/EditTermsModal';
 import KeepScreenAwake from './components/KeepScreenAwake';
 import ReaderAppbar from './components/ReaderAppbar';
 import ReaderBottomSheetV2 from './components/ReaderBottomSheet/ReaderBottomSheet';
@@ -74,7 +74,6 @@ export const ChapterContent = ({
   const [bookmarked, setBookmarked] = useState<boolean>(
     chapter.bookmark ?? false,
   );
-  const [editTermsVisible, setEditTermsVisible] = useState(false);
   const [sheetTabIndex, setSheetTabIndex] = useState(0);
   const [sheetTabKey, setSheetTabKey] = useState(0);
 
@@ -82,7 +81,7 @@ export const ChapterContent = ({
     setBookmarked(chapter.bookmark ?? false);
   }, [chapter]);
 
-  const { hidden, loading, error, webViewRef, hideHeader, refetch } =
+  const { hidden, loading, error, webViewRef, hideHeader, refetch, novel: ctxNovel } =
     useChapterContext();
 
   const presentSheetAtTab = useCallback(
@@ -93,6 +92,34 @@ export const ChapterContent = ({
     },
     [],
   );
+
+  const applyTermsToWebView = useCallback(() => {
+    const novelId = ctxNovel?.id ?? 0;
+    const terms = getAllTermsForNovel(novelId);
+    const js = terms.length > 0
+      ? `(function(){
+          var chEl = document.getElementById('LNReader-chapter');
+          if (!chEl) return;
+          var walker = document.createTreeWalker(chEl, NodeFilter.SHOW_TEXT, null);
+          var nodes = [];
+          var n;
+          while((n = walker.nextNode())) nodes.push(n);
+          var terms = ${JSON.stringify(terms)};
+          nodes.forEach(function(node) {
+            var text = node.nodeValue;
+            if (!text) return;
+            terms.forEach(function(t) {
+              if (!t.from) return;
+              var escaped = t.from.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+              var flags = t.caseSensitive ? 'g' : 'gi';
+              try { text = text.replace(new RegExp(escaped, flags), t.to); } catch(e) {}
+            });
+            node.nodeValue = text;
+          });
+        })()`
+      : `(function(){})()`;
+    webViewRef?.current?.injectJavaScript(js);
+  }, [ctxNovel?.id, webViewRef]);
 
   useFocusEffect(
     useCallback(() => {
@@ -165,12 +192,6 @@ export const ChapterContent = ({
         initialTabIndex={sheetTabIndex}
         initialTabKey={sheetTabKey}
       />
-      <EditTermsModal
-        visible={editTermsVisible}
-        onClose={() => setEditTermsVisible(false)}
-        novelId={novel.id ?? 0}
-        novelName={novel.name}
-      />
       {!hidden && (
         <View style={StyleSheet.absoluteFill} pointerEvents="auto">
           <ReaderAppbar
@@ -184,8 +205,9 @@ export const ChapterContent = ({
             scrollToStart={scrollToStart}
             navigation={navigation}
             openDrawer={openDrawerI}
-            openEditTerms={() => setEditTermsVisible(true)}
+            openEditTerms={() => {}}
             presentSheetAtTab={presentSheetAtTab}
+            onApplyTerms={applyTermsToWebView}
           />
         </View>
       )}
