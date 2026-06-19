@@ -66,15 +66,19 @@ const ChapterFooter = ({
   const entering = () => {
     'worklet';
     const animations = {
-      originY: withTiming(SCREEN_HEIGHT - navigationBarHeight - 64, {
-        duration: 250,
-        easing: fastOutSlowIn,
-        reduceMotion: ReduceMotion.System,
-      }),
+      transform: [
+        {
+          translateY: withTiming(0, {
+            duration: 250,
+            easing: fastOutSlowIn,
+            reduceMotion: ReduceMotion.System,
+          }),
+        },
+      ],
       opacity: withTiming(1, { duration: 150 }),
     };
     const initialValues = {
-      originY: SCREEN_HEIGHT - 64,
+      transform: [{ translateY: SCREEN_HEIGHT }],
       opacity: 0,
     };
     return { initialValues, animations };
@@ -83,15 +87,19 @@ const ChapterFooter = ({
   const exiting = () => {
     'worklet';
     const animations = {
-      originY: withTiming(SCREEN_HEIGHT - 64, {
-        duration: 250,
-        easing: fastOutSlowIn,
-        reduceMotion: ReduceMotion.System,
-      }),
+      transform: [
+        {
+          translateY: withTiming(SCREEN_HEIGHT, {
+            duration: 250,
+            easing: fastOutSlowIn,
+            reduceMotion: ReduceMotion.System,
+          }),
+        },
+      ],
       opacity: withTiming(0, { duration: 150 }),
     };
     const initialValues = {
-      originY: SCREEN_HEIGHT - navigationBarHeight - 64,
+      transform: [{ translateY: 0 }],
       opacity: 1,
     };
     return { initialValues, animations };
