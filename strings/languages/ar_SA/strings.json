@@ -480,6 +480,7 @@
       "useChapterDrawerSwipeNavigation": "السحب لفتح الدرج",
       "verticalSeekbar": "شريط تمرير رأسي",
       "keepScreenOn": "إبقاء الشاشة مضاءة",
+      "seamlessChapterLoading": "Seamless chapter loading",
       "volumeButtonsScroll": "التمرير بأزرار الصوت"
     },
     "drawer": {
