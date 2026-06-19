@@ -127,6 +127,8 @@ const GeneralTab: React.FC = React.memo(() => {
 
 interface ReaderBottomSheetV2Props {
   bottomSheetRef: RefObject<BottomSheetModalMethods | null>;
+  initialTabIndex?: number;
+  initialTabKey?: number;
 }
 
 const routes = [
@@ -138,6 +140,8 @@ const routes = [
 
 const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   bottomSheetRef,
+  initialTabIndex,
+  initialTabKey,
 }) => {
   const theme = useTheme();
   const { bottom, left, right } = useSafeAreaInsets();
@@ -157,7 +161,14 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
     [],
   );
 
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(initialTabIndex ?? 0);
+
+  // Sync tab when parent requests a specific tab (via key change)
+  React.useEffect(() => {
+    if (initialTabIndex !== undefined) {
+      setIndex(initialTabIndex);
+    }
+  }, [initialTabKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderTabBar = useCallback(
     (props: any) => (

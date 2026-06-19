@@ -1,12 +1,17 @@
-import { SCREEN_HEIGHT } from '@gorhom/bottom-sheet';
-import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { useTheme } from '@hooks/persisted';
 import { ChapterScreenProps } from '@navigators/types';
-import { useNovelLayout } from '@screens/novel/NovelContext';
+import { useNovelActions, useNovelLayout } from '@screens/novel/NovelContext';
 import color from 'color';
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { IconButton } from 'react-native-paper';
+import {
+  Dimensions,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -15,20 +20,30 @@ import Animated, {
 
 import { useChapterContext } from '../ChapterContext';
 
+const SCREEN_HEIGHT = Dimensions.get('screen').height;
+
 interface ChapterFooterProps {
-  readerSheetRef: React.RefObject<BottomSheetModalMethods | null>;
-  scrollToStart: () => void;
+  readerSheetRef?: React.RefObject<unknown>;
+  scrollToStart?: () => void;
   navigation: ChapterScreenProps['navigation'];
   openDrawer: () => void;
+  openEditTerms: () => void;
+  presentSheetAtTab: (tabIndex: number) => void;
 }
 
 const fastOutSlowIn = Easing.bezier(0.4, 0.0, 0.2, 1.0);
 
+// Tab index constants for reader bottom sheet
+const TAB_DISPLAY = 0;
+const TAB_SETTINGS = 1;
+const TAB_SPEECH = 2;
+const TAB_TRANSLATE = 3;
+
 const ChapterFooter = ({
-  readerSheetRef,
-  scrollToStart,
   navigation,
   openDrawer,
+  openEditTerms,
+  presentSheetAtTab,
 }: ChapterFooterProps) => {
   const {
     novel,
@@ -36,15 +51,17 @@ const ChapterFooter = ({
     nextChapter,
     prevChapter,
     navigateChapter,
-    isTranslating,
+    hideHeader,
   } = useChapterContext();
   const theme = useTheme();
+  const { navigationBarHeight } = useNovelLayout();
+  const { followNovel } = useNovelActions();
+
   const rippleConfig = {
     color: theme.rippleColor,
     borderless: true,
     radius: 50,
   };
-  const { navigationBarHeight } = useNovelLayout();
 
   const entering = () => {
     'worklet';
@@ -60,11 +77,9 @@ const ChapterFooter = ({
       originY: SCREEN_HEIGHT - 64,
       opacity: 0,
     };
-    return {
-      initialValues,
-      animations,
-    };
+    return { initialValues, animations };
   };
+
   const exiting = () => {
     'worklet';
     const animations = {
@@ -79,107 +94,186 @@ const ChapterFooter = ({
       originY: SCREEN_HEIGHT - navigationBarHeight - 64,
       opacity: 1,
     };
-    return {
-      initialValues,
-      animations,
-    };
+    return { initialValues, animations };
   };
 
-  const style = useMemo(
-    () => [
-      styles.footer,
-      {
-        backgroundColor: color(theme.surface).alpha(0.9).string(),
-        paddingBottom: navigationBarHeight,
-      },
-    ],
-    [theme.surface, navigationBarHeight],
+  const surfaceColor = useMemo(
+    () => color(theme.surface).alpha(0.96).string(),
+    [theme.surface],
   );
+
+  const dividerColor = color(theme.onSurface).alpha(0.12).string();
+
+  const handleAddToLibrary = () => {
+    followNovel();
+  };
+
+  const progressText = chapter.progress != null ? `${Math.round(chapter.progress)}%` : '';
 
   return (
     <Animated.View
       entering={entering}
       exiting={exiting}
-      style={[styles.footer, style]}
+      style={[
+        styles.footer,
+        {
+          backgroundColor: surfaceColor,
+          paddingBottom: navigationBarHeight,
+        },
+      ]}
     >
-      <View style={styles.buttonsContainer}>
+      {/* Row 1 — Navigation */}
+      <View style={[styles.navRow, { borderBottomColor: dividerColor }]}>
         <Pressable
           android_ripple={rippleConfig}
-          style={styles.buttonStyles}
+          style={styles.navBtn}
           onPress={() => navigateChapter('PREV')}
+          disabled={!prevChapter}
         >
-          <IconButton
-            icon="chevron-left"
-            size={26}
-            disabled={!prevChapter}
-            iconColor={theme.onSurface}
-          />
-        </Pressable>
-        {!novel.isLocal ? (
-          <Pressable
-            android_ripple={rippleConfig}
-            style={styles.buttonStyles}
-            onPress={() =>
-              navigation.navigate('WebviewScreen', {
-                name: novel.name,
-                url: chapter.path,
-                pluginId: novel.pluginId,
-              })
-            }
+          <Text
+            style={[
+              styles.navBtnText,
+              { color: prevChapter ? theme.onSurface : color(theme.onSurface).alpha(0.38).string() },
+            ]}
           >
-            <IconButton icon="earth" size={26} iconColor={theme.onSurface} />
-          </Pressable>
-        ) : null}
-        <Pressable
-          android_ripple={rippleConfig}
-          style={styles.buttonStyles}
-          onPress={() => scrollToStart()}
-        >
-          <IconButton
-            icon="format-vertical-align-top"
-            size={26}
-            iconColor={theme.onSurface}
-          />
+            {'< Prev'}
+          </Text>
         </Pressable>
+
+        <View style={styles.chapterInfo}>
+          <Text style={[styles.chapterName, { color: theme.onSurface }]} numberOfLines={1}>
+            {chapter.name}
+          </Text>
+          {progressText ? (
+            <Text style={[styles.chapterProgress, { color: theme.onSurfaceVariant }]}>
+              {progressText}
+            </Text>
+          ) : null}
+        </View>
+
         <Pressable
           android_ripple={rippleConfig}
-          style={styles.buttonStyles}
-          onPress={() => openDrawer()}
-        >
-          <IconButton
-            icon="format-horizontal-align-right"
-            size={26}
-            iconColor={theme.onSurface}
-          />
-        </Pressable>
-        <Pressable
-          android_ripple={rippleConfig}
-          style={styles.buttonStyles}
-          onPress={() => readerSheetRef.current?.present()}
-          disabled={isTranslating}
-        >
-          <IconButton
-            icon="cog-outline"
-            size={26}
-            iconColor={
-              isTranslating
-                ? color(theme.onSurface).alpha(0.38).string()
-                : theme.onSurface
-            }
-          />
-        </Pressable>
-        <Pressable
-          android_ripple={rippleConfig}
-          style={styles.buttonStyles}
+          style={styles.navBtn}
           onPress={() => navigateChapter('NEXT')}
+          disabled={!nextChapter}
         >
-          <IconButton
-            icon="chevron-right"
-            size={26}
-            disabled={!nextChapter}
-            iconColor={theme.onSurface}
-          />
+          <Text
+            style={[
+              styles.navBtnText,
+              { color: nextChapter ? theme.onSurface : color(theme.onSurface).alpha(0.38).string() },
+            ]}
+          >
+            {'Next >'}
+          </Text>
         </Pressable>
+      </View>
+
+      {/* Row 2 — Contents + Novel info */}
+      <View style={[styles.infoRow, { borderBottomColor: dividerColor }]}>
+        <TouchableOpacity
+          style={[styles.halfBtn, { borderRightColor: dividerColor }]}
+          onPress={openDrawer}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.halfBtnIcon, { color: theme.onSurface }]}>☰</Text>
+          <Text style={[styles.halfBtnLabel, { color: theme.onSurface }]}>Contents</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.halfBtn}
+          onPress={() =>
+            navigation.navigate('Novel', {
+              id: novel.id,
+              path: novel.path,
+              pluginId: novel.pluginId,
+            })
+          }
+          activeOpacity={0.7}
+        >
+          {novel.cover ? (
+            <Image
+              source={{ uri: novel.cover }}
+              style={styles.novelCover}
+              resizeMode="cover"
+            />
+          ) : null}
+          <View style={styles.novelTextWrap}>
+            <Text style={[styles.novelLabel, { color: theme.onSurfaceVariant }]}>NOVEL</Text>
+            <Text style={[styles.novelTitle, { color: theme.onSurface }]} numberOfLines={1}>
+              {novel.name}
+            </Text>
+          </View>
+          <Text style={[styles.chevron, { color: theme.onSurfaceVariant }]}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Row 3 — Edit Terms + Add to Library */}
+      <View style={[styles.infoRow, { borderBottomColor: dividerColor }]}>
+        <TouchableOpacity
+          style={[styles.halfBtn, { borderRightColor: dividerColor }]}
+          onPress={openEditTerms}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.halfBtnIcon, { color: theme.onSurface }]}>✎</Text>
+          <Text style={[styles.halfBtnLabel, { color: theme.onSurface }]}>Edit Terms</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.halfBtn}
+          onPress={handleAddToLibrary}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.halfBtnIcon, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
+            {novel.inLibrary ? '♥' : '♡'}
+          </Text>
+          <Text style={[styles.halfBtnLabel, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
+            {novel.inLibrary ? 'In Library' : '+ Add to Library'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Row 4 — Tab bar */}
+      <View style={styles.tabRow}>
+        <TouchableOpacity style={styles.tabBtn} onPress={hideHeader} activeOpacity={0.7}>
+          <Text style={[styles.tabIcon, { color: theme.primary }]}>📖</Text>
+          <Text style={[styles.tabLabel, { color: theme.primary }]}>Read</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabBtn}
+          onPress={() => presentSheetAtTab(TAB_DISPLAY)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabIcon, { color: theme.onSurfaceVariant }]}>Tt</Text>
+          <Text style={[styles.tabLabel, { color: theme.onSurfaceVariant }]}>Display</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabBtn}
+          onPress={() => presentSheetAtTab(TAB_SPEECH)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabIcon, { color: theme.onSurfaceVariant }]}>🔊</Text>
+          <Text style={[styles.tabLabel, { color: theme.onSurfaceVariant }]}>Speech</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabBtn}
+          onPress={() => presentSheetAtTab(TAB_SETTINGS)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabIcon, { color: theme.onSurfaceVariant }]}>⚙</Text>
+          <Text style={[styles.tabLabel, { color: theme.onSurfaceVariant }]}>Settings</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabBtn}
+          onPress={() => presentSheetAtTab(TAB_TRANSLATE)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabIcon, { color: theme.onSurfaceVariant }]}>•••</Text>
+          <Text style={[styles.tabLabel, { color: theme.onSurfaceVariant }]}>More</Text>
+        </TouchableOpacity>
       </View>
     </Animated.View>
   );
@@ -188,21 +282,97 @@ const ChapterFooter = ({
 export default React.memo(ChapterFooter);
 
 const styles = StyleSheet.create({
-  buttonStyles: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    paddingBottom: 4,
-    paddingVertical: 8,
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-  },
   footer: {
     bottom: 0,
-    flex: 1,
     position: 'absolute',
     width: '100%',
     zIndex: 1,
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+  },
+  navBtn: {
+    width: 80,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  navBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  chapterInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  chapterName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  chapterProgress: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  halfBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  halfBtnIcon: {
+    fontSize: 16,
+  },
+  halfBtnLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  novelCover: {
+    width: 32,
+    height: 44,
+    borderRadius: 3,
+  },
+  novelTextWrap: {
+    flex: 1,
+    marginLeft: 2,
+  },
+  novelLabel: {
+    fontSize: 9,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  novelTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chevron: {
+    fontSize: 20,
+    marginLeft: 4,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  tabIcon: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '500',
   },
 });

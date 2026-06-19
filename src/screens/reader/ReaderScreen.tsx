@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChapterContextProvider, useChapterContext } from './ChapterContext';
 import ChapterLoadingScreen from './ChapterLoadingScreen/ChapterLoadingScreen';
 import ChapterDrawer from './components/ChapterDrawer';
+import EditTermsModal from './components/EditTermsModal';
 import KeepScreenAwake from './components/KeepScreenAwake';
 import ReaderAppbar from './components/ReaderAppbar';
 import ReaderBottomSheetV2 from './components/ReaderBottomSheet/ReaderBottomSheet';
@@ -73,6 +74,9 @@ export const ChapterContent = ({
   const [bookmarked, setBookmarked] = useState<boolean>(
     chapter.bookmark ?? false,
   );
+  const [editTermsVisible, setEditTermsVisible] = useState(false);
+  const [sheetTabIndex, setSheetTabIndex] = useState(0);
+  const [sheetTabKey, setSheetTabKey] = useState(0);
 
   useEffect(() => {
     setBookmarked(chapter.bookmark ?? false);
@@ -80,6 +84,15 @@ export const ChapterContent = ({
 
   const { hidden, loading, error, webViewRef, hideHeader, refetch } =
     useChapterContext();
+
+  const presentSheetAtTab = useCallback(
+    (tabIndex: number) => {
+      setSheetTabIndex(tabIndex);
+      setSheetTabKey(k => k + 1);
+      readerSheetRef.current?.present();
+    },
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -147,7 +160,17 @@ export const ChapterContent = ({
           <WebViewReader onPress={hideHeader} />
         </View>
       </ChapterLoadingScreen>
-      <ReaderBottomSheetV2 bottomSheetRef={readerSheetRef} />
+      <ReaderBottomSheetV2
+        bottomSheetRef={readerSheetRef}
+        initialTabIndex={sheetTabIndex}
+        initialTabKey={sheetTabKey}
+      />
+      <EditTermsModal
+        visible={editTermsVisible}
+        onClose={() => setEditTermsVisible(false)}
+        novelId={novel.id ?? 0}
+        novelName={novel.name}
+      />
       {!hidden && (
         <View style={StyleSheet.absoluteFill} pointerEvents="auto">
           <ReaderAppbar
@@ -161,6 +184,8 @@ export const ChapterContent = ({
             scrollToStart={scrollToStart}
             navigation={navigation}
             openDrawer={openDrawerI}
+            openEditTerms={() => setEditTermsVisible(true)}
+            presentSheetAtTab={presentSheetAtTab}
           />
         </View>
       )}

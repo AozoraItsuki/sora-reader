@@ -684,6 +684,57 @@ export default function useChapter(
     navigateChapterRef.current = navigateChapter;
   }, [navigateChapter]);
 
+  const seamlessTransitionNext = useCallback(async () => {
+    if (!nextChapter) {
+      return;
+    }
+    const navChapter = nextChapter;
+    try {
+      const [newNextChap, newPrevChap] = await Promise.all([
+        getNextChapter(navChapter.novelId, navChapter.position!, navChapter.page ?? ''),
+        getPrevChapter(navChapter.novelId, navChapter.position!, navChapter.page ?? ''),
+      ]);
+      if (!incognitoMode) {
+        insertHistory(navChapter.id).catch(() => {});
+        getDbChapter(navChapter.id).then(result => result && setLastRead(result));
+      }
+      chapterIdRef.current = navChapter.id;
+      setChapter(navChapter);
+      setAdjacentChapter([newNextChap ?? undefined, newPrevChap ?? undefined]);
+      setNextChapterHtml('');
+      if (newNextChap && seamlessChapterLoading) {
+        const prefetch =
+          chapterTextCache.read(newNextChap.id) ??
+          loadChapterText(newNextChap.id, newNextChap.path);
+        Promise.resolve(prefetch)
+          .then(text => {
+            if (chapterIdRef.current === navChapter.id) {
+              setNextChapterHtml(
+                sanitizeChapterText(
+                  novel.pluginId,
+                  novel.name,
+                  newNextChap!.name,
+                  text,
+                ),
+              );
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // Silently fail - user can still use Next button
+    }
+  }, [
+    nextChapter,
+    incognitoMode,
+    novel.pluginId,
+    novel.name,
+    seamlessChapterLoading,
+    setLastRead,
+    chapterTextCache,
+    loadChapterText,
+  ]);
+
   const connectSPenRemote = useCallback(() => {
     if (!sPenEmitter) {
       return () => {};
@@ -876,6 +927,7 @@ export default function useChapter(
       saveProgress,
       hideHeader,
       navigateChapter,
+      seamlessTransitionNext,
       refetch,
       setChapter,
       setLoading,
@@ -901,6 +953,7 @@ export default function useChapter(
       saveProgress,
       hideHeader,
       navigateChapter,
+      seamlessTransitionNext,
       refetch,
       setChapter,
       setLoading,
