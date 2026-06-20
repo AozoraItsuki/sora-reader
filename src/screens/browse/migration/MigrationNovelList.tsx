@@ -76,6 +76,8 @@ const MigrationNovelList = ({
         data={data.novels}
         keyExtractor={(item, index) => index + item.path}
         renderItem={renderItem}
+        maxToRenderPerBatch={8}
+        initialNumToRender={5}
         ListEmptyComponent={
           <Text
             style={[

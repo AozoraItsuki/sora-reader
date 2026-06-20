@@ -30,6 +30,7 @@ const BottomNavigator = () => {
     showHistoryTab = true,
     showUpdatesTab = true,
     showLabelsInNav = false,
+    enableAnimations = true,
   } = useAppSettings();
 
   const { filteredInstalledPlugins } = usePlugins();
@@ -102,12 +103,12 @@ const BottomNavigator = () => {
   const screenOptions = useMemo(
     () => ({
       headerShown: false as const,
-      animation: 'shift' as const,
+      animation: (enableAnimations ? 'shift' : 'none') as 'shift' | 'none',
       lazy: true,
       freezeOnBlur: true,
       tabBarBadgeStyle,
     }),
-    [tabBarBadgeStyle],
+    [tabBarBadgeStyle, enableAnimations],
   );
 
   return (

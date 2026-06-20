@@ -1,6 +1,7 @@
 import { List, SafeAreaView } from '@components';
 import Config from '@env';
 import { fetchUpdateInfo } from '@hooks/common/useGithubUpdateChecker';
+import { useAnimatedEntrance } from '@hooks';
 import { useTheme } from '@hooks/persisted';
 import { AboutScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
@@ -14,7 +15,7 @@ import { showToast } from '@utils/showToast';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, Animated, StyleSheet } from 'react-native';
 
 import { version } from '../../../package.json';
 import { MoreHeader } from './components/MoreHeader';
@@ -23,6 +24,7 @@ const { GIT_HASH, RELEASE_DATE, BUILD_TYPE } = Config;
 
 const AboutScreen = ({ navigation }: AboutScreenProps) => {
   const theme = useTheme();
+  const { opacity, translateY } = useAnimatedEntrance({ duration: 300, fromY: 16 });
   const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   function getBuildName() {
@@ -56,9 +58,7 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
             {
               text: getString('common.install'),
               onPress: () =>
-                Linking.openURL(
-                  'https://github.com/Yuneko-dev/lnreader-extended/releases',
-                ),
+                Linking.openURL(`${APP_GITHUB}/releases`),
             },
           ],
         );
@@ -80,7 +80,7 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
         theme={theme}
         goBack={true}
       />
-      <ScrollView style={styles.flex}>
+      <Animated.ScrollView style={[styles.flex, { opacity, transform: [{ translateY }] }]}>
         <List.Section>
           <List.Item
             title={getString('aboutScreen.version')}
@@ -130,16 +130,8 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
             onPress={() => Linking.openURL(PLUGIN_GITHUB)}
             theme={theme}
           />
-          <List.Item
-            title={getString('aboutScreen.helpTranslate')}
-            description="https://crowdin.com/project/lnreader"
-            onPress={() =>
-              Linking.openURL('https://crowdin.com/project/lnreader')
-            }
-            theme={theme}
-          />
         </List.Section>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };

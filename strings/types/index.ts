@@ -314,6 +314,8 @@ export interface StringMap {
   'generalSettingsScreen.bySource': 'string';
   'generalSettingsScreen.chapterSort': 'string';
   'generalSettingsScreen.desc': 'string';
+  'generalSettingsScreen.enableAnimations': 'string';
+  'generalSettingsScreen.enableAnimationsDesc': 'string';
   'generalSettingsScreen.disableLoadingAnimations': 'string';
   'generalSettingsScreen.disableLoadingAnimationsDesc': 'string';
   'generalSettingsScreen.disableHapticFeedback': 'string';

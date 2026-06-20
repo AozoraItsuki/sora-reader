@@ -2,6 +2,7 @@ import { Modal } from '@components';
 import { GithubUpdateRelease } from '@hooks/common/useGithubUpdateChecker';
 import { useTheme } from '@hooks/persisted';
 import { getString } from '@strings/translations';
+import { APP_GITHUB } from '@utils/constants/metadata';
 import * as Linking from 'expo-linking';
 import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
@@ -43,9 +44,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
           <Button
             title={getString('common.install')}
             onPress={() =>
-              Linking.openURL(
-                'https://github.com/Yuneko-dev/lnreader-extended/releases',
-              )
+              Linking.openURL(`${APP_GITHUB}/releases`)
             }
           />
         </View>

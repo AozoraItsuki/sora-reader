@@ -1,9 +1,10 @@
 import { Appbar, List, SafeAreaView } from '@components';
+import { useAnimatedEntrance } from '@hooks';
 import { useTheme } from '@hooks/persisted';
 import { SettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { DiscordSVG } from './SettingsDiscordScreen';
@@ -24,6 +25,7 @@ export const AIIconSvg = ({ color, size, ...props }: any) => (
 
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const theme = useTheme();
+  const { opacity, translateY } = useAnimatedEntrance({ duration: 320, fromY: 20 });
 
   return (
     <SafeAreaView excludeTop>
@@ -32,7 +34,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         handleGoBack={navigation.goBack}
         theme={theme}
       />
-      <ScrollView style={[{ backgroundColor: theme.background }, styles.flex]}>
+      <Animated.ScrollView style={[{ backgroundColor: theme.background, opacity, transform: [{ translateY }] }, styles.flex]}>
         <List.Item
           title={getString('generalSettings')}
           icon="tune"
@@ -133,7 +135,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           }
           theme={theme}
         />
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "LNReader eXtended",
-    "slug": "LNReader",
-    "scheme": "lnreader",
+    "name": "SoraReader",
+    "slug": "SoraReader",
+    "scheme": "sorareader",
     "experiments": {
       "reactCompiler": true
     },

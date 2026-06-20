@@ -50,6 +50,10 @@ const Migration = ({ navigation }: MigrationScreenProps) => {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         ListHeaderComponent={ListHeaderComponent}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={15}
       />
     </View>
   );

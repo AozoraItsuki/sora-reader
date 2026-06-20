@@ -162,6 +162,10 @@ const BrowseMalScreen = ({ navigation }: BrowseMalScreenProps) => {
           keyExtractor={(item, index) => item.novelName + index}
           renderItem={renderItem}
           ListEmptyComponent={ListEmptyComponent}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={10}
           onScroll={onScroll}
           ListFooterComponent={
             !searchText ? (

@@ -39,6 +39,10 @@ const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {
         data={sourceNovels}
         keyExtractor={item => 'migrateFrom' + item.id}
         renderItem={renderItem}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={15}
         ListEmptyComponent={
           <Text
             style={[

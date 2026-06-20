@@ -9,7 +9,7 @@ import { API, TokenResponse } from './index';
 import { DISCORD_CLIENT_ID } from './utils/Constants';
 
 export const DISCORD_SCOPE = ['openid', 'sdk.social_layer_presence'].join(' ');
-export const REDIRECT_URI = 'lnreader:/authorize/callback';
+export const REDIRECT_URI = 'sorareader:/authorize/callback';
 const SECURE_STORE_KEY = 'DISCORD_OAUTH2_TOKEN';
 
 export const rest = new API();

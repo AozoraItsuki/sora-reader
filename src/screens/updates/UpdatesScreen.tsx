@@ -114,6 +114,10 @@ const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
           )}
           sections={sections}
           keyExtractor={item => 'updatedGroup' + item.novelId}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={8}
+          windowSize={10}
+          initialNumToRender={10}
           renderItem={({ item }) => (
             <Suspense fallback={<UpdatesSkeletonLoading theme={theme} />}>
               <UpdateNovelCard

@@ -42,7 +42,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const MainNavigator = () => {
   const theme = useTheme();
-  const { updateLibraryOnLaunch } = useAppSettings();
+  const { updateLibraryOnLaunch, enableAnimations } = useAppSettings();
   const { refreshPlugins } = usePlugins();
   const [isOnboarded] = useMMKVBoolean('IS_ONBOARDED');
 
@@ -92,7 +92,7 @@ const MainNavigator = () => {
         fonts: DefaultTheme.fonts,
       }}
       linking={{
-        prefixes: ['lnreader://'],
+        prefixes: ['sorareader://', 'lnreader://'],
         config: {
           screens: {
             MoreStack: {
@@ -113,7 +113,13 @@ const MainNavigator = () => {
           {isNewVersion && latestRelease && (
             <NewUpdateDialog newVersion={latestRelease} />
           )}
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+              animation: enableAnimations ? 'slide_from_right' : 'none',
+              animationDuration: enableAnimations ? 280 : 0,
+            }}
+          >
             <Stack.Screen name="BottomNavigator" component={BottomNavigator} />
             <Stack.Screen name="ReaderStack" component={ReaderStack} />
             <Stack.Screen name="MoreStack" component={MoreStack} />

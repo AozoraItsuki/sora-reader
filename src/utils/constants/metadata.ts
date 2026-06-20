@@ -12,4 +12,4 @@ export const APP_GITHUB = `https://github.com/${GITHUB_USER}/${GITHUB_REPO}`;
 
 export const PLUGIN_GITHUB = `https://github.com/${GITHUB_USER}/lnreader-plugins`;
 
-export const APP_NAME = 'Sora LNReader';
+export const APP_NAME = 'SoraReader';

@@ -53,6 +53,7 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
   ]);
   const {
     disableLoadingAnimations,
+    enableAnimations,
     updateLibraryOnLaunch,
     downloadNewChapters,
     onlyUpdateOngoingNovels,
@@ -290,6 +291,17 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
           <List.SubHeader theme={theme}>
             {getString('generalSettings')}
           </List.SubHeader>
+          <SettingSwitch
+            label={getString('generalSettingsScreen.enableAnimations')}
+            description={getString(
+              'generalSettingsScreen.enableAnimationsDesc',
+            )}
+            value={enableAnimations}
+            onPress={() =>
+              setAppSettings({ enableAnimations: !enableAnimations })
+            }
+            theme={theme}
+          />
           <SettingSwitch
             label={getString('generalSettingsScreen.disableHapticFeedback')}
             description={getString(

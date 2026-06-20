@@ -1,18 +1,20 @@
 import { List, SafeAreaView } from '@components';
 import Switch from '@components/Switch/Switch';
+import { useAnimatedEntrance } from '@hooks';
 import { useLibrarySettings, useTheme } from '@hooks/persisted';
 import { discordRPC } from '@modules/discord/DiscordRPC';
 import { MoreStackScreenProps } from '@navigators/types';
 import ServiceManager, { BackgroundTask } from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import React, { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMMKVObject } from 'react-native-mmkv';
 
 import { MoreHeader } from './components/MoreHeader';
 
 const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
   const theme = useTheme();
+  const { opacity, translateY } = useAnimatedEntrance({ duration: 320, fromY: 20 });
   const [taskQueue] = useMMKVObject<BackgroundTask[]>(
     ServiceManager.manager.STORE_KEY,
   );
@@ -56,7 +58,7 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
 
   return (
     <SafeAreaView excludeTop excludeBottom>
-      <ScrollView>
+      <Animated.ScrollView style={{ opacity, transform: [{ translateY }] }}>
         <MoreHeader
           // status bar is translucent, text could be mess with it
           title={''}
@@ -198,7 +200,7 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
             theme={theme}
           />
         </List.Section>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };

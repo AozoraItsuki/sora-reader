@@ -39,6 +39,10 @@ const GlobalSearchResultsList: React.FC<GlobalSearchResultsListProps> = ({
         <GlobalSearchSourceResults item={item} searchText={searchText} />
       )}
       ListEmptyComponent={ListEmptyComponent}
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={5}
+      windowSize={7}
+      initialNumToRender={8}
     />
   );
 };

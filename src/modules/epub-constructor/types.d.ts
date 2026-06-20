@@ -40,7 +40,7 @@ export interface EpubSettings {
   genres?: string[];
   /** Publisher or plugin name */
   publisher?: string;
-  /** Generator string, e.g. "LNReader eXtended v2.0.3" */
+  /** Generator string, e.g. "SoraReader v2.0.3" */
   generator?: string;
   /** URL to the novel source page */
   novelUrl?: string;

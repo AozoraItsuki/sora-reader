@@ -208,6 +208,10 @@ const BrowseALScreen = ({ navigation }: BrowseALScreenProps) => {
           keyExtractor={item => item.id + '_' + item.novelName}
           renderItem={renderItem}
           ListEmptyComponent={ListEmptyComponent}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={10}
           onEndReachedThreshold={0.3}
           onEndReached={() => {
             if (hasNextPage && !searchText) {

@@ -4,6 +4,11 @@ export { useDeviceOrientation } from './common/useDeviceOrientation';
 export { default as useFullscreenMode } from './common/useFullscreenMode';
 export { usePreviousRouteName } from './common/usePreviousRouteName';
 export { default as useSearch } from './common/useSearch';
+export {
+  useAnimatedEntrance,
+  useAnimatedFadeIn,
+  useAnimatedScale,
+} from './common/useAnimatedEntrance';
 
 // hook types
 export type { UseBooleanReturnType } from './common/useBoolean';

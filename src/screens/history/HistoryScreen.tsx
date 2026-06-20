@@ -146,6 +146,10 @@ const HistoryScreen = ({ navigation }: HistoryScreenProps) => {
                 theme={theme}
               />
             }
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            initialNumToRender={15}
           />
           <Portal>
             <ClearHistoryDialog
