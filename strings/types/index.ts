@@ -520,6 +520,7 @@ export interface StringMap {
   'readerScreen.bottomSheet.textSize': 'string';
   'readerScreen.bottomSheet.useChapterDrawerSwipeNavigation': 'string';
   'readerScreen.bottomSheet.verticalSeekbar': 'string';
+  'readerScreen.bottomSheet.infiniteScroll': 'string';
   'readerScreen.bottomSheet.keepScreenOn': 'string';
   'readerScreen.bottomSheet.volumeButtonsScroll': 'string';
   'readerScreen.bottomSheet.translateTab.translationSettings': 'string';

@@ -162,6 +162,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   }, [chapter.id, nextChapter]);
 
   const appendNextChapter = useCallback(async () => {
+    const currentSettings =
+      getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) ||
+      initialChapterGeneralSettings;
+    if (currentSettings.infiniteScroll === false) {
+      return;
+    }
     const chap = infiniteNextChapterRef.current;
     if (
       !chap ||

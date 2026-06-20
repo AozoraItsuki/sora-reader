@@ -111,6 +111,7 @@ export interface ChapterGeneralSettings {
   tapToScroll: boolean;
   TTSEnable: boolean;
   einkRefreshOnPageTurn: boolean;
+  infiniteScroll: boolean;
 }
 
 export interface ReaderTheme {
@@ -272,6 +273,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   tapToScroll: false,
   TTSEnable: true,
   einkRefreshOnPageTurn: false,
+  infiniteScroll: true,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

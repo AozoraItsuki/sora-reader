@@ -610,6 +610,7 @@
       "textSize": "Text size",
       "useChapterDrawerSwipeNavigation": "Swipe to open drawer",
       "verticalSeekbar": "Vertical seekbar",
+      "infiniteScroll": "Infinite scroll",
       "keepScreenOn": "Keep screen on",
       "volumeButtonsScroll": "Volume button scrolling",
       "translateTab": {
