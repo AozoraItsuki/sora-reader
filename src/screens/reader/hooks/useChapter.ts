@@ -111,7 +111,6 @@ export default function useChapter(
   const [[nextChapter, prevChapter], setAdjacentChapter] = useState<
     ChapterInfo[] | undefined[]
   >([]);
-  const [nextChapterHtml, setNextChapterHtml] = useState<string>('');
   const {
     autoScroll,
     autoScrollInterval,
@@ -119,7 +118,6 @@ export default function useChapter(
     useVolumeButtons,
     volumeButtonsOffset,
     pageReader: isPageReaderMode,
-    seamlessChapterLoading = true,
   } = useChapterGeneralSettings();
   const { incognitoMode } = useLibrarySettings();
   const [error, setError] = useState<string>();
@@ -490,27 +488,6 @@ export default function useChapter(
               ),
             );
             setAdjacentChapter([nextChap!, prevChap!]);
-            // Preload next chapter HTML for seamless reading
-            setNextChapterHtml('');
-            if (!noPrefetch && nextChap && seamlessChapterLoading) {
-              Promise.resolve(
-                chapterTextCache.read(nextChap.id) ??
-                  loadChapterText(nextChap.id, nextChap.path),
-              )
-                .then(nextText => {
-                  if (chapterIdRef.current === chap.id) {
-                    setNextChapterHtml(
-                      sanitizeChapterText(
-                        novel.pluginId,
-                        novel.name,
-                        nextChap!.name,
-                        nextText,
-                      ),
-                    );
-                  }
-                })
-                .catch(() => {});
-            }
           }
         }
       } catch (e: any) {
@@ -531,7 +508,6 @@ export default function useChapter(
       novel.totalPages,
       setLoading,
       startBackgroundTranslate,
-      seamlessChapterLoading,
     ],
   );
 
@@ -684,56 +660,6 @@ export default function useChapter(
     navigateChapterRef.current = navigateChapter;
   }, [navigateChapter]);
 
-  const seamlessTransitionNext = useCallback(async () => {
-    if (!nextChapter) {
-      return;
-    }
-    const navChapter = nextChapter;
-    try {
-      const [newNextChap, newPrevChap] = await Promise.all([
-        getNextChapter(navChapter.novelId, navChapter.position!, navChapter.page ?? ''),
-        getPrevChapter(navChapter.novelId, navChapter.position!, navChapter.page ?? ''),
-      ]);
-      if (!incognitoMode) {
-        insertHistory(navChapter.id).catch(() => {});
-        getDbChapter(navChapter.id).then(result => result && setLastRead(result));
-      }
-      chapterIdRef.current = navChapter.id;
-      setChapter(navChapter);
-      setAdjacentChapter([newNextChap ?? undefined, newPrevChap ?? undefined]);
-      setNextChapterHtml('');
-      if (newNextChap && seamlessChapterLoading) {
-        const prefetch =
-          chapterTextCache.read(newNextChap.id) ??
-          loadChapterText(newNextChap.id, newNextChap.path);
-        Promise.resolve(prefetch)
-          .then(text => {
-            if (chapterIdRef.current === navChapter.id) {
-              setNextChapterHtml(
-                sanitizeChapterText(
-                  novel.pluginId,
-                  novel.name,
-                  newNextChap!.name,
-                  text,
-                ),
-              );
-            }
-          })
-          .catch(() => {});
-      }
-    } catch {
-      // Silently fail - user can still use Next button
-    }
-  }, [
-    nextChapter,
-    incognitoMode,
-    novel.pluginId,
-    novel.name,
-    seamlessChapterLoading,
-    setLastRead,
-    chapterTextCache,
-    loadChapterText,
-  ]);
 
   const connectSPenRemote = useCallback(() => {
     if (!sPenEmitter) {
@@ -922,12 +848,10 @@ export default function useChapter(
       error,
       loading,
       chapterText,
-      nextChapterHtml,
       setHidden,
       saveProgress,
       hideHeader,
       navigateChapter,
-      seamlessTransitionNext,
       refetch,
       setChapter,
       setLoading,
@@ -948,12 +872,10 @@ export default function useChapter(
       error,
       loading,
       chapterText,
-      nextChapterHtml,
       setHidden,
       saveProgress,
       hideHeader,
       navigateChapter,
-      seamlessTransitionNext,
       refetch,
       setChapter,
       setLoading,

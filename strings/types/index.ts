@@ -521,7 +521,6 @@ export interface StringMap {
   'readerScreen.bottomSheet.useChapterDrawerSwipeNavigation': 'string';
   'readerScreen.bottomSheet.verticalSeekbar': 'string';
   'readerScreen.bottomSheet.keepScreenOn': 'string';
-  'readerScreen.bottomSheet.seamlessChapterLoading': 'string';
   'readerScreen.bottomSheet.volumeButtonsScroll': 'string';
   'readerScreen.bottomSheet.translateTab.translationSettings': 'string';
   'readerScreen.bottomSheet.translateTab.engine': 'string';

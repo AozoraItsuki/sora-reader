@@ -60,7 +60,6 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
 
 const SETTINGS_PREFS: { key: string; label: string }[] = [
   { key: 'fullScreenMode', label: 'fullscreen' },
-  { key: 'seamlessChapterLoading', label: 'seamlessChapterLoading' },
   { key: 'autoScroll', label: 'autoscroll' },
   { key: 'swipeGestures', label: 'swipeGestures' },
   { key: 'showBatteryAndTime', label: 'showBatteryAndTime' },

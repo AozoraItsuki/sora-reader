@@ -86,14 +86,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     chapter,
     chapterText: html,
     navigateChapter,
-    seamlessTransitionNext,
     saveProgress,
     nextChapter,
     prevChapter,
     webViewRef,
     resetAutoScroll,
     refetch,
-    nextChapterHtml,
   } = useChapterContext();
   const theme = useTheme();
   const { bottom } = useSafeAreaInsets();
@@ -112,8 +110,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     );
   }, [chapter.id]);
   const readerBottomInset = chapterGeneralSettings.fullScreenMode ? 0 : bottom;
-  const seamlessChapterLoading =
-    chapterGeneralSettings.seamlessChapterLoading ?? true;
 
   // Update readerSettings when chapter changes
   useEffect(() => {
@@ -131,7 +127,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const nextChapterScreenVisible = useRef<boolean>(false);
   const pendingScrollPositionRef = useRef<'start' | 'end' | null>(null);
   const autoStartTTSRef = useRef<boolean>(false);
-  const seamlessTransitionActiveRef = useRef<boolean>(false);
   const prevChapterIdRef = useRef<number>(chapter.id);
   const [reloadKey, setReloadKey] = useState<number>(0);
   const sourceDataRef = useRef<{
@@ -487,22 +482,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     const chapterChanged = prevChapterIdRef.current !== chapter.id;
     prevChapterIdRef.current = chapter.id;
 
-    if (chapterChanged && seamlessTransitionActiveRef.current) {
-      // Seamless transition: inject config update only, no WebView reload
-      seamlessTransitionActiveRef.current = false;
-      const safeStr = (v: unknown) =>
-        JSON.stringify(v ?? null).replace(/</g, '\\u003c');
-      webViewRef.current?.injectJavaScript(
-        `(function(){try{if(window.reader){` +
-          `reader.chapter=${safeStr(chapter)};` +
-          `reader.nextChapter=${safeStr(nextChapter ?? null)};` +
-          `reader.prevChapter=${safeStr(prevChapter ?? null)};` +
-          `}}catch(e){}})();`,
-      );
-      return;
-    }
-    seamlessTransitionActiveRef.current = false;
-
     const terms = getAllTermsForNovel(novel.id ?? 0);
     const processedHtml = terms.length > 0 ? applyTermsToHtml(html, terms) : html;
 
@@ -563,49 +542,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     webViewRef,
   ]);
 
-  // Source only changes when reloadKey changes — nextChapterHtml never triggers reload
+  // Source only changes when reloadKey changes
   const source = useMemo(() => sourceDataRef.current, [reloadKey]);
-
-  // Inject next chapter HTML via JS when ready (no WebView reload)
-  useEffect(() => {
-    if (!nextChapterHtml || !nextChapter || !seamlessChapterLoading) {
-      return;
-    }
-    const terms = getAllTermsForNovel(novel.id ?? 0);
-    const processedNextHtml =
-      terms.length > 0 ? applyTermsToHtml(nextChapterHtml, terms) : nextChapterHtml;
-    const chapterTitle = getString('readerScreen.nextChapter', {
-      name: nextChapter.name,
-    });
-    const safeHtml = JSON.stringify(
-      `<div class="chapter-title-divider">${chapterTitle}</div>${processedNextHtml}`,
-    );
-    webViewRef.current?.injectJavaScript(
-      `(function(){` +
-        `var ex=document.getElementById('LNReader-next-chapter-seamless');` +
-        `if(ex){` +
-        `if(ex.getAttribute('data-chapter-id')==='${nextChapter.id}')return;` +
-        `ex.parentNode&&ex.parentNode.removeChild(ex);` +
-        `}` +
-        `var d=document.createElement('div');` +
-        `d.id='LNReader-next-chapter-seamless';` +
-        `d.setAttribute('data-chapter-id','${nextChapter.id}');` +
-        `d.style.marginTop='32px';` +
-        `d.style.borderTop='1.5px solid var(--theme-outline,#888)';` +
-        `d.style.paddingTop='8px';` +
-        `d.innerHTML=${safeHtml};` +
-        `var mc=document.getElementById('LNReader-chapter');` +
-        `if(mc){mc.after(d);}else{var ui=document.getElementById('reader-ui');` +
-        `if(ui){document.body.insertBefore(d,ui);}else{document.body.appendChild(d);}}` +
-        `var triggered=false;` +
-        `function checkSeamless(){if(triggered)return;` +
-        `var r=d.getBoundingClientRect();` +
-        `if(r.top<=80){triggered=true;` +
-        `window.ReactNativeWebView.postMessage(JSON.stringify({type:'seamless-next'}));}}` +
-        `window.addEventListener('scroll',checkSeamless,{passive:true});` +
-        `})();`,
-    );
-  }, [nextChapterHtml, nextChapter?.id, seamlessChapterLoading, webViewRef, novel.id]);
 
   return (
     <WebView
@@ -696,11 +634,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           }
           case 'hide':
             onPress();
-            break;
-          case 'seamless-next':
-            // Soft transition: update chapter state without reloading WebView
-            seamlessTransitionActiveRef.current = true;
-            seamlessTransitionNext();
             break;
           case 'next':
             nextChapterScreenVisible.current = true;
@@ -801,11 +734,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             break;
           case 'refetch':
             refetch();
-            break;
-          case 'seamless-next':
-            // User scrolled into the next chapter block — update app state
-            // without reloading the WebView (content already visible)
-            navigateChapter('NEXT');
             break;
           case 'video-fullscreen-enter':
             ScreenOrientation.lockAsync(
