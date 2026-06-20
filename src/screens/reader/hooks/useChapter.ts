@@ -185,6 +185,17 @@ export default function useChapter(
     };
   }, []);
 
+  const fetchChapterHtmlForInfiniteScroll = useCallback(
+    async (chap: ChapterInfo): Promise<string> => {
+      const rawText = await Promise.resolve(
+        chapterTextCache.read(chap.id) ?? loadChapterText(chap.id, chap.path),
+      );
+      return sanitizeChapterText(novel.pluginId, novel.name, chap.name, rawText);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapterTextCache, novel.pluginId, novel.name],
+  );
+
   const loadChapterText = useCallback(
     async (id: number, path: string) => {
       let text = '';
@@ -852,6 +863,7 @@ export default function useChapter(
       saveProgress,
       hideHeader,
       navigateChapter,
+      fetchChapterHtmlForInfiniteScroll,
       refetch,
       setChapter,
       setLoading,
@@ -876,6 +888,7 @@ export default function useChapter(
       saveProgress,
       hideHeader,
       navigateChapter,
+      fetchChapterHtmlForInfiniteScroll,
       refetch,
       setChapter,
       setLoading,

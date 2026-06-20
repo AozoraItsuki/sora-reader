@@ -34,6 +34,15 @@ export interface HtmlTemplateOptions {
   nextChapterHtml?: string;
 }
 
+export const generateAppendChapterHtml = (options: {
+  html: string;
+  chapterId: number;
+  chapterName: string;
+}): string => {
+  const { html, chapterId, chapterName } = options;
+  return `<div id="ch-${chapterId}" class="lnreader-chapter-block" data-chapter-id="${chapterId}"><div class="chapter-append-divider">${chapterName}</div>${html}</div>`;
+};
+
 export const generateReaderHtml = (options: HtmlTemplateOptions) => {
   const {
     html,
@@ -198,6 +207,19 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         opacity: 0.75;
         line-height: 1.4;
       }
+
+      .chapter-append-divider {
+        display: block;
+        font-size: 1.1em;
+        font-weight: bold;
+        text-align: center;
+        padding: 1em var(--readerSettings-padding) 0.6em;
+        color: var(--readerSettings-textColor);
+        opacity: 0.75;
+        line-height: 1.4;
+        margin-top: 32px;
+        border-top: 1.5px solid var(--theme-outline, rgba(128,128,128,0.35));
+      }
       
       @font-face {
         font-family: ${readerSettings.fontFamily};
@@ -210,7 +232,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     <style>${readerSettings.customCSS || ''}</style>
   </head>
   <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
-    <div id="LNReader-chapter">
+    <div id="LNReader-chapter" class="lnreader-chapter-block" data-chapter-id="${chapter.id}">
       <div id="LNReader-title-novel">
         ${chapter.name}
       </div>
@@ -256,6 +278,38 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
   ${pluginJsScript}
   <script>
     ${readerSettings.customJS || ''}
+  </script>
+  <script>
+    (function() {
+      var _isNearBottomPosted = false;
+      var _appendedChapIds = {};
+
+      function checkNearBottom() {
+        var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        var scrollHeight = document.documentElement.scrollHeight;
+        var clientHeight = document.documentElement.clientHeight;
+        var distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        if (distanceFromBottom < 500 && !_isNearBottomPosted) {
+          _isNearBottomPosted = true;
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'near-bottom' }));
+        }
+      }
+
+      window.addEventListener('scroll', checkNearBottom, { passive: true });
+
+      window.reader.appendChapter = function(html, chapterId) {
+        if (_appendedChapIds[chapterId]) return;
+        _appendedChapIds[chapterId] = true;
+        var readerUi = document.getElementById('reader-ui');
+        if (!readerUi) return;
+        var div = document.createElement('div');
+        div.innerHTML = html;
+        while (div.firstChild) {
+          readerUi.parentNode.insertBefore(div.firstChild, readerUi);
+        }
+        _isNearBottomPosted = false;
+      };
+    })();
   </script>
 </html>
   `;

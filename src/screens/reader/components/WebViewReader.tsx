@@ -1,4 +1,8 @@
-import { addReadDuration } from '@database/queries/ChapterQueries';
+import {
+  addReadDuration,
+  getNextChapter,
+} from '@database/queries/ChapterQueries';
+import { ChapterInfo } from '@database/types';
 import { useTheme } from '@hooks/persisted';
 import { getAllTermsForNovel, applyTermsToHtml } from '@utils/readerTerms';
 import {
@@ -40,7 +44,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 
 import { useChapterContext } from '../ChapterContext';
-import { generateReaderHtml } from '../utils/htmlGenerator';
+import {
+  generateAppendChapterHtml,
+  generateReaderHtml,
+} from '../utils/htmlGenerator';
 
 type WebViewPostEvent = {
   type: string;
@@ -92,6 +99,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     webViewRef,
     resetAutoScroll,
     refetch,
+    fetchChapterHtmlForInfiniteScroll,
   } = useChapterContext();
   const theme = useTheme();
   const { bottom } = useSafeAreaInsets();
@@ -141,6 +149,55 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const appStateRef = useRef(AppState.currentState);
   const ttsQueueRef = useRef<string[]>([]);
   const ttsQueueIndexRef = useRef<number>(0);
+
+  // --- Infinite scroll ---
+  const infiniteNextChapterRef = useRef<ChapterInfo | undefined>(undefined);
+  const isAppendingRef = useRef(false);
+  const appendedChapterIdsRef = useRef(new Set<number>());
+
+  useEffect(() => {
+    infiniteNextChapterRef.current = nextChapter;
+    isAppendingRef.current = false;
+    appendedChapterIdsRef.current = new Set<number>();
+  }, [chapter.id, nextChapter]);
+
+  const appendNextChapter = useCallback(async () => {
+    const chap = infiniteNextChapterRef.current;
+    if (
+      !chap ||
+      isAppendingRef.current ||
+      appendedChapterIdsRef.current.has(chap.id)
+    ) {
+      return;
+    }
+    isAppendingRef.current = true;
+    try {
+      const chapHtml = await fetchChapterHtmlForInfiniteScroll(chap);
+      const terms = getAllTermsForNovel(novel.id ?? 0);
+      const processedHtml =
+        terms.length > 0 ? applyTermsToHtml(chapHtml, terms) : chapHtml;
+      const blockHtml = generateAppendChapterHtml({
+        html: processedHtml,
+        chapterId: chap.id,
+        chapterName: chap.name,
+      });
+      const escaped = JSON.stringify(blockHtml);
+      webViewRef.current?.injectJavaScript(
+        `(function(){if(window.reader&&window.reader.appendChapter){window.reader.appendChapter(${escaped},${chap.id});}true;})()`,
+      );
+      appendedChapterIdsRef.current.add(chap.id);
+      const nextNextChap = await getNextChapter(
+        chap.novelId,
+        chap.position!,
+        chap.page ?? '',
+      );
+      infiniteNextChapterRef.current = nextNextChap ?? undefined;
+    } catch {
+      // silently fail — user can still use Next button
+    } finally {
+      isAppendingRef.current = false;
+    }
+  }, [fetchChapterHtmlForInfiniteScroll, novel.id, webViewRef]);
 
   // --- Reading time tracking ---
   const readStartTimeRef = useRef<number | null>(null);
@@ -602,6 +659,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           return;
         }
         switch (event.type) {
+          case 'near-bottom':
+            appendNextChapter();
+            break;
           case 'user-interaction':
             resetAutoScroll();
             break;
