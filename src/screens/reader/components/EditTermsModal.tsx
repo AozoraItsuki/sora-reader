@@ -61,11 +61,16 @@ const EditTermsModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (visible) {
-      loadTerms();
+      const nTerms = getNovelTerms(novelId);
+      const gTerms = getGlobalTerms();
+      setNovelTerms(nTerms);
+      setGlobalTerms(gTerms);
       resetForm();
-      setTab('editor');
+      // Show terms list if there are existing terms, otherwise show editor
+      const hasTerms = nTerms.length > 0 || gTerms.length > 0;
+      setTab(hasTerms ? 'terms' : 'editor');
     }
-  }, [visible, loadTerms]);
+  }, [visible, novelId]);
 
   const resetForm = () => {
     setEditingId(null);

@@ -51,11 +51,12 @@ import {
 
 type WebViewPostEvent = {
   type: string;
-  data?: { [key: string]: unknown };
+  data?: { [key: string]: unknown } | number | string;
   autoStartTTS?: boolean;
   index?: number;
   total?: number;
   initialScrollPosition?: 'start' | 'end';
+  chapterId?: number;
 };
 
 type WebViewReaderProps = {
@@ -721,8 +722,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             navigateChapter('PREV');
             break;
           case 'save':
-            if (event.data && typeof event.data === 'number') {
-              saveProgress(event.data);
+            if (typeof event.data === 'number') {
+              saveProgress(event.data, event.chapterId);
             }
             break;
           case 'speak':

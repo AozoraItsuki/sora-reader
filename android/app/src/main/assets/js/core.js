@@ -53,17 +53,56 @@ class Reader {
         const now = Date.now();
         if (now - lastScrollSaveTime < 300) return;
         lastScrollSaveTime = now;
-        const scrollHeight =
-          document.documentElement.scrollHeight || document.body.scrollHeight;
-        const maxScrollY = scrollHeight - window.innerHeight;
-        const progressToSave = parseInt(
-          maxScrollY > 0 ? (window.scrollY / maxScrollY) * 100 : 100,
-          10
-        );
-        const finalProgress = progressToSave > 100 ? 100 : progressToSave;
+
+        const scrollY = window.scrollY;
+        const innerHeight = window.innerHeight;
+        const viewportBottom = scrollY + innerHeight;
+
+        // Find which chapter block is currently being read
+        const chapBlocks = document.querySelectorAll('.lnreader-chapter-block');
+        let targetBlock = null;
+
+        if (chapBlocks.length > 1) {
+          // Multiple blocks = infinite scroll active; find block whose top
+          // is at or above the middle of the viewport
+          const viewportMid = scrollY + innerHeight * 0.5;
+          for (let i = 0; i < chapBlocks.length; i++) {
+            const el = chapBlocks[i];
+            const top = el.getBoundingClientRect().top + scrollY;
+            if (top <= viewportMid) {
+              targetBlock = el;
+            }
+          }
+          if (!targetBlock) {
+            targetBlock = chapBlocks[0];
+          }
+        }
+
+        let finalProgress = 100;
+        let chapterId = this.chapter.id;
+
+        if (targetBlock) {
+          // Calculate local progress within the chapter block
+          const blockTop = targetBlock.getBoundingClientRect().top + scrollY;
+          const blockHeight = targetBlock.offsetHeight;
+          chapterId = parseInt(targetBlock.dataset.chapterId || String(this.chapter.id), 10);
+          const readPx = Math.max(0, viewportBottom - blockTop);
+          finalProgress = blockHeight > 0
+            ? Math.min(100, parseInt((readPx / blockHeight) * 100, 10))
+            : 100;
+        } else {
+          // Single chapter or fallback: use global scroll ratio
+          const scrollHeight =
+            document.documentElement.scrollHeight || document.body.scrollHeight;
+          const maxScrollY = scrollHeight - innerHeight;
+          const ratio = maxScrollY > 0 ? scrollY / maxScrollY : 1;
+          finalProgress = Math.min(100, parseInt(ratio * 100, 10));
+        }
+
         this.post({
           type: 'save',
           data: finalProgress,
+          chapterId: chapterId,
         });
       }
     };

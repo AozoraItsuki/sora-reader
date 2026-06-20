@@ -155,39 +155,97 @@ const ChapterFooter = ({
   );
 
   const dividerColor = color(theme.onSurface).alpha(0.12).string();
+  const cardBg = color(theme.surfaceVariant).alpha(0.8).string();
 
   const toggleSetting = (key: string) => {
     setChapterGeneralSettings({ [key]: !(generalSettings as any)[key] });
   };
+
+  const progressPercent =
+    chapter.progress != null ? Math.round(chapter.progress) : null;
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'read':
         return (
           <View style={styles.readTab}>
-            {/* Chapter position */}
-            <View style={styles.chapterInfoBlock}>
-              <Text style={[styles.chapterPositionText, { color: theme.onSurface }]}>
-                {currentPosition && totalChapters ? `${currentPosition}/${totalChapters}` : chapter.name}
-              </Text>
-              {chapter.progress != null && (
-                <Text style={[styles.chapterPercentText, { color: theme.onSurfaceVariant }]}>
-                  {`${Math.round(chapter.progress)}% read`}
+            {/* Navigation row: Prev | chapter info | Next */}
+            <View style={styles.navRow}>
+              <Pressable
+                android_ripple={rippleConfig}
+                style={[
+                  styles.navBtn,
+                  {
+                    backgroundColor: cardBg,
+                    borderColor: dividerColor,
+                    opacity: prevChapter ? 1 : 0.4,
+                  },
+                ]}
+                onPress={() => navigateChapter('PREV')}
+                disabled={!prevChapter}
+              >
+                <Text style={[styles.navBtnText, { color: theme.onSurface }]}>
+                  {'< Prev'}
                 </Text>
-              )}
+              </Pressable>
+
+              <TouchableOpacity
+                style={styles.chapterInfoCenter}
+                onPress={hideHeader}
+                activeOpacity={0.7}
+              >
+                {currentPosition && totalChapters ? (
+                  <>
+                    <Text style={[styles.chapterPositionBig, { color: theme.onSurface }]}>
+                      {`Ch. ${currentPosition} / ${totalChapters}`}
+                    </Text>
+                    {progressPercent != null && (
+                      <Text style={[styles.chapterPercentSub, { color: theme.onSurfaceVariant }]}>
+                        {`${progressPercent}%`}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={[styles.chapterNameText, { color: theme.onSurface }]} numberOfLines={2}>
+                    {chapter.name}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <Pressable
+                android_ripple={rippleConfig}
+                style={[
+                  styles.navBtn,
+                  {
+                    backgroundColor: cardBg,
+                    borderColor: dividerColor,
+                    opacity: nextChapter ? 1 : 0.4,
+                  },
+                ]}
+                onPress={() => navigateChapter('NEXT')}
+                disabled={!nextChapter}
+              >
+                <Text style={[styles.navBtnText, { color: theme.onSurface }]}>
+                  {'Next >'}
+                </Text>
+              </Pressable>
             </View>
 
-            <View style={[styles.readDivider, { borderTopColor: dividerColor }]} />
+            <View style={[styles.rowDivider, { backgroundColor: dividerColor }]} />
 
-            {/* Contents + Novel */}
-            <View style={styles.readRow}>
-              <TouchableOpacity style={styles.readHalfBtn} onPress={openDrawer} activeOpacity={0.7}>
-                <Text style={[styles.readHalfIcon, { color: theme.onSurface }]}>☰</Text>
-                <Text style={[styles.readHalfLabel, { color: theme.onSurface }]}>Contents</Text>
-              </TouchableOpacity>
-              <View style={[styles.readBtnDivider, { backgroundColor: dividerColor }]} />
+            {/* Contents | Novel info */}
+            <View style={styles.actionRow}>
               <TouchableOpacity
-                style={styles.readHalfBtn}
+                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
+                onPress={openDrawer}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.actionIcon, { color: theme.onSurface }]}>☰</Text>
+                <Text style={[styles.actionLabel, { color: theme.onSurface }]}>Contents</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
                 onPress={() =>
                   navigation.navigate('Novel', {
                     id: novel.id,
@@ -195,13 +253,13 @@ const ChapterFooter = ({
                     pluginId: novel.pluginId,
                   })
                 }
-                activeOpacity={0.7}
+                activeOpacity={0.75}
               >
                 {novel.cover ? (
                   <Image source={{ uri: novel.cover }} style={styles.novelCover} resizeMode="cover" />
                 ) : null}
                 <View style={styles.novelTextWrap}>
-                  <Text style={[styles.novelLabel, { color: theme.onSurfaceVariant }]}>NOVEL</Text>
+                  <Text style={[styles.novelSuperLabel, { color: theme.onSurfaceVariant }]}>NOVEL</Text>
                   <Text style={[styles.novelTitle, { color: theme.onSurface }]} numberOfLines={1}>
                     {novel.name}
                   </Text>
@@ -210,29 +268,29 @@ const ChapterFooter = ({
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.readDivider, { borderTopColor: dividerColor }]} />
+            <View style={[styles.rowDivider, { backgroundColor: dividerColor }]} />
 
-            {/* Edit Terms + Add to Library */}
-            <View style={styles.readRow}>
+            {/* Edit Terms | Reading/Library */}
+            <View style={styles.actionRow}>
               <TouchableOpacity
-                style={styles.readHalfBtn}
+                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
                 onPress={() => setEditTermsVisible(true)}
-                activeOpacity={0.7}
+                activeOpacity={0.75}
               >
-                <Text style={[styles.readHalfIcon, { color: theme.onSurface }]}>✎</Text>
-                <Text style={[styles.readHalfLabel, { color: theme.onSurface }]}>Edit Terms</Text>
+                <Text style={[styles.actionIcon, { color: theme.onSurface }]}>✎</Text>
+                <Text style={[styles.actionLabel, { color: theme.onSurface }]}>Edit Terms</Text>
               </TouchableOpacity>
-              <View style={[styles.readBtnDivider, { backgroundColor: dividerColor }]} />
+
               <TouchableOpacity
-                style={styles.readHalfBtn}
+                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
                 onPress={() => followNovel()}
-                activeOpacity={0.7}
+                activeOpacity={0.75}
               >
-                <Text style={[styles.readHalfIcon, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
-                  {novel.inLibrary ? '♥' : '♡'}
+                <Text style={[styles.actionIcon, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
+                  {novel.inLibrary ? '📚' : '📖'}
                 </Text>
-                <Text style={[styles.readHalfLabel, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
-                  {novel.inLibrary ? 'In Library' : '+ Add to Library'}
+                <Text style={[styles.actionLabel, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
+                  {novel.inLibrary ? 'In Library' : 'Reading'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -311,61 +369,18 @@ const ChapterFooter = ({
           {renderTabContent()}
         </View>
 
-        {/* Nav row: Prev / chapter info / Next */}
-        <View style={[styles.navRow, { borderBottomColor: dividerColor }]}>
-          <Pressable
-            android_ripple={rippleConfig}
-            style={styles.navBtn}
-            onPress={() => navigateChapter('PREV')}
-            disabled={!prevChapter}
-          >
-            <Text
-              style={[
-                styles.navBtnText,
-                { color: prevChapter ? theme.onSurface : color(theme.onSurface).alpha(0.38).string() },
-              ]}
-            >
-              {'< Prev'}
-            </Text>
-          </Pressable>
-
-          <TouchableOpacity style={styles.chapterInfoCenter} onPress={hideHeader} activeOpacity={0.7}>
-            <Text style={[styles.chapterName, { color: theme.onSurface }]} numberOfLines={1}>
-              {chapter.name}
-            </Text>
-            {currentPosition && totalChapters ? (
-              <Text style={[styles.chapterPositionSmall, { color: theme.onSurfaceVariant }]}>
-                {`${currentPosition}/${totalChapters}`}
-              </Text>
-            ) : null}
-          </TouchableOpacity>
-
-          <Pressable
-            android_ripple={rippleConfig}
-            style={styles.navBtn}
-            onPress={() => navigateChapter('NEXT')}
-            disabled={!nextChapter}
-          >
-            <Text
-              style={[
-                styles.navBtnText,
-                { color: nextChapter ? theme.onSurface : color(theme.onSurface).alpha(0.38).string() },
-              ]}
-            >
-              {'Next >'}
-            </Text>
-          </Pressable>
-        </View>
-
         {/* Tab bar */}
-        <View style={styles.tabRow}>
+        <View style={[styles.tabRow, { borderTopColor: dividerColor }]}>
           {TABS.map(tab => {
             const isActive = activeTab === tab.key;
             const tabColor = isActive ? theme.primary : theme.onSurfaceVariant;
             return (
               <TouchableOpacity
                 key={tab.key}
-                style={styles.tabBtn}
+                style={[
+                  styles.tabBtn,
+                  isActive && styles.tabBtnActive,
+                ]}
                 onPress={() => {
                   if (tab.key === 'tts') {
                     presentSheetAtTab(2);
@@ -379,6 +394,9 @@ const ChapterFooter = ({
               >
                 <Text style={[styles.tabIcon, { color: tabColor }]}>{tab.icon}</Text>
                 <Text style={[styles.tabLabel, { color: tabColor }]}>{tab.label}</Text>
+                {isActive && (
+                  <View style={[styles.tabIndicator, { backgroundColor: theme.primary }]} />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -409,45 +427,72 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   readTab: {
-    paddingVertical: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 8,
   },
-  chapterInfoBlock: {
+  navRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    gap: 8,
   },
-  chapterPositionText: {
-    fontSize: 18,
+  navBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBtnText: {
+    fontSize: 14,
     fontWeight: '700',
   },
-  chapterPercentText: {
+  chapterInfoCenter: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  chapterPositionBig: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  chapterPercentSub: {
     fontSize: 12,
     marginTop: 2,
+    textAlign: 'center',
   },
-  readDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+  chapterNameText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  readRow: {
+  rowDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: -12,
+  },
+  actionRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    gap: 8,
   },
-  readBtnDivider: {
-    width: StyleSheet.hairlineWidth,
-  },
-  readHalfBtn: {
+  actionHalfBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 12,
-    gap: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
   },
-  readHalfIcon: {
+  actionIcon: {
     fontSize: 16,
   },
-  readHalfLabel: {
+  actionLabel: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
   },
   novelCover: {
@@ -457,9 +502,8 @@ const styles = StyleSheet.create({
   },
   novelTextWrap: {
     flex: 1,
-    marginLeft: 2,
   },
-  novelLabel: {
+  novelSuperLabel: {
     fontSize: 9,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -470,7 +514,6 @@ const styles = StyleSheet.create({
   },
   chevron: {
     fontSize: 20,
-    marginLeft: 4,
   },
   tabScrollContent: {
     maxHeight: 200,
@@ -488,41 +531,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     paddingRight: 12,
   },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 4,
-  },
-  navBtn: {
-    width: 80,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  navBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  chapterInfoCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  chapterName: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chapterPositionSmall: {
-    fontSize: 11,
-    marginTop: 1,
-  },
   tabRow: {
     flexDirection: 'row',
     paddingVertical: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   tabBtn: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 6,
+    position: 'relative',
+  },
+  tabBtnActive: {},
+  tabIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: '15%',
+    right: '15%',
+    height: 2,
+    borderRadius: 1,
   },
   tabIcon: {
     fontSize: 16,

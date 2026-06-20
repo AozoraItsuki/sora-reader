@@ -591,14 +591,17 @@ export default function useChapter(
   }, [chapter.name, novel.name, trackedNovel, tracker, updateAllTrackedNovels]);
 
   const saveProgress = useCallback(
-    (percentage: number) => {
+    (percentage: number, targetChapterId?: number) => {
       if (!incognitoMode) {
-        updateChapterProgress(chapter.id, percentage > 100 ? 100 : percentage);
+        const chapId = targetChapterId ?? chapter.id;
+        updateChapterProgress(chapId, percentage > 100 ? 100 : percentage);
 
         if (percentage >= 97) {
           // a relative number
-          markChapterRead(chapter.id);
-          updateTracker();
+          markChapterRead(chapId);
+          if (!targetChapterId || targetChapterId === chapter.id) {
+            updateTracker();
+          }
         }
       }
     },

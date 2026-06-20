@@ -42,6 +42,14 @@ body:not(.page-reader) .transition-chapter {
   padding-right: var(--readerSettings-padding);
 }
 
+.lnreader-chapter-block {
+  padding-left: var(--readerSettings-padding);
+  padding-right: var(--readerSettings-padding);
+  overflow-x: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 hr {
   margin-top: 20px;
   margin-bottom: 20px;
