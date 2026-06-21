@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { resolveUrl } from '@services/plugin/fetch';
 import { getString } from '@strings/translations';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, ToastAndroid, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -74,6 +74,8 @@ export const ChapterContent = ({
   const [bookmarked, setBookmarked] = useState<boolean>(
     chapter.bookmark ?? false,
   );
+  const [locked, setLocked] = useState(false);
+  const lastBackPressRef = useRef<number>(0);
   const [sheetTabIndex, setSheetTabIndex] = useState(0);
   const [sheetTabKey, setSheetTabKey] = useState(0);
 
@@ -83,6 +85,20 @@ export const ChapterContent = ({
 
   const { hidden, loading, error, webViewRef, hideHeader, refetch, novel: ctxNovel } =
     useChapterContext();
+
+  useBackHandler(() => {
+    if (locked) {
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        navigation.goBack();
+        return true;
+      }
+      lastBackPressRef.current = now;
+      ToastAndroid.show('Ketuk tombol kembali sekali lagi untuk keluar', ToastAndroid.SHORT);
+      return true;
+    }
+    return false;
+  });
 
   const presentSheetAtTab = useCallback(
     (tabIndex: number) => {
@@ -203,6 +219,17 @@ export const ChapterContent = ({
             theme={theme}
             bookmarked={bookmarked}
             setBookmarked={setBookmarked}
+            locked={locked}
+            onToggleLock={() => {
+              const next = !locked;
+              setLocked(next);
+              if (next) {
+                lastBackPressRef.current = 0;
+                ToastAndroid.show('Layar terkunci — ketuk kembali 2x untuk keluar', ToastAndroid.SHORT);
+              } else {
+                ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
+              }
+            }}
           />
           <ReaderFooter
             readerSheetRef={readerSheetRef}

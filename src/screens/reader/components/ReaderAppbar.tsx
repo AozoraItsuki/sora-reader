@@ -19,6 +19,8 @@ interface ReaderAppbarProps {
   goBack: () => void;
   bookmarked: boolean;
   setBookmarked: React.Dispatch<React.SetStateAction<boolean>>;
+  locked: boolean;
+  onToggleLock: () => void;
 }
 
 const fastOutSlowIn = Easing.bezier(0.4, 0.0, 0.2, 1.0);
@@ -28,6 +30,8 @@ const ReaderAppbar = ({
   theme,
   bookmarked,
   setBookmarked,
+  locked,
+  onToggleLock,
 }: ReaderAppbarProps) => {
   const {
     chapter,
@@ -160,6 +164,13 @@ const ReaderAppbar = ({
             />
           </View>
         </View>
+        <IconButtonV2
+          name={locked ? 'lock' : 'lock-open-outline'}
+          size={22}
+          onPress={onToggleLock}
+          color={locked ? theme.primary : theme.onSurface}
+          theme={theme}
+        />
         <IconButtonV2
           name={bookmarked ? 'bookmark' : 'bookmark-outline'}
           size={24}

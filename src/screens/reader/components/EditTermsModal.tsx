@@ -368,7 +368,7 @@ const EditTermsModal: React.FC<Props> = ({
           </Text>
         </TouchableOpacity>
       </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeaderRow}>
           <View style={[styles.sectionChip, { borderColor: theme.outline }]}>
             <Text style={[styles.sectionChipText, { color: theme.onSurface }]}>
@@ -397,7 +397,7 @@ const EditTermsModal: React.FC<Props> = ({
           </Text>
         )}
         {globalTerms.map(t => renderTermRow(t))}
-        <View style={{ height: 72 }} />
+        <View style={{ height: 16 }} />
       </ScrollView>
       <View style={[styles.termsBottomBar, { borderTopColor: dividerColor, backgroundColor: theme.surface }]}>
         <TouchableOpacity
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   container: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '85%',
+    height: '72%',
   },
   tabBar: {
     flexDirection: 'row',
@@ -720,10 +720,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
   addTermBtn: {
     flex: 2,
