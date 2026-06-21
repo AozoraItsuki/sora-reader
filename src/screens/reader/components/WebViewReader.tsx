@@ -723,7 +723,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             break;
           case 'save':
             if (typeof event.data === 'number') {
-              saveProgress(event.data, event.chapterId);
+              saveProgress(
+                event.data,
+                event.chapterId,
+                typeof event.charOffset === 'number'
+                  ? event.charOffset
+                  : undefined,
+              );
             }
             break;
           case 'speak':

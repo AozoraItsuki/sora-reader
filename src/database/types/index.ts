@@ -38,6 +38,7 @@ export interface ChapterInfo {
   chapterNumber?: number | null;
   page: string | null;
   progress: number | null;
+  charOffset?: number | null;
   position?: number | null;
 }
 

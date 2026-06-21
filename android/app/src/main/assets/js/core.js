@@ -99,14 +99,65 @@ class Reader {
           finalProgress = Math.min(100, parseInt(ratio * 100, 10));
         }
 
+        // Calculate character offset for accurate cross-device position restore
+        const charOffset = this.getCharOffsetAtViewport(
+          targetBlock || this.chapterElement,
+          scrollY,
+          innerHeight
+        );
+
         this.post({
           type: 'save',
           data: finalProgress,
           chapterId: chapterId,
+          charOffset: charOffset,
         });
       }
     };
   }
+
+  /**
+   * Walk text nodes in `container` to find how many characters appear
+   * above the visible viewport top. This gives a stable position that
+   * survives font-size or screen-size changes.
+   *
+   * @param {Element} container - The chapter block element to walk
+   * @param {number} scrollY - Current window.scrollY
+   * @param {number} innerHeight - Current window.innerHeight
+   * @returns {number} Character offset from the start of the container
+   */
+  getCharOffsetAtViewport = (container, scrollY, innerHeight) => {
+    try {
+      // Target: the point 25% down from the top of the visible area
+      const viewportAnchor = scrollY + innerHeight * 0.25;
+      const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+      let charCount = 0;
+      let node;
+      while ((node = walker.nextNode())) {
+        const parent = node.parentElement;
+        if (!parent) {
+          charCount += node.textContent.length;
+          continue;
+        }
+        const rect = parent.getBoundingClientRect();
+        const nodeBottom = rect.bottom + scrollY;
+        if (nodeBottom < viewportAnchor) {
+          // Entire node is above the anchor — count all its chars
+          charCount += node.textContent.length;
+        } else {
+          // This node crosses the anchor — stop here
+          break;
+        }
+      }
+      return charCount;
+    } catch {
+      return 0;
+    }
+  };
 
   post = (obj) => {
     window.ReactNativeWebView.postMessage(JSON.stringify(obj));

@@ -591,10 +591,11 @@ export default function useChapter(
   }, [chapter.name, novel.name, trackedNovel, tracker, updateAllTrackedNovels]);
 
   const saveProgress = useCallback(
-    (percentage: number, targetChapterId?: number) => {
+    (percentage: number, targetChapterId?: number, charOffset?: number) => {
       if (!incognitoMode) {
         const chapId = targetChapterId ?? chapter.id;
-        updateChapterProgress(chapId, percentage > 100 ? 100 : percentage);
+        const clampedPct = percentage > 100 ? 100 : percentage;
+        updateChapterProgress(chapId, clampedPct, charOffset);
 
         if (percentage >= 97) {
           // a relative number

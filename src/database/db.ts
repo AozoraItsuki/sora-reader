@@ -174,6 +174,15 @@ export const useInitDatabase = () => {
           // 2. Drop the readDuration column from Chapter table
           db.executeRawSync('ALTER TABLE Chapter DROP COLUMN readDuration;');
         }
+        // Add charOffset column if missing (for users upgrading from older versions)
+        const charOffsetCheck = queryChapter.some(
+          (row: unknown[]) => row[1] === 'charOffset',
+        );
+        if (!charOffsetCheck) {
+          db.executeRawSync(
+            'ALTER TABLE Chapter ADD COLUMN charOffset integer DEFAULT 0;',
+          );
+        }
         runDatabaseBootstrap(_db);
         dispatch({
           type: 'migrated',

@@ -254,11 +254,12 @@ export const deleteReadChaptersFromDb = async (): Promise<void> => {
 export const updateChapterProgress = async (
   chapterId: number,
   progress: number,
+  charOffset?: number,
 ): Promise<void> => {
   await dbManager.write(async tx => {
     await tx
       .update(chapterSchema)
-      .set({ progress })
+      .set({ progress, ...(charOffset !== undefined ? { charOffset } : {}) })
       .where(eq(chapterSchema.id, chapterId))
       .run();
   });

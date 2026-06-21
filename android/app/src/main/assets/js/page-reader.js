@@ -117,6 +117,60 @@ class PageReader {
 
 window.pageReader = new PageReader();
 
+/**
+ * Scroll to a character offset within a container element.
+ * Walks text nodes counting characters until the offset is reached,
+ * then scrolls to that element. This is layout-independent — it survives
+ * font size changes, screen size changes, and text reflow.
+ *
+ * @param {Element} container - Chapter element to walk
+ * @param {number} charOffset - Character position to restore to
+ * @returns {boolean} true if successfully scrolled, false if not found
+ */
+function scrollToCharOffset(container, charOffset) {
+  if (!container || !charOffset || charOffset <= 0) return false;
+  try {
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    let charCount = 0;
+    let node;
+    while ((node = walker.nextNode())) {
+      charCount += node.textContent.length;
+      if (charCount >= charOffset) {
+        const el = node.parentElement;
+        if (!el) break;
+        const top = el.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({
+          top: Math.max(0, top - 60),
+          behavior: 'smooth',
+        });
+        return true;
+      }
+    }
+  } catch {
+    // ignore — fall back to percentage
+  }
+  return false;
+}
+
+/**
+ * Fallback: restore scroll position using the saved progress percentage.
+ */
+function scrollToProgressPercent() {
+  const scrollHeight =
+    document.documentElement.scrollHeight || document.body.scrollHeight;
+  const maxScrollY = scrollHeight - window.innerHeight;
+  const targetTop =
+    maxScrollY > 0 ? (maxScrollY * reader.chapter.progress) / 100 : 0;
+  window.scrollTo({
+    top: targetTop,
+    behavior: 'smooth',
+  });
+}
+
 function calculatePages() {
   reader.refresh();
 
@@ -154,15 +208,17 @@ function calculatePages() {
     } else if (initialReaderConfig.initialScrollPosition === 'start') {
       window.scrollTo({ top: 0, behavior: 'instant' });
     } else {
-      const scrollHeight =
-        document.documentElement.scrollHeight || document.body.scrollHeight;
-      const maxScrollY = scrollHeight - window.innerHeight;
-      const targetTop =
-        maxScrollY > 0 ? (maxScrollY * reader.chapter.progress) / 100 : 0;
-      window.scrollTo({
-        top: targetTop,
-        behavior: 'smooth',
-      });
+      // Prefer charOffset for accurate, layout-independent position restore
+      const charOffset = reader.chapter.charOffset;
+      if (charOffset && charOffset > 0) {
+        const restored = scrollToCharOffset(reader.chapterElement, charOffset);
+        if (!restored) {
+          // Fallback to percentage if charOffset walk found nothing
+          scrollToProgressPercent();
+        }
+      } else {
+        scrollToProgressPercent();
+      }
     }
     // Clear initialScrollPosition
     initialReaderConfig.initialScrollPosition = null;
