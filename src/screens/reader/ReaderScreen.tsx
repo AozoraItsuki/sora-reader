@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { resolveUrl } from '@services/plugin/fetch';
 import { getString } from '@strings/translations';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, ToastAndroid, View } from 'react-native';
+import { Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -186,12 +186,29 @@ export const ChapterContent = ({
       />
     );
   }
+  const handleUnlock = useCallback(() => {
+    setLocked(false);
+    ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
+  }, []);
+
+  const handleToggleLock = useCallback(() => {
+    const next = !locked;
+    setLocked(next);
+    if (next) {
+      lastBackPressRef.current = 0;
+      hideHeader();
+      ToastAndroid.show('Layar terkunci — ketuk kembali 2x untuk keluar', ToastAndroid.SHORT);
+    } else {
+      ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
+    }
+  }, [locked, hideHeader]);
+
   return (
     <View style={[{ paddingStart: left, paddingEnd: right }, styles.container]}>
       {keepScreenOn ? <KeepScreenAwake /> : null}
       <ChapterLoadingScreen isLoading={loading}>
         <View style={styles.container}>
-          <WebViewReader onPress={hideHeader} />
+          <WebViewReader onPress={locked ? undefined : hideHeader} />
         </View>
       </ChapterLoadingScreen>
       <ReaderBottomSheetV2
@@ -199,32 +216,32 @@ export const ChapterContent = ({
         initialTabIndex={sheetTabIndex}
         initialTabKey={sheetTabKey}
       />
-      {!hidden && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="auto">
+      {!hidden && !locked && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           <ReaderAppbar
             goBack={navigation.goBack}
             theme={theme}
             bookmarked={bookmarked}
             setBookmarked={setBookmarked}
             locked={locked}
-            onToggleLock={() => {
-              const next = !locked;
-              setLocked(next);
-              if (next) {
-                lastBackPressRef.current = 0;
-                // Hide the appbar/footer so they don't obscure reading
-                hideHeader();
-                ToastAndroid.show('Layar terkunci — ketuk kembali 2x untuk keluar', ToastAndroid.SHORT);
-              } else {
-                ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
-              }
-            }}
+            onToggleLock={handleToggleLock}
           />
           <ReaderFooter
             navigation={navigation}
             openDrawer={openDrawerI}
             onApplyTerms={applyTermsToWebView}
           />
+        </View>
+      )}
+      {locked && (
+        <View style={styles.lockOverlay} pointerEvents="box-none">
+          <Pressable
+            style={[styles.unlockBtn, { backgroundColor: theme.surface }]}
+            onPress={handleUnlock}
+            android_ripple={{ color: theme.rippleColor, borderless: true, radius: 28 }}
+          >
+            <Text style={[styles.unlockIcon, { color: theme.primary }]}>🔒</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -235,4 +252,27 @@ export default Chapter;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+    padding: 20,
+    paddingBottom: 40,
+  },
+  unlockBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    opacity: 0.85,
+  },
+  unlockIcon: {
+    fontSize: 22,
+  },
 });

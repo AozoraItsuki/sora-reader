@@ -60,7 +60,7 @@ type WebViewPostEvent = {
 };
 
 type WebViewReaderProps = {
-  onPress(): void;
+  onPress?: () => void;
 };
 
 const onLogMessage = (payload: { nativeEvent: { data: string } }) => {
@@ -706,7 +706,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             break;
           }
           case 'hide':
-            onPress();
+            onPress?.();
             break;
           case 'next':
             nextChapterScreenVisible.current = true;
