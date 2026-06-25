@@ -169,10 +169,17 @@ export default HistoryScreen;
 
 const styles = StyleSheet.create({
   dateHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 6,
+    textTransform: 'uppercase',
+    opacity: 0.65,
   },
   listContainer: {
     flexGrow: 1,
+    paddingBottom: 12,
   },
 });

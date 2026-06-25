@@ -478,9 +478,9 @@ const styles = StyleSheet.create({
   },
   badgeContainer: {
     flexDirection: 'row',
-    left: 10,
+    left: 8,
     position: 'absolute',
-    top: 10,
+    top: 8,
     zIndex: 1,
   },
   compactTitle: {
@@ -496,11 +496,13 @@ const styles = StyleSheet.create({
     right: 4,
   },
   downloadBadge: {
-    borderBottomLeftRadius: 4,
-    borderTopLeftRadius: 4,
-    fontSize: 12,
+    borderBottomLeftRadius: 6,
+    borderTopLeftRadius: 6,
+    fontSize: 11,
+    fontWeight: '700',
     paddingHorizontal: 5,
     paddingTop: 2,
+    paddingBottom: 2,
   },
   extensionIcon: {
     borderRadius: 4,
@@ -508,12 +510,13 @@ const styles = StyleSheet.create({
     width: 42,
   },
   inLibraryBadge: {
-    fontSize: 12,
-    paddingHorizontal: 4,
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
   linearGradient: {
-    borderRadius: 4,
+    borderRadius: 8,
   },
   listView: {
     alignItems: 'center',
@@ -525,9 +528,9 @@ const styles = StyleSheet.create({
   },
 
   opac: {
-    borderRadius: 4,
+    borderRadius: 8,
     flex: 1,
-    padding: 4.8,
+    padding: 5,
   },
   opacityPoint5: { opacity: 0.5 },
   padding4: { padding: 4 },
@@ -535,26 +538,29 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   standardBorderRadius: {
-    borderRadius: 4,
+    borderRadius: 6,
   },
   standardNovelCover: {
-    borderRadius: 6,
+    borderRadius: 10,
     overflow: 'hidden',
   },
   title: {
     fontFamily: 'ArchivoNarrow-Bold',
-    fontSize: 14,
-    padding: 8,
+    fontSize: 13,
+    padding: 6,
+    lineHeight: 17,
   },
   titleContainer: {
-    borderRadius: 4,
+    borderRadius: 8,
     flex: 1,
   },
   unreadBadge: {
-    borderBottomRightRadius: 4,
-    borderTopRightRadius: 4,
-    fontSize: 12,
-    paddingHorizontal: 4,
+    borderBottomRightRadius: 6,
+    borderTopRightRadius: 6,
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 5,
     paddingTop: 2,
+    paddingBottom: 2,
   },
 });

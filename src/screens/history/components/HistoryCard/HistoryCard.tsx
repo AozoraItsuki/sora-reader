@@ -5,8 +5,8 @@ import { HistoryScreenProps } from '@navigators/types';
 import { defaultCover } from '@plugins/helpers/constants';
 import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { useNavigation } from '@react-navigation/native';
-import { getString } from '@strings/translations';
 import { coverPlaceholderColor } from '@theme/colors';
+import Color from 'color';
 import dayjs from 'dayjs';
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -23,72 +23,102 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   const theme = useTheme();
   const { navigate } = useNavigation<HistoryScreenProps['navigation']>();
 
+  const progress = history.progress ?? 0;
+
+  const navigateToReader = () =>
+    navigate('ReaderStack', {
+      screen: 'Chapter',
+      params: {
+        novel: {
+          id: history.novelId,
+          path: history.novelPath,
+          name: history.novelName,
+          pluginId: history.pluginId,
+          isLocal: history.pluginId === LOCAL_PLUGIN_ID,
+          cover: history.novelCover,
+        } as NovelInfo,
+        chapter: history,
+      },
+    });
+
+  const navigateToNovel = () =>
+    navigate('ReaderStack', {
+      screen: 'Novel',
+      params: {
+        name: history.name,
+        path: history.novelPath,
+        cover: history.novelCover,
+        pluginId: history.pluginId,
+      },
+    });
+
+  const cardBg = Color(theme.surfaceVariant).alpha(0.45).string();
+  const progressBarBg = Color(theme.onSurface).alpha(0.08).string();
+  const progressBarFill = theme.primary;
+
   return (
     <Pressable
-      style={styles.container}
+      style={[styles.container, { backgroundColor: cardBg }]}
       android_ripple={{ color: theme.rippleColor }}
-      onPress={() =>
-        navigate('ReaderStack', {
-          screen: 'Chapter',
-          params: {
-            novel: {
-              id: history.novelId,
-              path: history.novelPath,
-              name: history.novelName,
-              pluginId: history.pluginId,
-              isLocal: history.pluginId === LOCAL_PLUGIN_ID,
-              cover: history.novelCover,
-            } as NovelInfo,
-            chapter: history,
-          },
-        })
-      }
+      onPress={navigateToReader}
     >
-      <View style={styles.imageAndNameContainer}>
-        <Pressable
-          onPress={() =>
-            navigate('ReaderStack', {
-              screen: 'Novel',
-              params: {
-                name: history.name,
-                path: history.novelPath,
-                cover: history.novelCover,
-                pluginId: history.pluginId,
-              },
-            })
-          }
-        >
-          <Image
-            source={{ uri: history.novelCover || defaultCover }}
-            style={styles.cover}
-          />
-        </Pressable>
-        <View style={styles.detailsContainer}>
-          <Text
-            numberOfLines={2}
-            style={[{ color: theme.onSurface }, styles.novelName]}
+      <Pressable onPress={navigateToNovel} style={styles.coverWrapper}>
+        <Image
+          source={{ uri: history.novelCover || defaultCover }}
+          style={styles.cover}
+        />
+        {progress > 0 && (
+          <View
+            style={[styles.progressBarTrack, { backgroundColor: progressBarBg }]}
           >
-            {history.novelName}
+            <View
+              style={[
+                styles.progressBarFill,
+                {
+                  backgroundColor: progressBarFill,
+                  width: `${Math.min(progress, 100)}%`,
+                },
+              ]}
+            />
+          </View>
+        )}
+      </Pressable>
+
+      <View style={styles.detailsContainer}>
+        <Text
+          numberOfLines={2}
+          style={[styles.novelName, { color: theme.onSurface }]}
+        >
+          {history.novelName}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={[styles.chapterName, { color: theme.primary }]}
+        >
+          {history.name}
+        </Text>
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaText, { color: theme.onSurfaceVariant }]}>
+            {dayjs(history.readTime).format('LT').toUpperCase()}
           </Text>
-          <Text style={{ color: theme.onSurfaceVariant }}>
-            {`${getString('historyScreen.chapter')} ${
-              history.chapterNumber
-            } • ${dayjs(history.readTime).format('LT').toUpperCase()}` +
-              `${
-                history.progress && history.progress > 0
-                  ? ' • ' + history.progress + '%'
-                  : ''
-              }`}
-          </Text>
+          {progress > 0 && (
+            <>
+              <View
+                style={[styles.metaDot, { backgroundColor: theme.onSurfaceVariant }]}
+              />
+              <Text style={[styles.metaText, { color: theme.onSurfaceVariant }]}>
+                {`${Math.round(progress)}%`}
+              </Text>
+            </>
+          )}
         </View>
       </View>
-      <View style={styles.buttonContainer}>
-        <IconButtonV2
-          name="delete-outline"
-          theme={theme}
-          onPress={() => handleRemoveFromHistory(history.id)}
-        />
-      </View>
+
+      <IconButtonV2
+        name="delete-outline"
+        theme={theme}
+        onPress={() => handleRemoveFromHistory(history.id)}
+      />
     </Pressable>
   );
 };
@@ -96,35 +126,66 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 export default HistoryCard;
 
 const styles = StyleSheet.create({
-  buttonContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
   container: {
     alignItems: 'center',
+    borderRadius: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    marginHorizontal: 12,
+    marginVertical: 4,
+    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   cover: {
     backgroundColor: coverPlaceholderColor,
-    borderRadius: 4,
+    borderRadius: 8,
     height: 80,
     width: 56,
+  },
+  coverWrapper: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  chapterName: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+    marginTop: 2,
   },
   detailsContainer: {
     flex: 1,
     justifyContent: 'center',
-    marginStart: 16,
+    paddingHorizontal: 12,
   },
-  imageAndNameContainer: {
+  metaDot: {
+    borderRadius: 2,
+    height: 4,
+    marginHorizontal: 5,
+    width: 4,
+  },
+  metaRow: {
     alignItems: 'center',
-    flex: 1,
     flexDirection: 'row',
   },
+  metaText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
   novelName: {
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  progressBarFill: {
+    borderRadius: 1,
+    height: '100%',
+  },
+  progressBarTrack: {
+    borderRadius: 1,
+    bottom: 0,
+    height: 3,
+    left: 0,
+    position: 'absolute',
+    right: 0,
   },
 });

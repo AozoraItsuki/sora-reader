@@ -3,8 +3,7 @@ import { useNovelLayout } from '@screens/novel/NovelContext';
 import { ThemeColors } from '@theme/types';
 import color from 'color';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -58,11 +57,9 @@ const ReaderAppbar = ({
       originY: -statusBarHeight,
       opacity: 0,
     };
-    return {
-      initialValues,
-      animations,
-    };
+    return { initialValues, animations };
   };
+
   const exiting = () => {
     'worklet';
     const animations = {
@@ -77,10 +74,7 @@ const ReaderAppbar = ({
       originY: 0,
       opacity: 1,
     };
-    return {
-      initialValues,
-      animations,
-    };
+    return { initialValues, animations };
   };
 
   const getTranslateIconName = () => {
@@ -104,7 +98,8 @@ const ReaderAppbar = ({
         styles.container,
         {
           paddingTop: statusBarHeight,
-          backgroundColor: color(theme.surface).alpha(0.9).string(),
+          backgroundColor: color(theme.surface).alpha(0.92).string(),
+          borderBottomColor: color(theme.onSurface).alpha(0.08).string(),
         },
       ]}
     >
@@ -113,23 +108,25 @@ const ReaderAppbar = ({
           name="arrow-left"
           onPress={goBack}
           color={theme.onSurface}
-          size={26}
+          size={24}
           theme={theme}
         />
+
         <View style={styles.content}>
           <Text
-            style={[styles.title, { color: theme.onSurface }]}
+            style={[styles.novelLabel, { color: theme.onSurfaceVariant }]}
             numberOfLines={1}
           >
             {novel.name}
           </Text>
           <Text
-            style={[styles.subtitle, { color: theme.onSurfaceVariant }]}
+            style={[styles.chapterTitle, { color: theme.onSurface }]}
             numberOfLines={1}
           >
             {chapter.name}
           </Text>
         </View>
+
         <View style={styles.translateButtonContainer}>
           <IconButtonV2
             name={getTranslateIconName()}
@@ -164,6 +161,7 @@ const ReaderAppbar = ({
             />
           </View>
         </View>
+
         <IconButtonV2
           name={locked ? 'lock' : 'lock-open-outline'}
           size={22}
@@ -171,13 +169,14 @@ const ReaderAppbar = ({
           color={locked ? theme.primary : theme.onSurface}
           theme={theme}
         />
+
         <IconButtonV2
           name={bookmarked ? 'bookmark' : 'bookmark-outline'}
           size={24}
           onPress={() => {
             bookmarkChapter(chapter.id).then(() => setBookmarked(!bookmarked));
           }}
-          color={theme.onSurface}
+          color={bookmarked ? theme.primary : theme.onSurface}
           theme={theme}
           style={styles.bookmark}
         />
@@ -190,7 +189,6 @@ export default ReaderAppbar;
 
 const styles = StyleSheet.create({
   appbar: {
-    display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -198,8 +196,8 @@ const styles = StyleSheet.create({
     marginEnd: 4,
   },
   container: {
-    flex: 1,
-    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 6,
     position: 'absolute',
     top: 0,
     width: '100%',
@@ -207,12 +205,20 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    justifyContent: 'center',
   },
-  subtitle: {
+  novelLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    opacity: 0.75,
+  },
+  chapterTitle: {
     fontSize: 16,
-  },
-  title: {
-    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: 1,
   },
   translateButtonContainer: {
     alignItems: 'center',

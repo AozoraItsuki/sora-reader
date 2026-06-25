@@ -188,17 +188,24 @@ const LastUpdateTime: React.FC<{
 
 const styles = StyleSheet.create({
   dateHeader: {
-    paddingBottom: 2,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 6,
+    textTransform: 'uppercase',
+    opacity: 0.65,
   },
   lastUpdateTime: {
     fontSize: 12,
     fontStyle: 'italic',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    opacity: 0.7,
   },
   listContainer: {
     flexGrow: 1,
+    paddingBottom: 12,
   },
 });
