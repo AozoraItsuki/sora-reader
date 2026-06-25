@@ -66,8 +66,6 @@ const SETTINGS_PREFS: { key: string; label: string }[] = [
   { key: 'autoScroll', label: 'autoscroll' },
   { key: 'swipeGestures', label: 'swipeGestures' },
   { key: 'showBatteryAndTime', label: 'showBatteryAndTime' },
-  { key: 'showScrollPercentage', label: 'showProgressPercentage' },
-  { key: 'verticalSeekbar', label: 'verticalSeekbar' },
   { key: 'pageReader', label: 'pageReader' },
   { key: 'removeExtraParagraphSpacing', label: 'removeExtraSpacing' },
   { key: 'useVolumeButtons', label: 'volumeButtonsScroll' },

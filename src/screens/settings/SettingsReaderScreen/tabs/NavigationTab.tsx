@@ -17,7 +17,6 @@ const NavigationTab: React.FC = () => {
   const {
     useVolumeButtons = false,
     volumeButtonsOffset = null,
-    verticalSeekbar = true,
     swipeGestures = false,
     pageReader = false,
     autoScroll = false,
@@ -76,15 +75,6 @@ const NavigationTab: React.FC = () => {
             />
           </View>
         )}
-        <SettingSwitch
-          label={getString('readerScreen.bottomSheet.verticalSeekbar')}
-          description={getString('readerSettings.verticalSeekbarDesc')}
-          value={verticalSeekbar}
-          onPress={() =>
-            setChapterGeneralSettings({ verticalSeekbar: !verticalSeekbar })
-          }
-          theme={theme}
-        />
         <SettingSwitch
           label={getString('readerScreen.bottomSheet.swipeGestures')}
           value={swipeGestures}

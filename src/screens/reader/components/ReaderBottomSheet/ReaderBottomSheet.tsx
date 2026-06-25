@@ -84,9 +84,7 @@ const GeneralTab: React.FC = React.memo(() => {
     () => [
       { key: 'fullScreenMode', label: 'fullscreen' },
       { key: 'autoScroll', label: 'autoscroll' },
-      { key: 'verticalSeekbar', label: 'verticalSeekbar' },
       { key: 'showBatteryAndTime', label: 'showBatteryAndTime' },
-      { key: 'showScrollPercentage', label: 'showProgressPercentage' },
       { key: 'swipeGestures', label: 'swipeGestures' },
       { key: 'pageReader', label: 'pageReader' },
       { key: 'removeExtraParagraphSpacing', label: 'removeExtraSpacing' },

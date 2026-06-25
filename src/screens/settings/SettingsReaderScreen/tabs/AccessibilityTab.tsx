@@ -11,7 +11,6 @@ const AccessibilityTab: React.FC = () => {
   const theme = useTheme();
   const {
     fullScreenMode = true,
-    showScrollPercentage = true,
     showBatteryAndTime = false,
     keepScreenOn = true,
     bionicReading = false,
@@ -33,16 +32,6 @@ const AccessibilityTab: React.FC = () => {
           value={fullScreenMode}
           onPress={() =>
             setChapterGeneralSettings({ fullScreenMode: !fullScreenMode })
-          }
-          theme={theme}
-        />
-        <SettingSwitch
-          label={getString('readerScreen.bottomSheet.showProgressPercentage')}
-          value={showScrollPercentage}
-          onPress={() =>
-            setChapterGeneralSettings({
-              showScrollPercentage: !showScrollPercentage,
-            })
           }
           theme={theme}
         />

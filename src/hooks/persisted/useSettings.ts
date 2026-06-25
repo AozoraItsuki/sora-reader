@@ -99,14 +99,12 @@ export interface ChapterGeneralSettings {
   fullScreenMode: boolean;
   pageReader: boolean;
   swipeGestures: boolean;
-  showScrollPercentage: boolean;
   useVolumeButtons: boolean;
   volumeButtonsOffset: number | null;
   showBatteryAndTime: boolean;
   autoScroll: boolean;
   autoScrollInterval: number;
   autoScrollOffset: number | null;
-  verticalSeekbar: boolean;
   removeExtraParagraphSpacing: boolean;
   bionicReading: boolean;
   tapToScroll: boolean;
@@ -262,14 +260,12 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   fullScreenMode: true,
   pageReader: false,
   swipeGestures: false,
-  showScrollPercentage: true,
   useVolumeButtons: false,
   volumeButtonsOffset: null,
   showBatteryAndTime: false,
   autoScroll: false,
   autoScrollInterval: 10,
   autoScrollOffset: null,
-  verticalSeekbar: true,
   removeExtraParagraphSpacing: false,
   bionicReading: false,
   tapToScroll: false,
