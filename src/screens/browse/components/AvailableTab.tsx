@@ -211,7 +211,7 @@ export const AvailableTab = memo(({ searchText, theme }: AvailableTabProps) => {
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
           <EmptyView
-            icon="(･Д･。"
+            iconName="puzzle-outline"
             description={
               !filteredAvailablePlugins.length
                 ? getString('repositories.emptyMsg')

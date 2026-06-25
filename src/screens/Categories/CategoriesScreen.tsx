@@ -91,7 +91,7 @@ const CategoriesScreen = () => {
           autoscrollSpeed={100}
           ListEmptyComponent={
             <EmptyView
-              icon="Σ(ಠ_ಠ)"
+              iconName="label-outline"
               description={getString('categories.emptyMsg')}
               theme={theme}
             />

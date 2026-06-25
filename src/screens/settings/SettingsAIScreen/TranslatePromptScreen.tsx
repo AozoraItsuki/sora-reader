@@ -72,7 +72,7 @@ const TranslatePromptScreen = ({
           {prompts.length === 0 ? (
             <View style={styles.emptyContainer}>
               <EmptyView
-                icon="(╥﹏╥)"
+                iconName="text-box-outline"
                 description="No Prompts configured"
                 theme={theme}
               />

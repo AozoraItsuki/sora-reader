@@ -15,6 +15,7 @@ import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
 import { showToast } from '@utils/showToast';
+import Color from 'color';
 import dayjs from 'dayjs';
 import React, {
   memo,
@@ -24,7 +25,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { RefreshControl, SectionList, StyleSheet, Text } from 'react-native';
+import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import UpdateNovelCard from './components/UpdateNovelCard';
 import UpdatesSkeletonLoading from './components/UpdatesSkeletonLoading';
@@ -108,9 +109,7 @@ const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
           }
           contentContainerStyle={styles.listContainer}
           renderSectionHeader={({ section: { date } }) => (
-            <Text style={[styles.dateHeader, { color: theme.onSurface }]}>
-              {dayjs(date).calendar()}
-            </Text>
+            <DateChip label={dayjs(date).calendar()} theme={theme} />
           )}
           sections={sections}
           keyExtractor={item => 'updatedGroup' + item.novelId}
@@ -142,7 +141,7 @@ const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
           )}
           ListEmptyComponent={
             <EmptyView
-              icon="(˘･_･˘)"
+              iconName="bell-outline"
               description={getString('updatesScreen.emptyView')}
               theme={theme}
             />
@@ -165,6 +164,25 @@ const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
 
 export default memo(UpdatesScreen);
 
+const DateChip = ({
+  label,
+  theme,
+}: {
+  label: string;
+  theme: ThemeColors;
+}) => {
+  const bg = Color(theme.surfaceVariant).alpha(0.8).string();
+  return (
+    <View style={styles.dateChipRow}>
+      <View style={[styles.dateChip, { backgroundColor: bg }]}>
+        <Text style={[styles.dateChipText, { color: theme.onSurfaceVariant }]}>
+          {label}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 const LastUpdateTime: React.FC<{
   lastUpdateTime: Date | number | string;
   theme: ThemeColors;
@@ -178,7 +196,7 @@ const LastUpdateTime: React.FC<{
   );
 
   return (
-    <Text style={[styles.lastUpdateTime, { color: theme.onSurface }]}>
+    <Text style={[styles.lastUpdateTime, { color: theme.onSurfaceVariant }]}>
       {`${getString('updatesScreen.lastUpdatedAt')} ${dayjs(
         lastUpdateTime,
       ).fromNow()}`}
@@ -187,15 +205,22 @@ const LastUpdateTime: React.FC<{
 };
 
 const styles = StyleSheet.create({
-  dateHeader: {
+  dateChipRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  dateChip: {
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  dateChipText: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.8,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 6,
-    textTransform: 'uppercase',
-    opacity: 0.65,
+    letterSpacing: 0.3,
   },
   lastUpdateTime: {
     fontSize: 12,

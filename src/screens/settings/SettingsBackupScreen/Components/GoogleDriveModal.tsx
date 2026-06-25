@@ -170,6 +170,7 @@ function RestoreBackup({
   const emptyComponent = useCallback(() => {
     return (
       <EmptyView
+        iconName="google-drive"
         description={getString('backupScreen.noBackupFound')}
         theme={theme}
       />

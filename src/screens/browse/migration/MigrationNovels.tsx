@@ -141,7 +141,7 @@ const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
         extraData={filteredInstalledPlugins}
         ListEmptyComponent={
           <EmptyView
-            icon="__φ(．．)"
+            iconName="swap-horizontal-circle-outline"
             description={`Search a novel in your pinned plugins ${
               filteredInstalledPlugins.length === 0 ? '(No plugins pinned)' : ''
             }`}

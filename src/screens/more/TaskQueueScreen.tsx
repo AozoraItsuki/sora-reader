@@ -92,7 +92,7 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
         )}
         ListEmptyComponent={
           <EmptyView
-            icon="(･o･;)"
+            iconName="playlist-check"
             description={'No running tasks'}
             theme={theme}
           />

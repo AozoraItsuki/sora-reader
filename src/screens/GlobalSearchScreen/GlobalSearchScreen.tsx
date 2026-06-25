@@ -92,7 +92,7 @@ const GlobalSearchScreen = (props: Props) => {
             searchResults={searchResults}
             ListEmptyComponent={
               <EmptyView
-                icon="__φ(．．)"
+                iconName="magnify"
                 description={`${getString('globalSearch.searchIn')} ${getString(
                   'globalSearch.allSources',
                 )}`}

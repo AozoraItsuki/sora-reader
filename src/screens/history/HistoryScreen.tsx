@@ -11,9 +11,11 @@ import { useHistory, useTheme } from '@hooks/persisted';
 import { HistoryScreenProps } from '@navigators/types';
 import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { getString } from '@strings/translations';
+import { ThemeColors } from '@theme/types';
+import Color from 'color';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
-import { SectionList, StyleSheet, Text } from 'react-native';
+import { SectionList, StyleSheet, Text, View } from 'react-native';
 import { Portal } from 'react-native-paper';
 
 import ClearHistoryDialog from './components/ClearHistoryDialog';
@@ -129,9 +131,7 @@ const HistoryScreen = ({ navigation }: HistoryScreenProps) => {
             sections={sections}
             keyExtractor={(item, index) => 'history' + index}
             renderSectionHeader={({ section: { date } }) => (
-              <Text style={[styles.dateHeader, { color: theme.onSurface }]}>
-                {dayjs(date).calendar()}
-              </Text>
+              <DateChip label={dayjs(date).calendar()} theme={theme} />
             )}
             renderItem={({ item }) => (
               <HistoryCard
@@ -141,7 +141,7 @@ const HistoryScreen = ({ navigation }: HistoryScreenProps) => {
             )}
             ListEmptyComponent={
               <EmptyView
-                icon="(˘･_･˘)"
+                iconName="history"
                 description={getString('historyScreen.nothingReadRecently')}
                 theme={theme}
               />
@@ -167,16 +167,42 @@ const HistoryScreen = ({ navigation }: HistoryScreenProps) => {
 
 export default HistoryScreen;
 
+const DateChip = ({
+  label,
+  theme,
+}: {
+  label: string;
+  theme: ThemeColors;
+}) => {
+  const bg = Color(theme.surfaceVariant).alpha(0.8).string();
+  return (
+    <View style={styles.dateChipRow}>
+      <View style={[styles.dateChip, { backgroundColor: bg }]}>
+        <Text style={[styles.dateChipText, { color: theme.onSurfaceVariant }]}>
+          {label}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
-  dateHeader: {
+  dateChipRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  dateChip: {
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  dateChipText: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.8,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 6,
-    textTransform: 'uppercase',
-    opacity: 0.65,
+    letterSpacing: 0.3,
   },
   listContainer: {
     flexGrow: 1,

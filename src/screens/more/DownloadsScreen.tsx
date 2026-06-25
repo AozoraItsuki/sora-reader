@@ -71,7 +71,7 @@ const Downloads = ({ navigation }: DownloadsScreenProps) => {
     () =>
       !loading ? (
         <EmptyView
-          icon="(˘･_･˘)"
+          iconName="download-off-outline"
           description={getString('downloadScreen.noDownloads')}
         />
       ) : null,

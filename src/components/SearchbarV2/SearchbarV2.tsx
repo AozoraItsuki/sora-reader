@@ -1,6 +1,7 @@
 import { MaterialDesignIconName } from '@type/icon';
+import Color from 'color';
 import React, { memo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemeColors } from '../../theme/types';
 import IconButtonV2 from '../IconButtonV2/IconButtonV2';
@@ -52,15 +53,16 @@ const Searchbar: React.FC<SearcbarProps> = ({
   const focusSearchbar = () => searchbarRef.current.focus();
   const [extraMenu, showExtraMenu] = useState(false);
 
-  const marginTop = 8;
+  const shadowColor = Color(theme.shadow || '#000000').alpha(0.12).string();
 
   return (
     <View
       style={[
         styles.searchbarContainer,
         {
-          marginTop,
           backgroundColor: theme.surface2,
+          shadowColor,
+          borderColor: Color(theme.onSurface).alpha(0.06).string(),
         },
       ]}
     >
@@ -71,7 +73,7 @@ const Searchbar: React.FC<SearcbarProps> = ({
       >
         <IconButtonV2
           name={handleBackAction ? 'arrow-left' : leftIcon}
-          color={theme.onSurface}
+          color={theme.onSurfaceVariant}
           onPress={() => {
             if (handleBackAction) {
               handleBackAction();
@@ -96,7 +98,7 @@ const Searchbar: React.FC<SearcbarProps> = ({
         {searchText !== '' ? (
           <IconButtonV2
             name="close"
-            color={theme.onSurface}
+            color={theme.onSurfaceVariant}
             onPress={clearSearchbar}
             theme={theme}
           />
@@ -105,7 +107,7 @@ const Searchbar: React.FC<SearcbarProps> = ({
           <IconButtonV2
             key={index}
             name={icon.iconName}
-            color={icon.color || theme.onSurface}
+            color={icon.color || theme.onSurfaceVariant}
             onPress={icon.onPress}
             theme={theme}
           />
@@ -117,7 +119,7 @@ const Searchbar: React.FC<SearcbarProps> = ({
             anchor={
               <IconButtonV2
                 name="dots-vertical"
-                color={theme.onSurface}
+                color={theme.onSurfaceVariant}
                 onPress={() => showExtraMenu(true)}
                 theme={theme}
               />
@@ -152,30 +154,35 @@ const Searchbar: React.FC<SearcbarProps> = ({
 export default memo(Searchbar);
 
 const styles = StyleSheet.create({
-  icon: {
-    marginHorizontal: 8,
-  },
-  searchIconContainer: {
-    borderRadius: 50,
-    overflow: 'hidden',
-  },
   searchbar: {
     alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   searchbarContainer: {
     borderRadius: 28,
-    marginBottom: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 10,
     marginHorizontal: 16,
+    marginTop: 8,
     minHeight: 56,
     overflow: 'hidden',
-    zIndex: 1,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      ios: {
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
+      },
+    }),
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    marginHorizontal: 8,
+    marginHorizontal: 4,
+    includeFontPadding: false,
   },
 });

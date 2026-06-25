@@ -97,7 +97,7 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
       if (languagesFilter.length === 0) {
         return (
           <EmptyView
-            icon="(･Д･。"
+            iconName="translate-off"
             description={getString('browseScreen.listEmpty')}
             theme={theme}
           />

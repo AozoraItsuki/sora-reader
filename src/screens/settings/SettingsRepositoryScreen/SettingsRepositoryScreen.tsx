@@ -104,7 +104,7 @@ const SettingsBrowseScreen = ({
         )}
         ListEmptyComponent={
           <EmptyView
-            icon="Σ(ಠ_ಠ)"
+            iconName="source-repository"
             description={getString('repositories.emptyMsg')}
             theme={theme}
           />

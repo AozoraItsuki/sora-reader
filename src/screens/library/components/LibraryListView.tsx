@@ -97,7 +97,7 @@ export const LibraryView: React.FC<Props> = React.memo(
       () => (
         <EmptyView
           theme={theme}
-          icon="Σ(ಠ_ಠ)"
+          iconName="book-multiple-outline"
           description={getString('libraryScreen.empty')}
           actions={[
             categoryId !== 2

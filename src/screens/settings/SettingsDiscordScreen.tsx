@@ -212,7 +212,7 @@ const SettingsDiscordScreen = ({ navigation }: any) => {
         {!tokenData ? (
           <View style={styles.emptyContainer}>
             <EmptyView
-              icon="(｡ŏ_ŏ)"
+              iconName="discord"
               description={getString('discord.notConnected')}
               theme={theme}
             />

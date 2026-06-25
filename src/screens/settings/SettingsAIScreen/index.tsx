@@ -75,7 +75,7 @@ const SettingsAIScreen = ({ navigation }: SettingsAIScreenProps) => {
           {providers.length === 0 ? (
             <View style={styles.emptyContainer}>
               <EmptyView
-                icon="(╥﹏╥)"
+                iconName="robot-outline"
                 description="No AI Providers configured"
                 theme={theme}
               />
