@@ -1,19 +1,7 @@
-import { IconButtonV2 } from '@components';
 import { PluginItem } from '@plugins/types';
-import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
-import React, { memo, useCallback, useMemo } from 'react';
-import {
-  Image,
-  Pressable,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextStyle,
-  View,
-  ViewStyle,
-} from 'react-native';
-import { Text as PaperText } from 'react-native-paper';
+import React, { memo } from 'react';
+import { Image, StyleSheet, View } from 'react-native';
 
 interface PluginListItemSkeletonProps {
   item: PluginItem;
@@ -22,125 +10,78 @@ interface PluginListItemSkeletonProps {
 
 export const PluginListItemSkeleton = memo(
   ({ item, theme }: PluginListItemSkeletonProps) => {
-    const containerStyle = useMemo(
-      () => [styles.container, { backgroundColor: theme.surface }],
-      [theme.surface],
-    );
-    const iconStyle = useMemo(
-      () => [styles.icon, { backgroundColor: theme.surface }],
-      [theme.surface],
-    );
-    const nameStyle = useMemo(
-      () => [{ color: theme.onSurface }, styles.name],
-      [theme.onSurface],
-    );
-    const additionStyle = useMemo(
-      () => [{ color: theme.onSurfaceVariant }, styles.addition],
-      [theme.onSurfaceVariant],
-    );
-
-    const CogButton = useCallback(
-      () => (
-        <IconButtonV2
-          name="cog-outline"
-          size={22}
-          color={theme.primary}
-          theme={theme}
-        />
-      ),
-      [theme],
-    );
-
-    const DownloadButton = useCallback(
-      () => (
-        <IconButtonV2
-          name="download-outline"
-          size={22}
-          color={theme.primary}
-          theme={theme}
-        />
-      ),
-      [theme],
-    );
-
-    const LatestButton = useCallback(() => {
-      const viewStyle: StyleProp<ViewStyle> = {
-        alignItems: 'center',
-        justifyContent: 'center',
-        minWidth: 64,
-        paddingBottom: 1,
-      };
-      const textStyle: StyleProp<TextStyle> = {
-        color: theme.primary,
-      };
-      return (
-        <View style={viewStyle}>
-          <PaperText
-            variant="labelLarge"
-            style={[styles.buttonGroup, textStyle]}
-          >
-            {getString('browseScreen.latest')}
-          </PaperText>
-        </View>
-      );
-    }, [theme]);
-
     return (
-      <Pressable
-        style={containerStyle}
-        android_ripple={{ color: theme.rippleColor }}
-      >
-        <View style={[styles.center, styles.row]}>
-          <Image source={{ uri: item.iconUrl }} style={iconStyle} />
-          <View style={styles.details}>
-            <Text numberOfLines={1} style={nameStyle}>
-              {item.name}
-            </Text>
-            <Text numberOfLines={1} style={additionStyle}>
-              {`${item.lang} - ${item.version}`}
-            </Text>
+      <View style={[styles.card, { backgroundColor: theme.surface }]}>
+        <View style={styles.mainRow}>
+          <Image
+            source={{ uri: item.iconUrl }}
+            style={[styles.icon, { backgroundColor: theme.surfaceVariant }]}
+          />
+          <View style={styles.info}>
+            <View
+              style={[
+                styles.skeletonLine,
+                styles.skeletonTitle,
+                { backgroundColor: theme.surfaceVariant },
+              ]}
+            />
+            <View
+              style={[
+                styles.skeletonLine,
+                styles.skeletonMeta,
+                { backgroundColor: theme.surfaceVariant },
+              ]}
+            />
           </View>
+          <View
+            style={[
+              styles.skeletonBtn,
+              { backgroundColor: theme.surfaceVariant },
+            ]}
+          />
         </View>
-        <View style={styles.flex} />
-        {item.hasSettings ? <CogButton /> : null}
-        {item.hasUpdate || __DEV__ ? <DownloadButton /> : null}
-        <LatestButton />
-      </Pressable>
+      </View>
     );
   },
 );
 
 const styles = StyleSheet.create({
-  addition: {
-    fontSize: 12,
-    lineHeight: 20,
+  card: {
+    borderRadius: 14,
+    marginBottom: 8,
+    overflow: 'hidden',
   },
-  buttonGroup: {
-    alignItems: 'center',
+  mainRow: {
     flexDirection: 'row',
-  },
-  center: { alignItems: 'center' },
-  container: {
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 12,
   },
-  details: {
-    marginStart: 16,
-  },
-  flex: { flex: 1 },
   icon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+  },
+  info: {
+    flex: 1,
+    gap: 6,
+  },
+  skeletonLine: {
     borderRadius: 4,
-    height: 40,
-    width: 40,
+    height: 12,
   },
-  name: {
-    fontWeight: '500',
-    lineHeight: 20,
+  skeletonTitle: {
+    width: '55%',
   },
-  row: {
-    flexDirection: 'row',
+  skeletonMeta: {
+    width: '35%',
+    opacity: 0.6,
+  },
+  skeletonBtn: {
+    width: 56,
+    height: 28,
+    borderRadius: 14,
+    opacity: 0.7,
   },
 });

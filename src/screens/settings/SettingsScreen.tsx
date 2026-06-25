@@ -1,21 +1,26 @@
-import { Appbar, List, SafeAreaView } from '@components';
-import { useAnimatedEntrance } from '@hooks';
+import { Appbar, SafeAreaView } from '@components';
 import { useTheme } from '@hooks/persisted';
 import { SettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import React from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
-
 import { DiscordSVG } from './SettingsDiscordScreen';
 
 export const AIIconSvg = ({ color, size, ...props }: any) => (
   <Svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 64 64"
-    width={size || 24}
-    height={size || 24}
-    className="ai-icon"
+    width={size || 20}
+    height={size || 20}
     fill={color || 'currentColor'}
     {...props}
   >
@@ -23,9 +28,119 @@ export const AIIconSvg = ({ color, size, ...props }: any) => (
   </Svg>
 );
 
+type SettingItem = {
+  title: string;
+  description: string;
+  icon: string | ((props: any) => React.ReactNode);
+  screen: string;
+  isCustomIcon?: boolean;
+};
+
+type SettingSection = {
+  sectionTitle: string;
+  items: SettingItem[];
+};
+
 const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
   const theme = useTheme();
-  const { opacity, translateY } = useAnimatedEntrance({ duration: 320, fromY: 20 });
+
+  const sections: SettingSection[] = [
+    {
+      sectionTitle: 'General',
+      items: [
+        {
+          title: getString('generalSettings'),
+          description: 'Default chapter, downloads, and library behavior',
+          icon: 'tune',
+          screen: 'GeneralSettings',
+        },
+        {
+          title: getString('appearance'),
+          description: 'Theme, colors, and display preferences',
+          icon: 'palette-outline',
+          screen: 'AppearanceSettings',
+        },
+        {
+          title: getString('readerSettings.title'),
+          description: 'Font, layout, and reading options',
+          icon: 'book-open-outline',
+          screen: 'ReaderSettings',
+        },
+      ],
+    },
+    {
+      sectionTitle: 'Features',
+      items: [
+        {
+          title: 'AI Settings',
+          description: 'Translation and AI-powered features',
+          icon: 'ai',
+          isCustomIcon: true,
+          screen: 'AISettings',
+        },
+        {
+          title: 'Repositories',
+          description: 'Manage plugin source repositories',
+          icon: 'github',
+          screen: 'RespositorySettings',
+        },
+        {
+          title: getString('tracking'),
+          description: 'AniList, MyAnimeList tracker sync',
+          icon: 'sync',
+          screen: 'TrackerSettings',
+        },
+      ],
+    },
+    {
+      sectionTitle: 'System',
+      items: [
+        {
+          title: getString('securitySettings'),
+          description: 'App lock and security options',
+          icon: 'shield-lock-outline',
+          screen: 'SecuritySettings',
+        },
+        {
+          title: 'Discord',
+          description: 'Rich presence and Discord integration',
+          icon: 'discord',
+          isCustomIcon: true,
+          screen: 'DiscordSettings',
+        },
+        {
+          title: getString('common.backup'),
+          description: 'Backup and restore your library',
+          icon: 'cloud-upload-outline',
+          screen: 'BackupSettings',
+        },
+        {
+          title: getString('advancedSettings'),
+          description: 'Developer tools and advanced options',
+          icon: 'code-tags',
+          screen: 'AdvancedSettings',
+        },
+      ],
+    },
+  ];
+
+  const renderIcon = (item: SettingItem, iconColor: string) => {
+    if (item.isCustomIcon) {
+      if (item.icon === 'ai') {
+        return <AIIconSvg color={iconColor} size={20} />;
+      }
+      if (item.icon === 'discord') {
+        return <DiscordSVG color={iconColor} size={20} />;
+      }
+    }
+    return (
+      <MaterialCommunityIcons
+        name={item.icon as any}
+        size={20}
+        color={iconColor}
+      />
+    );
+  };
 
   return (
     <SafeAreaView excludeTop>
@@ -34,108 +149,89 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
         handleGoBack={navigation.goBack}
         theme={theme}
       />
-      <Animated.ScrollView style={[{ backgroundColor: theme.background, opacity, transform: [{ translateY }] }, styles.flex]}>
-        <List.Item
-          title={getString('generalSettings')}
-          icon="tune"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'GeneralSettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title={getString('appearance')}
-          icon="palette-outline"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'AppearanceSettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title={getString('readerSettings.title')}
-          icon="book-open-outline"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'ReaderSettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title="AI Settings"
-          icon={AIIconSvg}
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'AISettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title="Repositories"
-          icon="github"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'RespositorySettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title={getString('tracking')}
-          icon="sync"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'TrackerSettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title={getString('securitySettings')}
-          icon="shield-lock-outline"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'SecuritySettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title="Discord"
-          icon={DiscordSVG}
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'DiscordSettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title={getString('common.backup')}
-          icon="cloud-upload-outline"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'BackupSettings',
-            })
-          }
-          theme={theme}
-        />
-        <List.Item
-          title={getString('advancedSettings')}
-          icon="code-tags"
-          onPress={() =>
-            navigation.navigate('SettingsStack', {
-              screen: 'AdvancedSettings',
-            })
-          }
-          theme={theme}
-        />
-      </Animated.ScrollView>
+      <ScrollView
+        style={[styles.scroll, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {sections.map((section, sIdx) => (
+          <Animated.View
+            key={section.sectionTitle}
+            entering={FadeInDown.delay(sIdx * 60).duration(280)}
+          >
+            <Text
+              style={[styles.sectionTitle, { color: theme.primary }]}
+            >
+              {section.sectionTitle.toUpperCase()}
+            </Text>
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.surfaceVariant,
+                },
+              ]}
+            >
+              {section.items.map((item, iIdx) => {
+                const isLast = iIdx === section.items.length - 1;
+                return (
+                  <React.Fragment key={item.screen}>
+                    <Pressable
+                      android_ripple={{ color: theme.rippleColor }}
+                      style={styles.row}
+                      onPress={() =>
+                        navigation.navigate('SettingsStack', {
+                          screen: item.screen as any,
+                        })
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.iconWrap,
+                          { backgroundColor: theme.surfaceVariant },
+                        ]}
+                      >
+                        {renderIcon(item, theme.primary)}
+                      </View>
+                      <View style={styles.rowText}>
+                        <Text
+                          style={[styles.rowTitle, { color: theme.onSurface }]}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.rowDesc,
+                            { color: theme.onSurfaceVariant },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.description}
+                        </Text>
+                      </View>
+                      <MaterialCommunityIcons
+                        name="chevron-right"
+                        size={20}
+                        color={theme.onSurfaceVariant}
+                      />
+                    </Pressable>
+                    {!isLast && (
+                      <View
+                        style={[
+                          styles.divider,
+                          { backgroundColor: theme.surfaceVariant },
+                        ]}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </Animated.View>
+        ))}
+        <View style={styles.bottomPad} />
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -143,5 +239,50 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
 export default SettingsScreen;
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 16, paddingTop: 8 },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginTop: 20,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  card: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 14,
+  },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowText: {
+    flex: 1,
+  },
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  rowDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 68,
+  },
+  bottomPad: { height: 24 },
 });

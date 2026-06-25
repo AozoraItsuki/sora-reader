@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { IconButton, Portal } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { Chip } from '../../../../components';
 import { coverPlaceholderColor } from '../../../../theme/colors';
@@ -44,18 +45,21 @@ const NovelInfoContainer = ({ children }: { children: React.ReactNode }) => (
   <View style={styles.novelInfoContainer}>{children}</View>
 );
 
+const GRADIENT_LOCATIONS = [0, 0.6, 1] as const;
+
 const CoverImage = memo(
   ({ children, source, theme, hideBackdrop }: CoverImageProps) => {
     const overlayBg = useMemo(
-      () => color(theme.background).alpha(0.7).string(),
+      () => color(theme.background).alpha(0.55).string(),
       [theme.background],
     );
-    const overlayStyle = useMemo(
-      () => [{ backgroundColor: overlayBg }, styles.flex1],
-      [overlayBg],
-    );
     const gradientColors = useMemo(
-      () => ['rgba(0,0,0,0)', theme.background] as const,
+      () =>
+        [
+          'rgba(0,0,0,0)',
+          color(theme.background).alpha(0.7).string(),
+          theme.background,
+        ] as const,
       [theme.background],
     );
 
@@ -64,7 +68,7 @@ const CoverImage = memo(
     }
     return (
       <ImageBackground source={source} style={styles.coverImage}>
-        <View style={overlayStyle}>
+        <View style={[{ backgroundColor: overlayBg }, styles.flex1]}>
           {source.uri ? (
             <LinearGradient
               colors={gradientColors}
@@ -81,8 +85,6 @@ const CoverImage = memo(
     );
   },
 );
-
-const GRADIENT_LOCATIONS = [0, 1] as const;
 
 const NovelThumbnail = ({
   source,
@@ -123,7 +125,7 @@ const NovelThumbnail = ({
             onPress={setCustomNovelCover}
           />
           <Pressable
-            style={[styles.expandedOverlay]}
+            style={styles.expandedOverlay}
             onPress={() => setExpanded(false)}
           >
             <Image source={source} resizeMode="contain" style={styles.flex1} />
@@ -153,16 +155,28 @@ const NovelTitle = ({
 const NovelInfo = ({
   theme,
   children,
+  icon,
 }: {
   theme: ThemeColors;
   children: React.ReactNode;
+  icon?: string;
 }) => (
-  <Text
-    style={[{ color: theme.onSurfaceVariant }, styles.novelInfo]}
-    numberOfLines={1}
-  >
-    {children}
-  </Text>
+  <View style={styles.novelInfoRow}>
+    {icon ? (
+      <MaterialCommunityIcons
+        name={icon as any}
+        size={13}
+        color={theme.onSurfaceVariant}
+        style={styles.novelInfoIcon}
+      />
+    ) : null}
+    <Text
+      style={[{ color: theme.onSurfaceVariant }, styles.novelInfoText]}
+      numberOfLines={1}
+    >
+      {children}
+    </Text>
+  </View>
 );
 
 const FollowButton = ({
@@ -176,10 +190,7 @@ const FollowButton = ({
 }) => (
   <View style={styles.followButtonContainer}>
     <Pressable
-      android_ripple={{
-        color: theme.rippleColor,
-        borderless: false,
-      }}
+      android_ripple={{ color: theme.rippleColor, borderless: false }}
       onPress={onPress}
       style={styles.followButtonPressable}
     >
@@ -214,10 +225,7 @@ const TrackerButton = ({
 }) => (
   <View style={styles.followButtonContainer}>
     <Pressable
-      android_ripple={{
-        color: theme.rippleColor,
-        borderless: false,
-      }}
+      android_ripple={{ color: theme.rippleColor, borderless: false }}
       onPress={onPress}
       style={styles.followButtonPressable}
     >
@@ -276,20 +284,16 @@ export {
 };
 
 const styles = StyleSheet.create({
-  flex1: {
-    flex: 1,
-  },
+  flex1: { flex: 1 },
   coverImage: {},
-  absoluteIcon: {
-    position: 'absolute',
-  },
+  absoluteIcon: { position: 'absolute' },
   expandedOverlay: {
     position: 'absolute',
     width: '100%',
     height: '100%',
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
   },
   followButtonContainer: {
     borderRadius: 4,
@@ -304,28 +308,24 @@ const styles = StyleSheet.create({
   followButtonText: {
     fontSize: 12,
   },
-  iconButton: {
-    margin: 0,
-  },
-  genreChip: {
-    borderRadius: 50,
-    flex: 1,
-    fontSize: 12,
-    justifyContent: 'center',
-    marginHorizontal: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    textTransform: 'capitalize',
-  },
+  iconButton: { margin: 0 },
   genreContainer: {
     paddingBottom: 4,
     paddingHorizontal: 16,
+    gap: 6,
   },
-  linearGradient: {
+  linearGradient: { flex: 1 },
+  novelInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  novelInfoIcon: {
+    marginRight: 5,
+  },
+  novelInfoText: {
+    fontSize: 13,
     flex: 1,
-  },
-  novelInfo: {
-    fontSize: 14,
   },
   novelInfoContainer: {
     flexDirection: 'row',
@@ -333,20 +333,29 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     marginTop: 28,
     paddingTop: 90,
+    gap: 14,
   },
   novelThumbnail: {
     backgroundColor: coverPlaceholderColor,
-    borderRadius: 6,
-    height: 150,
-    width: 100,
+    borderRadius: 10,
+    height: 160,
+    width: 108,
   },
   novelThumbnailContainer: {
-    height: 150,
-    marginHorizontal: 4,
-    width: 100,
+    height: 160,
+    width: 108,
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
   },
   novelTitle: {
-    fontSize: 20,
+    fontSize: 19,
+    fontWeight: '700',
+    lineHeight: 24,
   },
   zIndex: { zIndex: 10 },
 });

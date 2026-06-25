@@ -72,13 +72,9 @@ interface NovelInfoHeaderProps {
 }
 
 const getStatusIcon = (status?: string) => {
-  if (status === NovelStatus.Ongoing) {
-    return 'clock-outline';
-  }
-  if (status === NovelStatus.Completed) {
-    return 'check-all';
-  }
-  return 'help';
+  if (status === NovelStatus.Ongoing) return 'clock-outline';
+  if (status === NovelStatus.Completed) return 'check-circle-outline';
+  return 'help-circle-outline';
 };
 
 const ChapterCountSkeleton = ({ theme }: { theme: ThemeColors }) => {
@@ -86,11 +82,9 @@ const ChapterCountSkeleton = ({ theme }: { theme: ThemeColors }) => {
   const { disableLoadingAnimations } = useAppSettings();
   const [highlightColor, backgroundColor] = useLoadingColors(theme);
 
-  const animatedProps = useAnimatedProps(() => {
-    return {
-      left: (sv.value + '%') as `${number}%`,
-    };
-  });
+  const animatedProps = useAnimatedProps(() => ({
+    left: (sv.value + '%') as `${number}%`,
+  }));
 
   React.useEffect(() => {
     if (disableLoadingAnimations) return;
@@ -103,23 +97,14 @@ const ChapterCountSkeleton = ({ theme }: { theme: ThemeColors }) => {
   if (disableLoadingAnimations) {
     return (
       <View
-        style={[
-          styles.chapterCountSkeleton,
-          { backgroundColor: backgroundColor },
-        ]}
+        style={[styles.chapterCountSkeleton, { backgroundColor }]}
       />
     );
   }
 
   const LG = Animated.createAnimatedComponent(LinearGradient);
-
   return (
-    <View
-      style={[
-        styles.chapterCountSkeleton,
-        { backgroundColor: backgroundColor },
-      ]}
-    >
+    <View style={[styles.chapterCountSkeleton, { backgroundColor }]}>
       <LG
         start={[0, 0]}
         end={[1, 0]}
@@ -148,21 +133,12 @@ const useShimmer = (theme: ThemeColors) => {
     );
   }, [disableLoadingAnimations, sv]);
 
-  return {
-    animatedStyle,
-    highlightColor,
-    backgroundColor,
-    disableLoadingAnimations,
-  };
+  return { animatedStyle, highlightColor, backgroundColor, disableLoadingAnimations };
 };
 
 const NovelDetailsSkeleton = ({ theme }: { theme: ThemeColors }) => {
-  const {
-    animatedStyle,
-    highlightColor,
-    backgroundColor,
-    disableLoadingAnimations,
-  } = useShimmer(theme);
+  const { animatedStyle, highlightColor, backgroundColor, disableLoadingAnimations } =
+    useShimmer(theme);
 
   const shimmer = !disableLoadingAnimations ? (
     <AnimatedLinearGradient
@@ -177,16 +153,12 @@ const NovelDetailsSkeleton = ({ theme }: { theme: ThemeColors }) => {
   return (
     <>
       <Row style={styles.infoRow}>
-        <View
-          style={[styles.infoSkeletonBar, styles.w130, { backgroundColor }]}
-        >
+        <View style={[styles.infoSkeletonBar, styles.w130, { backgroundColor }]}>
           {shimmer}
         </View>
       </Row>
       <Row style={styles.infoRow}>
-        <View
-          style={[styles.infoSkeletonBar, styles.w180, { backgroundColor }]}
-        >
+        <View style={[styles.infoSkeletonBar, styles.w180, { backgroundColor }]}>
           {shimmer}
         </View>
       </Row>
@@ -195,12 +167,8 @@ const NovelDetailsSkeleton = ({ theme }: { theme: ThemeColors }) => {
 };
 
 const ButtonGroupSkeleton = ({ theme }: { theme: ThemeColors }) => {
-  const {
-    animatedStyle,
-    highlightColor,
-    backgroundColor,
-    disableLoadingAnimations,
-  } = useShimmer(theme);
+  const { animatedStyle, highlightColor, backgroundColor, disableLoadingAnimations } =
+    useShimmer(theme);
 
   const shimmer = !disableLoadingAnimations ? (
     <AnimatedLinearGradient
@@ -214,12 +182,8 @@ const ButtonGroupSkeleton = ({ theme }: { theme: ThemeColors }) => {
 
   return (
     <View style={styles.buttonGroupSkeletonContainer}>
-      <View style={[styles.buttonSkeleton, { backgroundColor }]}>
-        {shimmer}
-      </View>
-      <View style={[styles.buttonSkeleton, { backgroundColor }]}>
-        {shimmer}
-      </View>
+      <View style={[styles.buttonSkeleton, { backgroundColor }]}>{shimmer}</View>
+      <View style={[styles.buttonSkeleton, { backgroundColor }]}>{shimmer}</View>
     </View>
   );
 };
@@ -269,9 +233,7 @@ const NovelInfoHeader = ({
 
   const handleTitlePress = useCallback(
     () =>
-      navigation.replace('GlobalSearchScreen', {
-        searchText: novel.name,
-      }),
+      navigation.replace('GlobalSearchScreen', { searchText: novel.name }),
     [navigation, novel.name],
   );
 
@@ -289,18 +251,12 @@ const NovelInfoHeader = ({
     followNovel().catch(error =>
       showToast('Failed updating: ' + (error as Error).message),
     );
-    if (novel.inLibrary && chapters.some(chapter => chapter.isDownloaded)) {
+    if (novel.inLibrary && chapters.some(c => c.isDownloaded)) {
       deleteDownloadSnackbar?.setTrue();
     } else {
       deleteDownloadSnackbar?.setFalse();
     }
-  }, [
-    isLoading,
-    followNovel,
-    novel.inLibrary,
-    chapters,
-    deleteDownloadSnackbar,
-  ]);
+  }, [isLoading, followNovel, novel.inLibrary, chapters, deleteDownloadSnackbar]);
 
   const handleTrackerSheet = useCallback(
     () => trackerSheetRef.current?.present(),
@@ -319,76 +275,50 @@ const NovelInfoHeader = ({
 
   return (
     <>
-      <CoverImage
-        source={coverSource}
-        theme={theme}
-        hideBackdrop={hideBackdrop}
-      >
+      <CoverImage source={coverSource} theme={theme} hideBackdrop={hideBackdrop}>
         <NovelInfoContainer>
           <NovelThumbnail
             source={coverSource}
             theme={theme}
-            setCustomNovelCover={
-              isLoading ? showNotAvailable : setCustomNovelCover
-            }
+            setCustomNovelCover={isLoading ? showNotAvailable : setCustomNovelCover}
             saveNovelCover={isLoading ? showNotAvailable : saveNovelCover}
           />
           <View style={styles.novelDetails}>
-            <Row style={styles.infoRow}>
-              <NovelTitle
-                theme={theme}
-                onPress={handleTitlePress}
-                onLongPress={handleTitleLongPress}
-              >
-                {novel.name}
-              </NovelTitle>
-            </Row>
+            <NovelTitle
+              theme={theme}
+              onPress={handleTitlePress}
+              onLongPress={handleTitleLongPress}
+            >
+              {novel.name}
+            </NovelTitle>
+
             {isLoading && novel.id === 'NO_ID' ? (
               <NovelDetailsSkeleton theme={theme} />
             ) : (
-              <>
+              <View style={styles.metaBlock}>
                 {novel.id !== 'NO_ID' && novel.author ? (
-                  <Row style={styles.infoRow}>
-                    <MaterialCommunityIcons
-                      name="fountain-pen-tip"
-                      size={14}
-                      color={theme.onSurfaceVariant}
-                      style={styles.marginRight}
-                    />
-                    <NovelInfo theme={theme}>{novel.author}</NovelInfo>
-                  </Row>
+                  <NovelInfo theme={theme} icon="fountain-pen-tip">
+                    {novel.author}
+                  </NovelInfo>
                 ) : null}
                 {novel.id !== 'NO_ID' && novel.artist ? (
-                  <Row style={styles.infoRow}>
-                    <MaterialCommunityIcons
-                      name="palette-outline"
-                      size={14}
-                      color={theme.onSurfaceVariant}
-                      style={styles.marginRight}
-                    />
-                    <NovelInfo theme={theme}>{novel.artist}</NovelInfo>
-                  </Row>
-                ) : null}
-                <Row style={styles.infoRow}>
-                  <MaterialCommunityIcons
-                    name={getStatusIcon(novelStatus)}
-                    size={14}
-                    color={theme.onSurfaceVariant}
-                    style={styles.marginRight}
-                  />
-                  <NovelInfo theme={theme}>
-                    {(novelStatus
-                      ? translateNovelStatus(novelStatus)
-                      : getString('novelScreen.unknownStatus')) +
-                      ' • ' +
-                      pluginName}
+                  <NovelInfo theme={theme} icon="palette-outline">
+                    {novel.artist}
                   </NovelInfo>
-                </Row>
-              </>
+                ) : null}
+                <NovelInfo theme={theme} icon={getStatusIcon(novelStatus)}>
+                  {(novelStatus
+                    ? translateNovelStatus(novelStatus)
+                    : getString('novelScreen.unknownStatus')) +
+                    ' • ' +
+                    pluginName}
+                </NovelInfo>
+              </View>
             )}
           </View>
         </NovelInfoContainer>
       </CoverImage>
+
       <>
         {isLoading && novel.id === 'NO_ID' ? (
           <ButtonGroupSkeleton theme={theme} />
@@ -400,6 +330,7 @@ const NovelInfoHeader = ({
             theme={theme}
           />
         )}
+
         {isLoading && (!novel.genres || !novel.summary) ? (
           <NovelMetaSkeleton />
         ) : (
@@ -414,17 +345,22 @@ const NovelInfoHeader = ({
             ) : null}
           </>
         )}
+
         <ReadButton
           navigateToChapter={navigateToChapter}
           firstUnreadChapter={firstUnreadChapter}
           lastRead={lastRead}
         />
+
         {isLoading && (!novel.genres || !novel.summary) ? (
           <VerticalBarSkeleton />
         ) : (
           <View style={styles.bottomsheetContainer}>
             <Pressable
-              style={styles.bottomsheet}
+              style={[
+                styles.bottomsheet,
+                { borderColor: theme.surfaceVariant },
+              ]}
               onPress={handleOpenBottomSheet}
               android_ripple={ripple}
             >
@@ -433,22 +369,29 @@ const NovelInfoHeader = ({
                   <ChapterCountSkeleton theme={theme} />
                 ) : (
                   <Text style={[{ color: theme.onSurface }, styles.chapters]}>
-                    {`${totalChapters ?? 0} ${getString(
-                      'novelScreen.chapters',
-                    )}`}
+                    {`${totalChapters ?? 0} ${getString('novelScreen.chapters')}`}
                   </Text>
                 )}
               </View>
-              <IconButton
-                icon="filter-variant"
-                iconColor={
-                  filter.length > 0
-                    ? filterColor(theme.isDark)
-                    : theme.onSurface
-                }
-                size={24}
-                onPress={handleOpenBottomSheet}
-              />
+              <View style={styles.filterBtnWrap}>
+                <MaterialCommunityIcons
+                  name="filter-variant"
+                  size={18}
+                  color={
+                    filter.length > 0
+                      ? filterColor(theme.isDark)
+                      : theme.onSurfaceVariant
+                  }
+                />
+                {filter.length > 0 ? (
+                  <View
+                    style={[
+                      styles.filterDot,
+                      { backgroundColor: filterColor(theme.isDark) },
+                    ]}
+                  />
+                ) : null}
+              </View>
             </Pressable>
           </View>
         )}
@@ -464,11 +407,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingRight: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   bottomsheetContainer: {
-    gap: 12,
+    marginTop: 4,
+    marginBottom: 4,
   },
   chapterCountGradient: {
     height: 20,
@@ -485,20 +431,34 @@ const styles = StyleSheet.create({
   },
   chapters: {
     fontSize: 14,
-    paddingHorizontal: 16,
+    fontWeight: '600',
+    paddingHorizontal: 0,
   },
   flex: { flex: 1 },
-  marginRight: { marginRight: 4 },
+  filterBtnWrap: {
+    position: 'relative',
+    marginRight: 4,
+    padding: 6,
+  },
+  filterDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  metaBlock: {
+    marginTop: 10,
+    gap: 2,
+  },
   novelDetails: {
     flex: 1,
     flexDirection: 'column',
-    justifyContent: 'center',
-    paddingBottom: 16,
-    paddingLeft: 12,
+    justifyContent: 'flex-end',
+    paddingBottom: 12,
   },
-  infoRow: {
-    marginBottom: 8,
-  },
+  infoRow: { marginBottom: 6 },
   infoSkeletonBar: {
     borderRadius: 4,
     height: 14,
@@ -528,10 +488,6 @@ const styles = StyleSheet.create({
     transform: [{ translateX: '-100%' }],
     width: '60%',
   },
-  w130: {
-    width: 130,
-  },
-  w180: {
-    width: 180,
-  },
+  w130: { width: 130 },
+  w180: { width: 180 },
 });

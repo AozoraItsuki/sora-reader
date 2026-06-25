@@ -150,30 +150,40 @@ export const useInitDatabase = () => {
       );
     }
 
-    // Pre-flight: if charOffset column already exists but migration isn't tracked,
-    // mark it as applied to prevent "duplicate column" crash for upgrading users.
+    // Pre-flight: if charOffset column already exists, ensure the migration is
+    // marked as applied so Drizzle won't try to run it again (which would fail
+    // with "duplicate column"). We create the migrations table ourselves if it
+    // doesn't exist yet, so the INSERT always succeeds.
     try {
-      const preCheck = db.executeRawSync(`PRAGMA table_info(Chapter);`);
-      const charOffsetExists = preCheck.some(
+      const chapterInfo = db.executeRawSync(`PRAGMA table_info(Chapter);`);
+      const charOffsetExists = chapterInfo.some(
         (row: unknown[]) => row[1] === 'charOffset',
       );
       if (charOffsetExists) {
-        const migKey = '20260620000000_char_offset';
-        try {
-          const tracked = db.executeRawSync(
-            `SELECT hash FROM __drizzle_migrations WHERE hash = '${migKey}'`,
+        // Ensure the migrations tracking table exists before we try to INSERT
+        _db.executeRawSync(`
+          CREATE TABLE IF NOT EXISTS __drizzle_migrations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hash TEXT NOT NULL UNIQUE,
+            created_at NUMERIC,
+            applied_at TEXT,
+            name TEXT
           );
-          if (!tracked || tracked.length === 0) {
-            db.executeRawSync(
-              `INSERT INTO __drizzle_migrations (hash, applied_at) VALUES ('${migKey}', '${Date.now()}')`,
-            );
-          }
-        } catch {
-          // __drizzle_migrations may not exist yet — migrate() will create it
+        `);
+        const migKey = '20260620000000_char_offset';
+        const tracked = db.executeRawSync(
+          `SELECT hash FROM __drizzle_migrations WHERE hash = ?`,
+          [migKey],
+        );
+        if (!tracked || tracked.length === 0) {
+          db.executeRawSync(
+            `INSERT OR IGNORE INTO __drizzle_migrations (hash, applied_at) VALUES (?, ?)`,
+            [migKey, String(Date.now())],
+          );
         }
       }
-    } catch {
-      // Ignore pre-flight errors
+    } catch (preFlightErr) {
+      console.warn('Pre-flight charOffset check failed:', preFlightErr);
     }
 
     migrate(drizzleDb, migrations)
@@ -200,7 +210,7 @@ export const useInitDatabase = () => {
           // 2. Drop the readDuration column from Chapter table
           db.executeRawSync('ALTER TABLE Chapter DROP COLUMN readDuration;');
         }
-        // Add charOffset column if missing (for users upgrading from older versions)
+        // Add charOffset column if still missing (safety net)
         const charOffsetCheck = queryChapter.some(
           (row: unknown[]) => row[1] === 'charOffset',
         );

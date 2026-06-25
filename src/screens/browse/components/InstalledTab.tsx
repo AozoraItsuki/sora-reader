@@ -8,7 +8,7 @@ import { PluginItem } from '@plugins/types';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Portal } from 'react-native-paper';
 
 import DiscoverCard from '../discover/DiscoverCard';
@@ -51,186 +51,226 @@ export const InstalledTab = memo(
     );
 
     const { pinnedPluginsList, unpinnedPluginsList } = useMemo(() => {
-      const sortedInstalledPlugins = filteredInstalledPlugins.sort(
-        (plgFirst, plgSecond) => plgFirst.name.localeCompare(plgSecond.name),
+      const sorted = [...filteredInstalledPlugins].sort((a, b) =>
+        a.name.localeCompare(b.name),
       );
-
       const pinned: PluginItem[] = [];
       const unpinned: PluginItem[] = [];
-
-      sortedInstalledPlugins.forEach(plugin => {
-        if (pinnedPlugins.includes(plugin.id)) {
-          pinned.push(plugin);
-        } else {
-          unpinned.push(plugin);
-        }
+      sorted.forEach(plugin => {
+        if (pinnedPlugins.includes(plugin.id)) pinned.push(plugin);
+        else unpinned.push(plugin);
       });
-
-      return {
-        pinnedPluginsList: pinned,
-        unpinnedPluginsList: unpinned,
-      };
+      return { pinnedPluginsList: pinned, unpinnedPluginsList: unpinned };
     }, [filteredInstalledPlugins, pinnedPlugins]);
 
     const searchedPlugins = useMemo(() => {
       if (searchText) {
-        const lowerCaseSearchText = searchText.toLocaleLowerCase();
+        const lower = searchText.toLocaleLowerCase();
         return [...pinnedPluginsList, ...unpinnedPluginsList].filter(
           plg =>
-            plg.name.toLocaleLowerCase().includes(lowerCaseSearchText) ||
-            plg.id.includes(lowerCaseSearchText),
+            plg.name.toLocaleLowerCase().includes(lower) ||
+            plg.id.includes(lower),
         );
       }
       return unpinnedPluginsList;
     }, [searchText, pinnedPluginsList, unpinnedPluginsList]);
 
     const renderItem = useCallback(
-      ({ item }: LegendListRenderItemProps<PluginItem>) => {
-        return (
-          <DeferredPluginListItem
-            item={item}
-            theme={theme}
-            navigation={navigation}
-            settingsModal={settingsModal}
-            navigateToSource={navigateToSource}
-            setSelectedPluginId={setSelectedPluginId}
-          />
-        );
-      },
+      ({ item }: LegendListRenderItemProps<PluginItem>) => (
+        <DeferredPluginListItem
+          item={item}
+          theme={theme}
+          navigation={navigation}
+          settingsModal={settingsModal}
+          navigateToSource={navigateToSource}
+          setSelectedPluginId={setSelectedPluginId}
+        />
+      ),
       [theme, navigation, navigateToSource, settingsModal],
     );
 
     return (
-      <LegendList
-        estimatedItemSize={64}
-        data={searchedPlugins}
-        recycleItems
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        keyExtractor={item => item.id + '_installed'}
-        drawDistance={100}
-        ListHeaderComponent={
-          <>
-            {/* Discover Section */}
-            {showMyAnimeList || showAniList ? (
-              <>
-                <Text
-                  style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
-                >
-                  {getString('browseScreen.discover')}
-                </Text>
-                {showAniList ? (
-                  <DiscoverCard
+      <>
+        <LegendList
+          estimatedItemSize={64}
+          data={searchedPlugins}
+          recycleItems
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          keyExtractor={item => item.id + '_installed'}
+          drawDistance={100}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <>
+              {/* Discover Section */}
+              {(showMyAnimeList || showAniList) && !searchText ? (
+                <View style={styles.section}>
+                  <SectionLabel
+                    label={getString('browseScreen.discover')}
                     theme={theme}
-                    icon={require('../../../../assets/anilist.png')}
-                    trackerName="Anilist"
-                    onPress={() => navigation.navigate('BrowseAL')}
                   />
-                ) : null}
-                {showMyAnimeList ? (
-                  <DiscoverCard
-                    theme={theme}
-                    icon={require('../../../../assets/mal.png')}
-                    trackerName="MyAnimeList"
-                    onPress={() => navigation.navigate('BrowseMal')}
-                  />
-                ) : null}
-              </>
-            ) : null}
+                  {showAniList ? (
+                    <DiscoverCard
+                      theme={theme}
+                      icon={require('../../../../assets/anilist.png')}
+                      trackerName="Anilist"
+                      onPress={() => navigation.navigate('BrowseAL')}
+                    />
+                  ) : null}
+                  {showMyAnimeList ? (
+                    <DiscoverCard
+                      theme={theme}
+                      icon={require('../../../../assets/mal.png')}
+                      trackerName="MyAnimeList"
+                      onPress={() => navigation.navigate('BrowseMal')}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
 
-            {/* Pinned Plugins Section */}
-            {!searchText && pinnedPluginsList.length > 0 ? (
-              <>
-                <Text
-                  style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
-                >
-                  {getString('browseScreen.pinnedPlugins')}
-                </Text>
-                {pinnedPluginsList.map(plugin => (
+              {/* Pinned Plugins Section */}
+              {!searchText && pinnedPluginsList.length > 0 ? (
+                <View style={styles.section}>
+                  <SectionLabel
+                    label={getString('browseScreen.pinnedPlugins')}
+                    theme={theme}
+                    count={pinnedPluginsList.length}
+                  />
+                  {pinnedPluginsList.map(plugin => (
+                    <DeferredPluginListItem
+                      key={plugin.id}
+                      item={plugin}
+                      theme={theme}
+                      navigation={navigation}
+                      settingsModal={settingsModal}
+                      navigateToSource={navigateToSource}
+                      setSelectedPluginId={setSelectedPluginId}
+                    />
+                  ))}
+                </View>
+              ) : null}
+
+              {/* Default Sources Section */}
+              {!searchText ? (
+                <View style={styles.section}>
+                  <SectionLabel
+                    label={getString('browseScreen.defaultSources')}
+                    theme={theme}
+                  />
                   <DeferredPluginListItem
-                    key={plugin.id}
-                    item={plugin}
+                    item={localPlugin}
                     theme={theme}
                     navigation={navigation}
                     settingsModal={settingsModal}
                     navigateToSource={navigateToSource}
                     setSelectedPluginId={setSelectedPluginId}
                   />
-                ))}
-              </>
-            ) : null}
+                </View>
+              ) : null}
 
-            {/* Default Sources Section */}
-            {!searchText ? (
-              <>
-                <Text
-                  style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
-                >
-                  {getString('browseScreen.defaultSources')}
-                </Text>
-                <DeferredPluginListItem
-                  item={localPlugin}
-                  theme={theme}
-                  navigation={navigation}
-                  settingsModal={settingsModal}
-                  navigateToSource={navigateToSource}
-                  setSelectedPluginId={setSelectedPluginId}
-                />
-              </>
-            ) : null}
+              {/* Last Used Section */}
+              {!searchText &&
+              lastUsedPlugin &&
+              !pinnedPlugins.includes(lastUsedPlugin.id) ? (
+                <View style={styles.section}>
+                  <SectionLabel
+                    label={getString('browseScreen.lastUsed')}
+                    theme={theme}
+                  />
+                  <DeferredPluginListItem
+                    item={lastUsedPlugin}
+                    theme={theme}
+                    navigation={navigation}
+                    settingsModal={settingsModal}
+                    navigateToSource={navigateToSource}
+                    setSelectedPluginId={setSelectedPluginId}
+                  />
+                </View>
+              ) : null}
 
-            {/* Last Used Section */}
-            {!searchText &&
-            lastUsedPlugin &&
-            !pinnedPlugins.includes(lastUsedPlugin.id) ? (
-              <>
-                <Text
-                  style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
-                >
-                  {getString('browseScreen.lastUsed')}
-                </Text>
-                <DeferredPluginListItem
-                  item={lastUsedPlugin}
-                  theme={theme}
-                  navigation={navigation}
-                  settingsModal={settingsModal}
-                  navigateToSource={navigateToSource}
-                  setSelectedPluginId={setSelectedPluginId}
-                />
-              </>
-            ) : null}
-
-            {/* All Installed Plugins Section */}
-            <Text
-              style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
-            >
-              {searchText
-                ? getString('browseScreen.searchResults')
-                : getString('browseScreen.installedPlugins')}
-            </Text>
-
-            <Portal>
-              <SourceSettingsModal
-                visible={settingsModal.value}
-                onDismiss={settingsModal.setFalse}
-                title={getString('browseScreen.settings.title')}
-                description={getString('browseScreen.settings.description')}
-                pluginId={selectedPluginId}
-                pluginSettings={pluginSettings}
+              {/* All Installed Plugins Section header */}
+              <SectionLabel
+                label={
+                  searchText
+                    ? getString('browseScreen.searchResults')
+                    : getString('browseScreen.installedPlugins')
+                }
+                theme={theme}
+                count={searchText ? searchedPlugins.length : unpinnedPluginsList.length}
               />
-            </Portal>
-          </>
-        }
-      />
+
+              <Portal>
+                <SourceSettingsModal
+                  visible={settingsModal.value}
+                  onDismiss={settingsModal.setFalse}
+                  title={getString('browseScreen.settings.title')}
+                  description={getString('browseScreen.settings.description')}
+                  pluginId={selectedPluginId}
+                  pluginSettings={pluginSettings}
+                />
+              </Portal>
+            </>
+          }
+        />
+      </>
     );
   },
 );
 
+const SectionLabel = ({
+  label,
+  theme,
+  count,
+}: {
+  label: string;
+  theme: ThemeColors;
+  count?: number;
+}) => (
+  <View style={styles.sectionLabelRow}>
+    <Text style={[styles.sectionLabel, { color: theme.primary }]}>
+      {label.toUpperCase()}
+    </Text>
+    {count !== undefined ? (
+      <View
+        style={[styles.countBadge, { backgroundColor: theme.surfaceVariant }]}
+      >
+        <Text style={[styles.countText, { color: theme.onSurfaceVariant }]}>
+          {count}
+        </Text>
+      </View>
+    ) : null}
+  </View>
+);
+
 const styles = StyleSheet.create({
-  listHeader: {
-    fontSize: 14,
-    fontWeight: '500',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  listContent: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  section: {
+    marginBottom: 4,
+  },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  countBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  countText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -1,4 +1,4 @@
-import { Button, IconButtonV2 } from '@components';
+import { Button } from '@components';
 import ConfirmationDialog from '@components/ConfirmationDialog/ConfirmationDialog';
 import { UseBooleanReturnType } from '@hooks';
 import { usePlugins } from '@hooks/persisted';
@@ -11,7 +11,6 @@ import { ThemeColors } from '@theme/types';
 import { showToast } from '@utils/showToast';
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 interface PluginListItemProps {
   item: PluginItem;
@@ -43,64 +42,41 @@ export const PluginListItem = memo(
     const isMissingFromRepo =
       item.id !== LOCAL_PLUGIN_ID && !availablePluginsSet.has(item.id);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showActions, setShowActions] = useState(false);
 
-    const rightActionStyle = useMemo(
-      () => [styles.buttonGroup, { backgroundColor: theme.primary }],
-      [theme.primary],
-    );
     const containerStyle = useMemo(
-      () => [styles.container, { backgroundColor: theme.surface }],
+      () => [styles.card, { backgroundColor: theme.surface }],
       [theme.surface],
     );
-    const iconStyle = useMemo(
-      () => [styles.icon, { backgroundColor: theme.surface }],
-      [theme.surface],
-    );
-    const nameStyle = useMemo(
-      () => [{ color: theme.onSurface }, styles.name],
-      [theme.onSurface],
-    );
-    const additionStyle = useMemo(
-      () => [{ color: theme.onSurfaceVariant }, styles.addition],
-      [theme.onSurfaceVariant],
-    );
 
-    const handleWebviewPress = useCallback(
-      (ref: any) => {
-        ref.close();
-        navigation.navigate('WebviewScreen', {
-          name: item.name,
-          url: item.site,
-          pluginId: item.id,
-        });
-      },
-      [navigation, item],
-    );
+    const handleWebviewPress = useCallback(() => {
+      setShowActions(false);
+      navigation.navigate('WebviewScreen', {
+        name: item.name,
+        url: item.site,
+        pluginId: item.id,
+      });
+    }, [navigation, item]);
 
-    const handlePinPress = useCallback(
-      (ref: any) => {
-        ref.close();
-        togglePinPlugin(item.id);
-        showToast(
-          isPluginPinned
-            ? getString('browseScreen.unpinnedPlugin', { name: item.name })
-            : getString('browseScreen.pinnedPlugin', { name: item.name }),
-        );
-      },
-      [togglePinPlugin, item.id, item.name, isPluginPinned],
-    );
+    const handlePinPress = useCallback(() => {
+      setShowActions(false);
+      togglePinPlugin(item.id);
+      showToast(
+        isPluginPinned
+          ? getString('browseScreen.unpinnedPlugin', { name: item.name })
+          : getString('browseScreen.pinnedPlugin', { name: item.name }),
+      );
+    }, [togglePinPlugin, item.id, item.name, isPluginPinned]);
 
-    const handleDeletePress = useCallback((ref: any) => {
-      ref.close();
+    const handleDeletePress = useCallback(() => {
+      setShowActions(false);
       setShowDeleteDialog(true);
     }, []);
 
     const handleConfirmDelete = useCallback(() => {
       uninstallPlugin(item).then(() =>
         showToast(
-          getString('browseScreen.uninstalledPlugin', {
-            name: item.name,
-          }),
+          getString('browseScreen.uninstalledPlugin', { name: item.name }),
         ),
       );
     }, [uninstallPlugin, item]);
@@ -119,124 +95,147 @@ export const PluginListItem = memo(
     }, [updatePlugin, item]);
 
     const handleLatestPress = useCallback(() => {
-      if (item.id === LOCAL_PLUGIN_ID) {
-        handleSettingsPress();
-      } else {
-        navigateToSource(item, true);
-      }
+      if (item.id === LOCAL_PLUGIN_ID) handleSettingsPress();
+      else navigateToSource(item, true);
     }, [navigateToSource, item, handleSettingsPress]);
 
     const handlePress = useCallback(() => {
-      if (item.id === LOCAL_PLUGIN_ID) {
-        handleSettingsPress();
-      } else {
-        navigateToSource(item);
-      }
+      if (item.id === LOCAL_PLUGIN_ID) handleSettingsPress();
+      else navigateToSource(item);
     }, [navigateToSource, item, handleSettingsPress]);
-
-    const renderRightActions = useCallback(
-      (_progress: any, _dragX: any, ref: any) => (
-        <View style={styles.rightActionsContainer}>
-          <View style={rightActionStyle}>
-            <IconButtonV2
-              name="earth"
-              size={22}
-              color={theme.onPrimary}
-              onPress={() => handleWebviewPress(ref)}
-              theme={theme}
-            />
-          </View>
-          <View style={rightActionStyle}>
-            <IconButtonV2
-              name={isPluginPinned ? 'pin-off' : 'pin'}
-              size={22}
-              color={theme.onPrimary}
-              onPress={() => handlePinPress(ref)}
-              theme={theme}
-            />
-          </View>
-          <View style={[rightActionStyle]}>
-            <IconButtonV2
-              name="delete"
-              size={22}
-              color={theme.onPrimary}
-              onPress={() => handleDeletePress(ref)}
-              theme={theme}
-            />
-          </View>
-        </View>
-      ),
-      [
-        rightActionStyle,
-        theme,
-        handlePinPress,
-        handleDeletePress,
-        handleWebviewPress,
-        isPluginPinned,
-      ],
-    );
 
     return (
       <>
-        <Swipeable
-          dragOffsetFromLeftEdge={30}
-          dragOffsetFromRightEdge={30}
-          renderRightActions={renderRightActions}
+        <Pressable
+          style={containerStyle}
+          android_ripple={{ color: theme.rippleColor }}
+          onPress={handlePress}
+          onLongPress={() => setShowActions(v => !v)}
         >
-          <Pressable
-            style={containerStyle}
-            android_ripple={{ color: theme.rippleColor }}
-            onPress={handlePress}
-          >
-            <View style={[styles.center, styles.row]}>
-              <Image source={{ uri: item.iconUrl }} style={iconStyle} />
-              <View style={styles.details}>
-                <Text numberOfLines={1} style={nameStyle}>
+          {/* Main row */}
+          <View style={styles.mainRow}>
+            <Image
+              source={{ uri: item.iconUrl }}
+              style={[styles.icon, { backgroundColor: theme.surfaceVariant }]}
+            />
+            <View style={styles.info}>
+              <View style={styles.nameRow}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.name, { color: theme.onSurface }]}
+                >
                   {item.name}
                 </Text>
-                <View style={[styles.row, styles.center]}>
-                  <Text numberOfLines={1} style={additionStyle}>
-                    {`${item.lang} - ${item.version}`}
-                  </Text>
-                  {isMissingFromRepo && (
-                    <MaterialCommunityIcons
-                      name="alert-circle-outline"
-                      size={14}
-                      color="#ffc107"
-                      style={styles.warningIcon}
-                    />
-                  )}
-                </View>
+                {isPluginPinned ? (
+                  <MaterialCommunityIcons
+                    name="pin"
+                    size={12}
+                    color={theme.primary}
+                    style={styles.pinIcon}
+                  />
+                ) : null}
+                {isMissingFromRepo ? (
+                  <MaterialCommunityIcons
+                    name="alert-circle-outline"
+                    size={13}
+                    color="#ffc107"
+                    style={styles.pinIcon}
+                  />
+                ) : null}
               </View>
+              <Text
+                numberOfLines={1}
+                style={[styles.meta, { color: theme.onSurfaceVariant }]}
+              >
+                {`${item.lang}  ·  v${item.version}`}
+              </Text>
             </View>
-            <View style={styles.flex} />
-            {item.hasUpdate || __DEV__ ? (
-              <IconButtonV2
-                name="download-outline"
-                size={22}
-                color={theme.primary}
-                onPress={handleUpdatePress}
+
+            {/* Quick actions on right */}
+            <View style={styles.rightActions}>
+              {(item.hasUpdate || __DEV__) && (
+                <Pressable
+                  style={[
+                    styles.updateBadge,
+                    { backgroundColor: theme.primary },
+                  ]}
+                  onPress={handleUpdatePress}
+                  android_ripple={{ color: theme.onPrimary, borderless: false }}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-up-circle"
+                    size={14}
+                    color={theme.onPrimary}
+                  />
+                  <Text style={[styles.updateText, { color: theme.onPrimary }]}>
+                    Update
+                  </Text>
+                </Pressable>
+              )}
+              {item.id !== LOCAL_PLUGIN_ID && !item.hasUpdate ? (
+                <Button
+                  title={getString('browseScreen.latest')}
+                  textColor={theme.primary}
+                  onPress={handleLatestPress}
+                />
+              ) : null}
+              <Pressable
+                style={styles.menuBtn}
+                onPress={() => setShowActions(v => !v)}
+                android_ripple={{ color: theme.rippleColor, borderless: true }}
+                hitSlop={8}
+              >
+                <MaterialCommunityIcons
+                  name="dots-vertical"
+                  size={20}
+                  color={theme.onSurfaceVariant}
+                />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Expanded action row */}
+          {showActions ? (
+            <View
+              style={[
+                styles.actionBar,
+                { borderTopColor: theme.surfaceVariant },
+              ]}
+            >
+              <ActionChip
+                icon="earth"
+                label="WebView"
+                color={theme.onSurfaceVariant}
+                onPress={handleWebviewPress}
                 theme={theme}
               />
-            ) : null}
-            {item.hasSettings ? (
-              <IconButtonV2
-                name="cog-outline"
-                size={22}
-                color={theme.primary}
-                onPress={handleSettingsPress}
+              <ActionChip
+                icon={isPluginPinned ? 'pin-off' : 'pin'}
+                label={isPluginPinned ? 'Unpin' : 'Pin'}
+                color={isPluginPinned ? theme.primary : theme.onSurfaceVariant}
+                onPress={handlePinPress}
                 theme={theme}
               />
-            ) : null}
-            {item.id !== LOCAL_PLUGIN_ID ? (
-              <Button
-                title={getString('browseScreen.latest')}
-                textColor={theme.primary}
-                onPress={handleLatestPress}
+              {item.hasSettings ? (
+                <ActionChip
+                  icon="cog-outline"
+                  label="Settings"
+                  color={theme.onSurfaceVariant}
+                  onPress={handleSettingsPress}
+                  theme={theme}
+                />
+              ) : null}
+              <ActionChip
+                icon="delete-outline"
+                label="Remove"
+                color="#ef5350"
+                onPress={handleDeletePress}
+                theme={theme}
               />
-            ) : null}
-          </Pressable>
-        </Swipeable>
+            </View>
+          ) : null}
+        </Pressable>
+
         <ConfirmationDialog
           visible={showDeleteDialog}
           title={getString('common.delete')}
@@ -252,46 +251,107 @@ export const PluginListItem = memo(
   },
 );
 
+const ActionChip = ({
+  icon,
+  label,
+  color,
+  onPress,
+  theme,
+}: {
+  icon: string;
+  label: string;
+  color: string;
+  onPress: () => void;
+  theme: ThemeColors;
+}) => (
+  <Pressable
+    style={[styles.actionChip, { backgroundColor: theme.surfaceVariant }]}
+    onPress={onPress}
+    android_ripple={{ color: theme.rippleColor, borderless: false }}
+  >
+    <MaterialCommunityIcons name={icon as any} size={15} color={color} />
+    <Text style={[styles.actionChipText, { color }]}>{label}</Text>
+  </Pressable>
+);
+
 const styles = StyleSheet.create({
-  addition: {
-    fontSize: 12,
-    lineHeight: 20,
+  card: {
+    borderRadius: 14,
+    marginBottom: 8,
+    overflow: 'hidden',
   },
-  buttonGroup: {
-    alignItems: 'center',
+  mainRow: {
     flexDirection: 'row',
-    paddingHorizontal: 8,
-  },
-  center: { alignItems: 'center' },
-  container: {
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 12,
   },
-  details: {
-    marginStart: 16,
-  },
-  flex: { flex: 1 },
   icon: {
-    borderRadius: 4,
-    height: 40,
-    width: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+  },
+  info: {
+    flex: 1,
+    gap: 3,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   name: {
-    lineHeight: 20,
+    fontSize: 14,
+    fontWeight: '600',
+    flexShrink: 1,
   },
-  pinnedIndicator: {
-    marginEnd: -8,
+  meta: {
+    fontSize: 12,
   },
-  rightActionsContainer: {
+  pinIcon: {
+    marginTop: 1,
+  },
+  rightActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  row: {
+  updateBadge: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  warningIcon: {
-    marginStart: 4,
+  updateText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  menuBtn: {
+    padding: 4,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    paddingTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  actionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  actionChipText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
