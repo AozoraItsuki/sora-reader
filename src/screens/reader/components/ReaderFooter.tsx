@@ -39,12 +39,8 @@ import { StringMap } from '@strings/types';
 const SCREEN_HEIGHT = Dimensions.get('screen').height;
 
 interface ChapterFooterProps {
-  readerSheetRef?: React.RefObject<unknown>;
-  scrollToStart?: () => void;
   navigation: ChapterScreenProps['navigation'];
   openDrawer: () => void;
-  openEditTerms: () => void;
-  presentSheetAtTab: (tabIndex: number) => void;
   onApplyTerms?: () => void;
 }
 
@@ -77,7 +73,6 @@ const SETTINGS_PREFS: { key: string; label: string }[] = [
 const ChapterFooter = ({
   navigation,
   openDrawer,
-  presentSheetAtTab,
   onApplyTerms,
 }: ChapterFooterProps) => {
   const {

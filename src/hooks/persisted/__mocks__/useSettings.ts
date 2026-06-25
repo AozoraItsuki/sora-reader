@@ -55,6 +55,7 @@ export const initialChapterGeneralSettings = {
   tapToScroll: false,
   TTSEnable: true,
   einkRefreshOnPageTurn: false,
+  infiniteScroll: true,
 };
 
 export const initialChapterReaderSettings = {

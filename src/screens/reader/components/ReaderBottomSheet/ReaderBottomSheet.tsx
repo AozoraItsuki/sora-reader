@@ -103,8 +103,9 @@ const GeneralTab: React.FC = React.memo(() => {
         label={getString(
           `readerScreen.bottomSheet.${item.label}` as keyof StringMap,
         )}
-        onPress={() => toggleSetting(item.key as keyof typeof settings)} // @ts-ignore
-        value={settings[item.key]}
+        onPress={() => toggleSetting(item.key as keyof typeof settings)}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        value={(settings as any)[item.key]}
         theme={theme}
       />
     ),

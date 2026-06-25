@@ -157,19 +157,6 @@ export const ChapterContent = ({
     }, [novel, chapter]),
   );
 
-  const scrollToStart = () =>
-    requestAnimationFrame(() => {
-      webViewRef?.current?.injectJavaScript(
-        !pageReader
-          ? `(()=>{
-                window.scrollTo({top:0,behavior:'smooth'})
-              })()`
-          : `(()=>{
-              pageReader.movePage(0);
-            })()`,
-      );
-    });
-
   const openDrawerI = useCallback(() => {
     openDrawer();
     hideHeader();
@@ -234,12 +221,8 @@ export const ChapterContent = ({
             }}
           />
           <ReaderFooter
-            readerSheetRef={readerSheetRef}
-            scrollToStart={scrollToStart}
             navigation={navigation}
             openDrawer={openDrawerI}
-            openEditTerms={() => {}}
-            presentSheetAtTab={presentSheetAtTab}
             onApplyTerms={applyTermsToWebView}
           />
         </View>
