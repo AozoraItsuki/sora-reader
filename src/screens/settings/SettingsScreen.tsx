@@ -50,9 +50,15 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       items: [
         {
           title: getString('generalSettings'),
-          description: 'Default chapter, downloads, and library behavior',
+          description: 'Default chapter, sort, and library behavior',
           icon: 'tune',
           screen: 'GeneralSettings',
+        },
+        {
+          title: getString('downloadSettings'),
+          description: 'Parallel downloads, auto-download, and retry',
+          icon: 'download-outline',
+          screen: 'DownloadSettings',
         },
         {
           title: getString('appearance'),

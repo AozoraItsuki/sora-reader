@@ -347,6 +347,21 @@
     "pluginNotFound": "Plugin not found!",
     "removeDownloadsWarning": "Are you sure? All downloaded chapters will be deleted."
   },
+  "downloadSettings": "Download Settings",
+  "downloadSettingsScreen": {
+    "title": "Download Settings",
+    "autoDownload": "Auto-download",
+    "downloadNewChapters": "Download new chapters",
+    "parallelDownload": "Parallel Downloads",
+    "parallelChapters": "Parallel chapter download",
+    "parallelChaptersDesc": "Download multiple chapters simultaneously",
+    "parallelChaptersCount": "Simultaneous chapters",
+    "parallelNovels": "Parallel novel download",
+    "parallelNovelsDesc": "Download chapters from different novels simultaneously",
+    "retryOnError": "Retry on error",
+    "retryOnErrorDesc": "Wait 5 seconds and automatically retry when a download fails",
+    "errorHandling": "Error Handling"
+  },
   "generalSettings": "General",
   "generalSettingsScreen": {
     "preferences": "Preferences",

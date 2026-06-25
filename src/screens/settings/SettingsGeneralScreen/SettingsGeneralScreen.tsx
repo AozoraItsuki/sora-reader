@@ -55,7 +55,6 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
     disableLoadingAnimations,
     enableAnimations,
     updateLibraryOnLaunch,
-    downloadNewChapters,
     onlyUpdateOngoingNovels,
     defaultChapterSort,
     refreshNovelMetadata,
@@ -241,18 +240,6 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
               clearHistory();
               showToast(getString('historyScreen.deleted'));
             }}
-            theme={theme}
-          />
-          <List.Divider theme={theme} />
-          <List.SubHeader theme={theme}>
-            {getString('generalSettingsScreen.autoDownload')}
-          </List.SubHeader>
-          <SettingSwitch
-            label={getString('generalSettingsScreen.downloadNewChapters')}
-            value={downloadNewChapters}
-            onPress={() =>
-              setAppSettings({ downloadNewChapters: !downloadNewChapters })
-            }
             theme={theme}
           />
           <List.Divider theme={theme} />

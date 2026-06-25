@@ -31,6 +31,7 @@ export default function useDownload() {
         name: 'DOWNLOAD_CHAPTER',
         data: {
           chapterId: chapter.id,
+          novelId: novel.id,
           novelName: novel.name,
           chapterName: chapter.name,
         },
@@ -44,6 +45,7 @@ export default function useDownload() {
           name: 'DOWNLOAD_CHAPTER',
           data: {
             chapterId: chapter.id,
+            novelId: novel.id,
             novelName: novel.name,
             chapterName: chapter.name,
           },

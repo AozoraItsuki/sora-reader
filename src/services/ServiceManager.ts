@@ -6,6 +6,11 @@ import { showToast } from '@utils/showToast';
 import * as Notifications from 'expo-notifications';
 import BackgroundService from 'react-native-background-actions';
 
+import {
+  DOWNLOAD_SETTINGS,
+  DownloadSettings,
+  initialDownloadSettings,
+} from '@hooks/persisted/useSettings';
 import { createDriveBackup, driveRestore } from './backup/drive';
 import { createBackup, restoreBackup } from './backup/local';
 import {
@@ -55,7 +60,12 @@ export type BackgroundTask =
   | DownloadChapterTask;
 export type DownloadChapterTask = {
   name: 'DOWNLOAD_CHAPTER';
-  data: { chapterId: number; novelName: string; chapterName: string };
+  data: {
+    chapterId: number;
+    novelId: number;
+    novelName: string;
+    chapterName: string;
+  };
 };
 
 export type BackgroundTaskMetadata = {
@@ -282,6 +292,50 @@ export default class ServiceManager {
     }
   }
 
+  setMetaById(
+    id: string,
+    transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
+  ) {
+    const taskList = [...this.getTaskList()];
+    const idx = taskList.findIndex(t => t.id === id);
+    if (idx === -1 || !taskList[idx]?.meta) {
+      return;
+    }
+    taskList[idx] = {
+      ...taskList[idx],
+      meta: transformer(taskList[idx].meta),
+    };
+    setMMKVObject(this.STORE_KEY, taskList);
+  }
+
+  async executeDownloadTask(
+    task: QueuedBackgroundTask,
+    startingTasks: QueuedBackgroundTask[],
+  ) {
+    if (!task?.task?.name || task.task.name !== 'DOWNLOAD_CHAPTER') {
+      return;
+    }
+    const progress = this.getProgressForNotification(task, startingTasks);
+    await BackgroundService.updateNotification({
+      taskTitle: task.meta?.name || 'Downloading',
+      taskDesc: task.meta?.progressText ?? '',
+      progressBar: {
+        indeterminate: progress === null,
+        max: 100,
+        value: progress == null ? 0 : progress,
+      },
+    });
+    this.lastNotifUpdate = Date.now();
+    const setMetaForTask = (
+      transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
+    ) => this.setMetaById(task.id, transformer);
+
+    return downloadChapter(
+      (task.task as DownloadChapterTask).data,
+      setMetaForTask,
+    );
+  }
+
   static async launch() {
     // retrieve class instance because this is running in different context
     const { manager } = ServiceManager;
@@ -311,23 +365,141 @@ export default class ServiceManager {
       startingTasks.push(...newtasks);
       newtasks.forEach(t => tasksSet.add(t.id));
 
-      try {
-        // Safety check - getTaskList() should already handle conversion, but double-check
-        if (!currentTask?.task?.name) {
-          // Skip invalid tasks
-          setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
+      // Safety check
+      if (!currentTask?.task?.name) {
+        setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
+        continue;
+      }
+
+      // Handle parallel downloads
+      if (currentTask.task.name === 'DOWNLOAD_CHAPTER') {
+        const downloadSettings =
+          getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
+          initialDownloadSettings;
+        const parallelEnabled =
+          downloadSettings.parallelChaptersEnabled ||
+          downloadSettings.parallelNovelsEnabled;
+
+        if (parallelEnabled) {
+          const allDownloadTasks = currentTasks.filter(
+            t => t.task?.name === 'DOWNLOAD_CHAPTER',
+          ) as QueuedBackgroundTask[];
+
+          let tasksToRun: QueuedBackgroundTask[];
+
+          if (downloadSettings.parallelNovelsEnabled) {
+            const novelGroups = new Map<number, QueuedBackgroundTask[]>();
+            for (const t of allDownloadTasks) {
+              const novelId =
+                (t.task as DownloadChapterTask).data.novelId || 0;
+              if (!novelGroups.has(novelId)) {
+                novelGroups.set(novelId, []);
+              }
+              novelGroups.get(novelId)!.push(t);
+            }
+            if (downloadSettings.parallelChaptersEnabled) {
+              tasksToRun = [];
+              for (const group of novelGroups.values()) {
+                tasksToRun.push(
+                  ...group.slice(0, downloadSettings.parallelChaptersCount),
+                );
+              }
+            } else {
+              tasksToRun = Array.from(novelGroups.values()).map(g => g[0]);
+            }
+          } else {
+            tasksToRun = allDownloadTasks.slice(
+              0,
+              downloadSettings.parallelChaptersCount,
+            );
+          }
+
+          const completedIds = new Set<string>();
+
+          await Promise.allSettled(
+            tasksToRun.map(async t => {
+              try {
+                await manager.executeDownloadTask(t, startingTasks);
+                doneTasks['DOWNLOAD_CHAPTER'] += 1;
+              } catch (error: any) {
+                if (downloadSettings.retryOnError) {
+                  await new Promise(r => setTimeout(r, 5000));
+                  try {
+                    await manager.executeDownloadTask(t, startingTasks);
+                    doneTasks['DOWNLOAD_CHAPTER'] += 1;
+                  } catch (retryError: any) {
+                    await Notifications.scheduleNotificationAsync({
+                      content: {
+                        title: t.meta?.name || 'Download Error',
+                        body: retryError?.message || String(retryError),
+                      },
+                      trigger: null,
+                    });
+                  }
+                } else {
+                  await Notifications.scheduleNotificationAsync({
+                    content: {
+                      title: t.meta?.name || 'Download Error',
+                      body: error?.message || String(error),
+                    },
+                    trigger: null,
+                  });
+                }
+              } finally {
+                completedIds.add(t.id);
+              }
+            }),
+          );
+
+          const remaining = manager
+            .getTaskList()
+            .filter(t => !completedIds.has(t.id));
+          setMMKVObject(manager.STORE_KEY, remaining);
           continue;
         }
+      }
+
+      // Sequential processing
+      try {
         await manager.executeTask(currentTask, startingTasks);
         doneTasks[currentTask.task.name] += 1;
       } catch (error: any) {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: currentTask.meta?.name || 'Task Error',
-            body: error?.message || String(error),
-          },
-          trigger: null,
-        });
+        if (currentTask.task.name === 'DOWNLOAD_CHAPTER') {
+          const downloadSettings =
+            getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
+            initialDownloadSettings;
+          if (downloadSettings.retryOnError) {
+            await new Promise(r => setTimeout(r, 5000));
+            try {
+              await manager.executeTask(currentTask, startingTasks);
+              doneTasks[currentTask.task.name] += 1;
+            } catch (retryError: any) {
+              await Notifications.scheduleNotificationAsync({
+                content: {
+                  title: currentTask.meta?.name || 'Task Error',
+                  body: retryError?.message || String(retryError),
+                },
+                trigger: null,
+              });
+            }
+          } else {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: currentTask.meta?.name || 'Task Error',
+                body: error?.message || String(error),
+              },
+              trigger: null,
+            });
+          }
+        } else {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: currentTask.meta?.name || 'Task Error',
+              body: error?.message || String(error),
+            },
+            trigger: null,
+          });
+        }
       } finally {
         setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
       }

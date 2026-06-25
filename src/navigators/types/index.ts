@@ -90,6 +90,7 @@ export type SettingsStackParamList = {
   RespositorySettings: { url?: string } | undefined;
   AISettings: undefined;
   AIPromptsSettings: undefined;
+  DownloadSettings: undefined;
 };
 
 export type NovelScreenProps = StackScreenProps<
@@ -188,6 +189,10 @@ export type SettingsAIScreenProps = StackScreenProps<
 export type AIPromptsSettingsScreenProps = StackScreenProps<
   SettingsStackParamList,
   'AIPromptsSettings'
+>;
+export type DownloadSettingsScreenProps = StackScreenProps<
+  SettingsStackParamList,
+  'DownloadSettings'
 >;
 
 export type RespositorySettingsScreenProps = CompositeScreenProps<

@@ -15,6 +15,7 @@ export const CHAPTER_GENERAL_SETTINGS = 'CHAPTER_GENERAL_SETTINGS';
 export const CHAPTER_READER_SETTINGS = 'CHAPTER_READER_SETTINGS';
 export const TRANSLATE_SETTINGS = 'TRANSLATE_SETTINGS';
 export const SECURITY_SETTINGS = 'SECURITY_SETTINGS';
+export const DOWNLOAD_SETTINGS = 'DOWNLOAD_SETTINGS';
 
 export type SwipeAction = 'disabled' | 'bookmark' | 'markAsRead' | 'download';
 
@@ -522,6 +523,46 @@ export const useTranslateSettings = () => {
       setTranslateSettings,
     }),
     [translateSettings, setTranslateSettings],
+  );
+};
+
+// --- Download Settings ---
+
+export interface DownloadSettings {
+  parallelChaptersEnabled: boolean;
+  parallelChaptersCount: number;
+  parallelNovelsEnabled: boolean;
+  retryOnError: boolean;
+}
+
+export const initialDownloadSettings: DownloadSettings = {
+  parallelChaptersEnabled: false,
+  parallelChaptersCount: 3,
+  parallelNovelsEnabled: false,
+  retryOnError: true,
+};
+
+export const useDownloadSettings = () => {
+  const [downloadSettings = initialDownloadSettings, setSettings] =
+    useMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS);
+
+  const setDownloadSettings = useCallback(
+    (values: Partial<DownloadSettings>) =>
+      setSettings(prev => ({
+        ...initialDownloadSettings,
+        ...prev,
+        ...values,
+      })),
+    [setSettings],
+  );
+
+  return useMemo(
+    () => ({
+      ...initialDownloadSettings,
+      ...downloadSettings,
+      setDownloadSettings,
+    }),
+    [downloadSettings, setDownloadSettings],
   );
 };
 

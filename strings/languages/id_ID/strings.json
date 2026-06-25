@@ -347,6 +347,21 @@
     "pluginNotFound": "Plugin tidak ditemukan!",
     "removeDownloadsWarning": "Apakah Anda yakin? Semua bab yang diunduh akan dihapus."
   },
+  "downloadSettings": "Pengaturan Unduhan",
+  "downloadSettingsScreen": {
+    "title": "Pengaturan Unduhan",
+    "autoDownload": "Unduh otomatis",
+    "downloadNewChapters": "Unduh bab baru",
+    "parallelDownload": "Unduhan Paralel",
+    "parallelChapters": "Unduh chapter secara paralel",
+    "parallelChaptersDesc": "Unduh beberapa chapter secara bersamaan",
+    "parallelChaptersCount": "Jumlah chapter bersamaan",
+    "parallelNovels": "Unduh novel secara paralel",
+    "parallelNovelsDesc": "Unduh chapter dari novel yang berbeda secara bersamaan",
+    "retryOnError": "Coba ulang saat error",
+    "retryOnErrorDesc": "Tunggu 5 detik dan coba ulang otomatis saat unduhan gagal",
+    "errorHandling": "Penanganan Error"
+  },
   "generalSettings": "Umum",
   "generalSettingsScreen": {
     "preferences": "Preferensi",

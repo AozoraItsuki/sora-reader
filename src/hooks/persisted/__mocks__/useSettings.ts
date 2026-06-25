@@ -108,10 +108,23 @@ export const useChapterReaderSettings = jest.fn(() => ({
   deleteCustomReaderTheme: jest.fn(),
 }));
 
+export const initialDownloadSettings = {
+  parallelChaptersEnabled: false,
+  parallelChaptersCount: 3,
+  parallelNovelsEnabled: false,
+  retryOnError: true,
+};
+
+export const useDownloadSettings = jest.fn(() => ({
+  ...initialDownloadSettings,
+  setDownloadSettings: jest.fn(),
+}));
+
 export default {
   useAppSettings,
   useBrowseSettings,
   useLibrarySettings,
   useChapterGeneralSettings,
   useChapterReaderSettings,
+  useDownloadSettings,
 };

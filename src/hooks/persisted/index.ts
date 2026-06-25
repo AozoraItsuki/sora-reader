@@ -14,6 +14,7 @@ export {
   useBrowseSettings,
   useChapterGeneralSettings,
   useChapterReaderSettings,
+  useDownloadSettings,
   useLibrarySettings,
   useTranslateSettings,
 } from './useSettings';
