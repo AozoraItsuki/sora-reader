@@ -150,6 +150,32 @@ export const useInitDatabase = () => {
       );
     }
 
+    // Pre-flight: if charOffset column already exists but migration isn't tracked,
+    // mark it as applied to prevent "duplicate column" crash for upgrading users.
+    try {
+      const preCheck = db.executeRawSync(`PRAGMA table_info(Chapter);`);
+      const charOffsetExists = preCheck.some(
+        (row: unknown[]) => row[1] === 'charOffset',
+      );
+      if (charOffsetExists) {
+        const migKey = '20260620000000_char_offset';
+        try {
+          const tracked = db.executeRawSync(
+            `SELECT hash FROM __drizzle_migrations WHERE hash = '${migKey}'`,
+          );
+          if (!tracked || tracked.length === 0) {
+            db.executeRawSync(
+              `INSERT INTO __drizzle_migrations (hash, applied_at) VALUES ('${migKey}', '${Date.now()}')`,
+            );
+          }
+        } catch {
+          // __drizzle_migrations may not exist yet — migrate() will create it
+        }
+      }
+    } catch {
+      // Ignore pre-flight errors
+    }
+
     migrate(drizzleDb, migrations)
       .then(() => {
         // Fix database migrations

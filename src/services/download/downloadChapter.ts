@@ -24,7 +24,6 @@ import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
-import { sleep } from '@utils/sleep';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import * as cheerio from 'cheerio';
 import { eq } from 'drizzle-orm';
@@ -58,20 +57,25 @@ const downloadFiles = async (
   });
   const loadedCheerio = cheerio.load(html);
   const imgs = loadedCheerio('img').toArray();
-  for (let i = 0; i < imgs.length; i++) {
-    const elem = loadedCheerio(imgs[i]);
+
+  // Collect image download tasks and run them in parallel
+  const downloadTasks = imgs.map((img, i) => {
+    const elem = loadedCheerio(img);
     const url = elem.attr('src');
-    if (url) {
-      const fileurl = `${folder}/${i}.b64.png`;
-      elem.attr('src', 'file://' + fileurl);
-      try {
-        const absoluteURL = new URL(url, plugin.site).href;
-        await downloadFile(absoluteURL, fileurl, plugin.imageRequestInit);
-      } catch (e) {
-        elem.attr('alt', String(e));
-      }
+    if (!url) {
+      return Promise.resolve();
     }
-  }
+    const fileurl = `${folder}/${i}.b64.png`;
+    elem.attr('src', 'file://' + fileurl);
+    const absoluteURL = new URL(url, plugin.site).href;
+    return downloadFile(absoluteURL, fileurl, plugin.imageRequestInit).catch(
+      e => {
+        elem.attr('alt', String(e));
+      },
+    );
+  });
+
+  await Promise.all(downloadTasks);
   NativeFile.writeFile(folder + '/index.html', loadedCheerio.html());
 };
 
@@ -149,8 +153,6 @@ export const downloadChapter = async (
         .where(eq(chapterSchema.id, chapter.id))
         .run();
     });
-
-    await sleep(1000);
   } else {
     throw new Error(getString('downloadScreen.chapterEmptyOrScrapeError'));
   }

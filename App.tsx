@@ -138,14 +138,14 @@ const App = () => {
   const state = useInitDatabase();
 
   useEffect(() => {
-    if (state.success || state.error) {
-      LottieSplashScreen.hide();
-    }
+    LottieSplashScreen.hide();
+  }, []);
+
+  useEffect(() => {
     if (state.success) {
-      // Start local HTTP server for serving novel files
       initLocalServer();
     }
-  }, [state.success, state.error]);
+  }, [state.success]);
 
   return (
     <Suspense fallback={null}>

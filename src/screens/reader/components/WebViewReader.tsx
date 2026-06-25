@@ -635,6 +635,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           pendingScrollPositionRef.current = null; // Reset after first load
         }
 
+        // If restoring to a chapter that was near the end (progress ≥ 80%),
+        // pre-append the next chapter so the user can see their place in context.
+        if (chapter.progress && chapter.progress >= 80) {
+          appendNextChapter();
+        }
+
         if (autoStartTTSRef.current) {
           autoStartTTSRef.current = false;
           setTimeout(() => {

@@ -597,6 +597,14 @@ export default function useChapter(
         const clampedPct = percentage > 100 ? 100 : percentage;
         updateChapterProgress(chapId, clampedPct, charOffset);
 
+        // When reading into a different chapter via infinite scroll, keep
+        // "Continue Reading" pointing at the chapter the user is actually on.
+        if (targetChapterId && targetChapterId !== chapter.id) {
+          getDbChapter(targetChapterId).then(
+            result => result && setLastRead(result),
+          );
+        }
+
         if (percentage >= 97) {
           // a relative number
           markChapterRead(chapId);
@@ -610,6 +618,7 @@ export default function useChapter(
       chapter.id,
       incognitoMode,
       markChapterRead,
+      setLastRead,
       updateChapterProgress,
       updateTracker,
     ],
