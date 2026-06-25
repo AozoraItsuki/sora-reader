@@ -14,8 +14,8 @@ export default {
     android: platformAndroid(),
   },
   remoteCacheProvider: providerGitHub({
-    repository: process.env.REPO_NAME || 'lnreader-extended',
-    owner: process.env.REPO_OWNER || 'Yuneko-dev',
+    repository: process.env.REPO_NAME || 'SoraReader',
+    owner: process.env.REPO_OWNER || 'AozoraItsuki',
     //@ts-expect-error
     token: process.env.GITHUB_TOKEN,
   }),

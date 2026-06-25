@@ -23,7 +23,7 @@ This is a modified version for my personal use. It is perfectly compatible with 
 
 - **Advanced Light Novel Structure**: Partial support for organizing Japanese Light Novels into "series" and "volumes" based on the legacy Page structure.
 - **Auto HTTPS Upgrade**: The reader WebView now automatically upgrades insecure HTTP connections to HTTPS.
-- ~~**Default DNS over HTTPS (DoH)**: Implemented DoH by default using Cloudflare's 1.1.1.1 for enhanced privacy and bypass.~~ https://github.com/Yuneko-dev/lnreader-extended/issues/8
+- ~~**Default DNS over HTTPS (DoH)**: Implemented DoH by default using Cloudflare's 1.1.1.1 for enhanced privacy and bypass.~~
 - **EPUB Image Fixes**: Fixed bugs causing missing images when exporting image-heavy novels to EPUB (also resolved issues when importing these EPUB files).
 - **EPUB Import Permissions**: Fixed file read permission errors that occurred when importing EPUBs.
 - **Novel Translation**: Implemented in-app novel translation capabilities using Google Translate and LLMs.

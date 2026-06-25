@@ -11,5 +11,5 @@ INSERT OR IGNORE INTO Category (id, name, sort) VALUES
 
 export const createDefaultRepositoryQuery = `
 INSERT OR IGNORE INTO Repository (url) VALUES
-  ('https://raw.githubusercontent.com/Yuneko-dev/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json')
+  ('https://raw.githubusercontent.com/AozoraItsuki/lnreader-plugins/refs/heads/main/.dist/plugins.min.json')
 `;
