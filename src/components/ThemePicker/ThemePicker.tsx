@@ -17,6 +17,8 @@ interface ThemePickerProps {
   onPress: (event: GestureResponderEvent) => void;
   horizontal?: boolean;
   isDark?: boolean;
+  cardWidth?: number;
+  cardHeight?: number;
 }
 
 export const ThemePicker = ({
@@ -24,6 +26,8 @@ export const ThemePicker = ({
   currentTheme,
   onPress,
   horizontal = false,
+  cardWidth,
+  cardHeight,
 }: ThemePickerProps) => {
   return (
     <View style={[styles.container, horizontal && styles.horizontalContainer]}>
@@ -36,6 +40,8 @@ export const ThemePicker = ({
                 ? theme.primary
                 : currentTheme.background,
             backgroundColor: theme.background,
+            ...(cardWidth !== undefined && { width: cardWidth }),
+            ...(cardHeight !== undefined && { height: cardHeight }),
           },
         ]}
       >

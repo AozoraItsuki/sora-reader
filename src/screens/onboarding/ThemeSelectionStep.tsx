@@ -13,6 +13,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -52,12 +53,22 @@ const AmoledToggle: React.FC<AmoledToggleProps> = ({ theme }) => {
   );
 };
 
+const COLUMNS = 3;
+const COLUMN_GAP = 10;
+const CARD_ASPECT_RATIO = 140 / 95;
+
 export default function ThemeSelectionStep() {
   const theme = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
   const [themeMode = 'system', setThemeMode] = useMMKVString('THEME_MODE');
   const [, setThemeId] = useMMKVNumber('APP_THEME_ID');
 
   const currentMode = themeMode as ThemeMode;
+
+  const cardWidth = Math.floor(
+    (screenWidth - 32 - (COLUMNS - 1) * COLUMN_GAP) / COLUMNS,
+  );
+  const cardHeight = Math.round(cardWidth * CARD_ASPECT_RATIO);
 
   const availableThemes = useMemo(() => {
     return theme.isDark ? darkThemes : lightThemes;
@@ -132,20 +143,21 @@ export default function ThemeSelectionStep() {
       {/* Theme List */}
       <LegendList
         style={styles.themeList}
-        numColumns={3}
+        numColumns={COLUMNS}
         showsHorizontalScrollIndicator={false}
         data={availableThemes}
         extraData={theme}
         keyExtractor={item => 'theme-' + item.id}
         contentContainerStyle={styles.themeListContent}
+        columnWrapperStyle={styles.columnWrapper}
         renderItem={({ item }) => (
-          <View>
-            <ThemePicker
-              currentTheme={theme}
-              theme={item}
-              onPress={e => handleThemeSelect(item, e)}
-            />
-          </View>
+          <ThemePicker
+            currentTheme={theme}
+            theme={item}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+            onPress={e => handleThemeSelect(item, e)}
+          />
         )}
       />
       {/* AMOLED Toggle */}
@@ -167,6 +179,10 @@ const styles = StyleSheet.create({
   },
   themeListContent: {
     paddingBottom: 8,
+    rowGap: 4,
+  },
+  columnWrapper: {
+    columnGap: COLUMN_GAP,
   },
   amoledContainer: {
     flexDirection: 'row',
