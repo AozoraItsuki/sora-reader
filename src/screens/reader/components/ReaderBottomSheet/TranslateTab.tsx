@@ -1,5 +1,4 @@
 import { Button, List, SwitchItem } from '@components/index';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useTheme } from '@hooks/persisted';
 import { useAIProviders } from '@hooks/persisted/useAIProviders';
 import { useTranslateSettings } from '@hooks/persisted/useSettings';
@@ -274,7 +273,7 @@ const TranslateTab: React.FC = () => {
 
   return (
     <>
-      <BottomSheetScrollView
+      <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
@@ -387,7 +386,7 @@ const TranslateTab: React.FC = () => {
           )}
         </View>
         <View style={styles.bottomSpacing} />
-      </BottomSheetScrollView>
+      </ScrollView>
 
       <LanguagePickerModal
         visible={sourceLangModalVisible}

@@ -31,6 +31,8 @@ import ReaderTextAlignSelector from './ReaderBottomSheet/ReaderTextAlignSelector
 import ReaderThemeSelector from './ReaderBottomSheet/ReaderThemeSelector';
 import ReaderValueChange from './ReaderBottomSheet/ReaderValueChange';
 import TextSizeSlider from './ReaderBottomSheet/TextSizeSlider';
+import TTSTab from './ReaderBottomSheet/TTSTab';
+import TranslateTab from './ReaderBottomSheet/TranslateTab';
 import { getString } from '@strings/translations';
 import { StringMap } from '@strings/types';
 
@@ -55,7 +57,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'display', label: 'Display', icon: 'Tt' },
   { key: 'settings', label: 'Settings', icon: '⚙' },
   { key: 'tts', label: 'TTS', icon: '🔊' },
-  { key: 'more', label: 'More', icon: '•••' },
+  { key: 'more', label: 'Translate', icon: '🌐' },
 ];
 
 const SETTINGS_PREFS: { key: string; label: string }[] = [
@@ -346,6 +348,20 @@ const ChapterFooter = ({
           </ScrollView>
         );
 
+      case 'tts':
+        return (
+          <View style={styles.tabScrollContent}>
+            <TTSTab />
+          </View>
+        );
+
+      case 'more':
+        return (
+          <View style={styles.tabScrollContent}>
+            <TranslateTab />
+          </View>
+        );
+
       default:
         return null;
     }
@@ -382,13 +398,7 @@ const ChapterFooter = ({
                   isActive && styles.tabBtnActive,
                 ]}
                 onPress={() => {
-                  if (tab.key === 'tts') {
-                    presentSheetAtTab(2);
-                  } else if (tab.key === 'more') {
-                    presentSheetAtTab(3);
-                  } else {
-                    setActiveTab(tab.key as TabKey);
-                  }
+                  setActiveTab(tab.key as TabKey);
                 }}
                 activeOpacity={0.7}
               >
@@ -516,7 +526,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   tabScrollContent: {
-    maxHeight: 200,
+    maxHeight: 280,
     paddingVertical: 4,
   },
   prefRow: {

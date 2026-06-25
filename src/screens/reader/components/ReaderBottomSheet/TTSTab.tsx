@@ -1,5 +1,4 @@
 import { Button, List } from '@components/index';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import {
   useChapterGeneralSettings,
   useChapterReaderSettings,
@@ -339,7 +338,7 @@ const TTSTab: React.FC = () => {
 
   return (
     <>
-      <BottomSheetScrollView
+      <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
@@ -585,7 +584,7 @@ const TTSTab: React.FC = () => {
         </View>
 
         <View style={styles.bottomSpacing} />
-      </BottomSheetScrollView>
+      </ScrollView>
 
       <VoicePickerModal
         visible={voiceModalVisible}
