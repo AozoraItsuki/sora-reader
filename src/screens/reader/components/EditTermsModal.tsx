@@ -3,12 +3,15 @@ import {
   getGlobalTerms,
   getNovelTerms,
   ReaderTerm,
+  TermStyle,
   saveGlobalTerms,
   saveNovelTerms,
 } from '@utils/readerTerms';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,6 +35,17 @@ type TabKey = 'editor' | 'terms' | 'config';
 const MAX_LEN = 128;
 const generateId = () => Math.random().toString(36).slice(2, 10);
 
+const PRESET_COLORS = [
+  '#FF5252',
+  '#FF9800',
+  '#FFEB3B',
+  '#4CAF50',
+  '#2196F3',
+  '#9C27B0',
+  '#00BCD4',
+  '#F48FB1',
+];
+
 const EditTermsModal: React.FC<Props> = ({
   visible,
   onClose,
@@ -54,6 +68,12 @@ const EditTermsModal: React.FC<Props> = ({
   const [multiDelete, setMultiDelete] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
 
+  // Style state
+  const [styleBold, setStyleBold] = useState(false);
+  const [styleItalic, setStyleItalic] = useState(false);
+  const [styleUnderline, setStyleUnderline] = useState(false);
+  const [styleColor, setStyleColor] = useState<string | undefined>(undefined);
+
   const loadTerms = useCallback(() => {
     setNovelTerms(getNovelTerms(novelId));
     setGlobalTerms(getGlobalTerms());
@@ -66,7 +86,6 @@ const EditTermsModal: React.FC<Props> = ({
       setNovelTerms(nTerms);
       setGlobalTerms(gTerms);
       resetForm();
-      // Show terms list if there are existing terms, otherwise show editor
       const hasTerms = nTerms.length > 0 || gTerms.length > 0;
       setTab(hasTerms ? 'terms' : 'editor');
     }
@@ -80,6 +99,10 @@ const EditTermsModal: React.FC<Props> = ({
     setNovelOnly(true);
     setFromFocused(false);
     setToFocused(false);
+    setStyleBold(false);
+    setStyleItalic(false);
+    setStyleUnderline(false);
+    setStyleColor(undefined);
   };
 
   const openEdit = (term: ReaderTerm) => {
@@ -88,7 +111,23 @@ const EditTermsModal: React.FC<Props> = ({
     setToText(term.to);
     setCaseSensitive(term.caseSensitive);
     setNovelOnly(term.scope === 'novel');
+    setStyleBold(term.style?.bold ?? false);
+    setStyleItalic(term.style?.italic ?? false);
+    setStyleUnderline(term.style?.underline ?? false);
+    setStyleColor(term.style?.color);
     setTab('editor');
+  };
+
+  const buildStyle = (): TermStyle | undefined => {
+    if (!styleBold && !styleItalic && !styleUnderline && !styleColor) {
+      return undefined;
+    }
+    return {
+      bold: styleBold || undefined,
+      italic: styleItalic || undefined,
+      underline: styleUnderline || undefined,
+      color: styleColor,
+    };
   };
 
   const saveTerm = () => {
@@ -100,6 +139,7 @@ const EditTermsModal: React.FC<Props> = ({
       to: toText,
       scope,
       caseSensitive,
+      style: buildStyle(),
     };
 
     const gTerms = getGlobalTerms();
@@ -165,6 +205,9 @@ const EditTermsModal: React.FC<Props> = ({
 
   const renderTermRow = (term: ReaderTerm) => {
     const isSelected = selected.includes(term.id);
+    const hasStyle =
+      term.style &&
+      (term.style.bold || term.style.italic || term.style.underline || term.style.color);
     return (
       <View
         key={term.id}
@@ -202,13 +245,27 @@ const EditTermsModal: React.FC<Props> = ({
             <Text style={{ fontWeight: '600', color: theme.onSurface }}>FROM: </Text>
             {term.from}
           </Text>
-          <Text style={[styles.termTo, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
-            <Text style={{ fontWeight: '600', color: theme.onSurface }}>TO: </Text>
-            {term.to || '(empty)'}
+          <View style={styles.termToRow}>
+            <Text style={[styles.termTo, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
+              <Text style={{ fontWeight: '600', color: theme.onSurface }}>TO: </Text>
+              <Text
+                style={{
+                  fontWeight: term.style?.bold ? '700' : '400',
+                  fontStyle: term.style?.italic ? 'italic' : 'normal',
+                  textDecorationLine: term.style?.underline ? 'underline' : 'none',
+                  color: term.style?.color ?? theme.onSurfaceVariant,
+                }}
+              >
+                {term.to || '(empty)'}
+              </Text>
+            </Text>
             {term.caseSensitive && (
-              <Text style={[styles.caseBadge, { color: '#E07B3A' }]}> Case</Text>
+              <Text style={[styles.caseBadge, { color: '#E07B3A' }]}> Cs</Text>
             )}
-          </Text>
+            {hasStyle && (
+              <Text style={[styles.caseBadge, { color: accentColor }]}> ✦</Text>
+            )}
+          </View>
         </View>
         {!multiDelete && (
           <TouchableOpacity onPress={() => deleteTerm(term)} style={styles.deleteBtn}>
@@ -218,6 +275,35 @@ const EditTermsModal: React.FC<Props> = ({
       </View>
     );
   };
+
+  const renderStyleToggle = (
+    label: string,
+    active: boolean,
+    onToggle: (val: boolean) => void,
+    previewStyle?: object,
+  ) => (
+    <TouchableOpacity
+      style={[
+        styles.styleChip,
+        {
+          borderColor: active ? accentColor : theme.outline + '88',
+          backgroundColor: active ? accentColor + '22' : 'transparent',
+        },
+      ]}
+      onPress={() => onToggle(!active)}
+      activeOpacity={0.7}
+    >
+      <Text
+        style={[
+          styles.styleChipText,
+          { color: active ? accentColor : theme.onSurfaceVariant },
+          previewStyle,
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
 
   const renderEditorTab = () => (
     <ScrollView
@@ -298,6 +384,66 @@ const EditTermsModal: React.FC<Props> = ({
         autoCorrect={false}
       />
 
+      {/* Text Styling */}
+      <Text style={[styles.fieldLabel, { color: theme.onSurface, marginTop: 12, marginBottom: 8 }]}>
+        Replacement Style
+      </Text>
+      <View style={styles.styleRow}>
+        {renderStyleToggle('B', styleBold, setStyleBold, { fontWeight: '700' })}
+        {renderStyleToggle('I', styleItalic, setStyleItalic, { fontStyle: 'italic' })}
+        {renderStyleToggle('U', styleUnderline, setStyleUnderline, { textDecorationLine: 'underline' })}
+        {styleColor ? (
+          <TouchableOpacity
+            style={[styles.styleChip, { borderColor: styleColor, backgroundColor: styleColor + '22' }]}
+            onPress={() => setStyleColor(undefined)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.colorDot, { backgroundColor: styleColor }]} />
+            <Text style={[styles.styleChipText, { color: styleColor }]}>Color</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      {/* Color picker row */}
+      <View style={styles.colorPickerRow}>
+        <Text style={[styles.colorPickerLabel, { color: theme.onSurfaceVariant }]}>
+          Color:
+        </Text>
+        {PRESET_COLORS.map(c => (
+          <TouchableOpacity
+            key={c}
+            style={[
+              styles.colorSwatch,
+              { backgroundColor: c },
+              styleColor === c && styles.colorSwatchSelected,
+            ]}
+            onPress={() => setStyleColor(styleColor === c ? undefined : c)}
+          />
+        ))}
+        <TouchableOpacity
+          style={[styles.colorSwatchNone, { borderColor: theme.outline }]}
+          onPress={() => setStyleColor(undefined)}
+        >
+          <Text style={{ color: theme.onSurfaceVariant, fontSize: 10 }}>✕</Text>
+        </TouchableOpacity>
+      </View>
+
+      {toText.trim() && (styleBold || styleItalic || styleUnderline || styleColor) ? (
+        <View style={[styles.previewBox, { backgroundColor: cardBg, borderColor: theme.outline + '44' }]}>
+          <Text style={[styles.previewLabel, { color: theme.onSurfaceVariant }]}>Preview:</Text>
+          <Text
+            style={{
+              fontWeight: styleBold ? '700' : '400',
+              fontStyle: styleItalic ? 'italic' : 'normal',
+              textDecorationLine: styleUnderline ? 'underline' : 'none',
+              color: styleColor ?? theme.onSurface,
+              fontSize: 15,
+            }}
+          >
+            {toText}
+          </Text>
+        </View>
+      ) : null}
+
       <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
       <View style={styles.novelOnlyRow}>
@@ -310,7 +456,7 @@ const EditTermsModal: React.FC<Props> = ({
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={[styles.novelOnlyTitle, { color: theme.onSurface }]}>This Novel Only</Text>
           <Text style={[styles.novelOnlySubtitle, { color: theme.onSurfaceVariant }]}>
-            This term will only apply to this novel.
+            {novelOnly ? `Only for: ${novelName}` : 'Applies to all novels'}
           </Text>
         </View>
       </View>
@@ -318,12 +464,6 @@ const EditTermsModal: React.FC<Props> = ({
       <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
       <View style={styles.editorActions}>
-        <TouchableOpacity
-          style={[styles.helpBtn, { borderColor: theme.outline }]}
-          onPress={() => {}}
-        >
-          <Text style={[styles.helpBtnText, { color: theme.onSurfaceVariant }]}>?</Text>
-        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.closeActionBtn, { borderColor: theme.outline }]}
           onPress={onClose}
@@ -338,7 +478,7 @@ const EditTermsModal: React.FC<Props> = ({
           <Text style={[styles.saveBtnText, { color: theme.onPrimary }]}>Save</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ height: 8 }} />
+      <View style={{ height: 16 }} />
     </ScrollView>
   );
 
@@ -375,9 +515,6 @@ const EditTermsModal: React.FC<Props> = ({
               Current Novel
             </Text>
           </View>
-          <TouchableOpacity style={styles.exportBtn}>
-            <Text style={[styles.exportBtnText, { color: theme.onSurfaceVariant }]}>↗</Text>
-          </TouchableOpacity>
         </View>
         {novelTerms.length === 0 && (
           <Text style={[styles.emptyText, { color: theme.onSurfaceVariant }]}>
@@ -420,11 +557,44 @@ const EditTermsModal: React.FC<Props> = ({
   );
 
   const renderConfigTab = () => (
-    <View style={styles.configTab}>
-      <Text style={[styles.configText, { color: theme.onSurfaceVariant }]}>
-        No additional configuration available.
-      </Text>
-    </View>
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      <View style={[styles.configSection, { borderColor: dividerColor }]}>
+        <Text style={[styles.configSectionTitle, { color: theme.onSurface }]}>Styling Guide</Text>
+        <Text style={[styles.configDesc, { color: theme.onSurfaceVariant }]}>
+          When editing a term, you can apply styles to the replacement text:
+        </Text>
+        {[
+          { label: 'B — Bold', example: 'Makes text bold', style: { fontWeight: '700' as const } },
+          { label: 'I — Italic', example: 'Makes text italic', style: { fontStyle: 'italic' as const } },
+          { label: 'U — Underline', example: 'Adds underline', style: { textDecorationLine: 'underline' as const } },
+          { label: 'Color', example: 'Changes text color', style: {} },
+        ].map(item => (
+          <View key={item.label} style={styles.configRow}>
+            <Text style={[styles.configRowLabel, { color: theme.primary }, item.style]}>
+              {item.label}
+            </Text>
+            <Text style={[styles.configRowDesc, { color: theme.onSurfaceVariant }]}>
+              {item.example}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={[styles.configSection, { borderColor: dividerColor, marginTop: 12 }]}>
+        <Text style={[styles.configSectionTitle, { color: theme.onSurface }]}>Pattern Syntax</Text>
+        {[
+          { label: '|', desc: 'OR — matches any variation\nExample: "abc|def" replaces both "abc" and "def"' },
+          { label: '*', desc: 'Wildcard — matches any single character sequence' },
+          { label: 'Case', desc: 'Enable "Case sensitive" to match exact casing' },
+        ].map(item => (
+          <View key={item.label} style={styles.configRow}>
+            <Text style={[styles.configRowLabel, { color: theme.primary }]}>{item.label}</Text>
+            <Text style={[styles.configRowDesc, { color: theme.onSurfaceVariant }]}>{item.desc}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={{ height: 16 }} />
+    </ScrollView>
   );
 
   return (
@@ -435,39 +605,45 @@ const EditTermsModal: React.FC<Props> = ({
       animationType="slide"
       statusBarTranslucent
     >
-      <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.container, { backgroundColor: theme.surface }]}>
-          <View style={[styles.tabBar, { borderBottomColor: dividerColor }]}>
-            {(['editor', 'terms', 'config'] as TabKey[]).map(t => (
-              <TouchableOpacity
-                key={t}
-                style={[
-                  styles.tabItem,
-                  tab === t && { borderBottomColor: accentColor, borderBottomWidth: 2 },
-                ]}
-                onPress={() => setTab(t)}
-              >
-                <Text
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <View style={[styles.container, { backgroundColor: theme.surface }]}>
+            <View style={[styles.tabBar, { borderBottomColor: dividerColor }]}>
+              {(['editor', 'terms', 'config'] as TabKey[]).map(t => (
+                <TouchableOpacity
+                  key={t}
                   style={[
-                    styles.tabLabel,
-                    { color: tab === t ? accentColor : theme.onSurfaceVariant },
+                    styles.tabItem,
+                    tab === t && { borderBottomColor: accentColor, borderBottomWidth: 2 },
                   ]}
+                  onPress={() => setTab(t)}
                 >
-                  {t === 'editor' ? 'Editor' : t === 'terms' ? 'Your Terms' : 'Config'}
-                </Text>
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      { color: tab === t ? accentColor : theme.onSurfaceVariant },
+                    ]}
+                  >
+                    {t === 'editor' ? 'Editor' : t === 'terms' ? 'Your Terms' : 'Config'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.closeTabBtn} onPress={onClose}>
+                <Text style={[styles.closeTabText, { color: theme.onSurfaceVariant }]}>✕</Text>
               </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.closeTabBtn} onPress={onClose}>
-              <Text style={[styles.closeTabText, { color: theme.onSurfaceVariant }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
+            </View>
 
-          {tab === 'editor' && renderEditorTab()}
-          {tab === 'terms' && renderTermsTab()}
-          {tab === 'config' && renderConfigTab()}
+            {tab === 'editor' && renderEditorTab()}
+            {tab === 'terms' && renderTermsTab()}
+            {tab === 'config' && renderConfigTab()}
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -483,7 +659,7 @@ const styles = StyleSheet.create({
   container: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    height: '72%',
+    maxHeight: '80%',
   },
   tabBar: {
     flexDirection: 'row',
@@ -565,6 +741,76 @@ const styles = StyleSheet.create({
   caseLabel: {
     fontSize: 13,
   },
+  styleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  styleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+  },
+  styleChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  colorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  colorPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  colorPickerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  colorSwatch: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  colorSwatchSelected: {
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  colorSwatchNone: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    gap: 4,
+  },
+  previewLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   divider: {
     height: StyleSheet.hairlineWidth,
     marginVertical: 14,
@@ -586,18 +832,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 4,
-  },
-  helpBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  helpBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   closeActionBtn: {
     flex: 1,
@@ -653,12 +887,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  exportBtn: {
-    padding: 4,
-  },
-  exportBtnText: {
-    fontSize: 16,
-  },
   emptyText: {
     fontSize: 13,
     paddingHorizontal: 16,
@@ -672,6 +900,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 10,
+  },
+  termToRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
   },
   checkBox: {
     width: 22,
@@ -704,6 +937,7 @@ const styles = StyleSheet.create({
   termTo: {
     fontSize: 13,
     lineHeight: 18,
+    flexShrink: 1,
   },
   caseBadge: {
     fontSize: 11,
@@ -731,12 +965,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  configTab: {
-    padding: 24,
-    alignItems: 'center',
+  configSection: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
   },
-  configText: {
+  configSectionTitle: {
     fontSize: 14,
-    textAlign: 'center',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  configDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  configRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  configRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 52,
+  },
+  configRowDesc: {
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
 });

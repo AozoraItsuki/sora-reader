@@ -666,7 +666,6 @@ export default function useChapter(
 
         resetAutoScroll();
         setLoading(true);
-        setNextChapterHtml('');
         getChapter(nextNavChapter);
       } else {
         showToast(

@@ -225,6 +225,8 @@ export const ChapterContent = ({
               setLocked(next);
               if (next) {
                 lastBackPressRef.current = 0;
+                // Hide the appbar/footer so they don't obscure reading
+                hideHeader();
                 ToastAndroid.show('Layar terkunci — ketuk kembali 2x untuk keluar', ToastAndroid.SHORT);
               } else {
                 ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);

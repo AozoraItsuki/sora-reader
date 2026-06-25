@@ -103,7 +103,15 @@ const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
       <View style={styles.buttonGroupContainer}>
         <Button
           theme={theme}
-          onPress={handleFollowNovel}
+          onPress={() => {
+            if (inLibrary) {
+              handleFollowNovel();
+            } else {
+              // Add to library first, then show category picker
+              handleFollowNovel();
+              showSetCategoryModal();
+            }
+          }}
           onLongPress={showSetCategoryModal}
           icon={inLibrary ? 'heart' : 'heart-outline'}
           label={getString(
