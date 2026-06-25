@@ -60,6 +60,16 @@ export default function useDownload() {
   const cancelDownload = () =>
     ServiceManager.manager.removeTasksByName('DOWNLOAD_CHAPTER');
 
+  const cancelChapterDownload = useCallback(
+    (chapterId: number) => {
+      const task = downloadQueue.find(t => t.task.data.chapterId === chapterId);
+      if (task) {
+        ServiceManager.manager.removeTaskById((task as QueuedBackgroundTask).id);
+      }
+    },
+    [downloadQueue],
+  );
+
   return {
     downloadQueue,
     downloadingChapterIds,
@@ -68,5 +78,6 @@ export default function useDownload() {
     downloadChapters,
     pauseDownload,
     cancelDownload,
+    cancelChapterDownload,
   };
 }

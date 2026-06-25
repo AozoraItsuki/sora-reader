@@ -157,6 +157,7 @@ interface ChapterItemProps {
   disableHapticFeedback?: boolean;
   onDeleteChapter: (chapter: ChapterInfo) => void;
   onDownloadChapter: (chapter: ChapterInfo) => void;
+  onCancelDownload?: (chapter: ChapterInfo) => void;
   onSelectPress: (chapter: ChapterInfo) => void;
   onSelectLongPress?: (chapter: ChapterInfo) => void;
   onToggleRead?: (chapter: ChapterInfo) => void;
@@ -179,6 +180,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
   disableHapticFeedback: disableHapticFeedbackProp,
   onDeleteChapter,
   onDownloadChapter,
+  onCancelDownload,
   onSelectPress,
   onSelectLongPress,
   onToggleRead,
@@ -221,6 +223,10 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
   const handleDownload = useCallback(
     () => onDownloadChapter(chapter),
     [onDownloadChapter, chapter],
+  );
+  const handleCancel = useCallback(
+    () => onCancelDownload?.(chapter),
+    [onCancelDownload, chapter],
   );
 
   const executeAction = useCallback(

@@ -13,6 +13,7 @@ interface DownloadButtonProps {
   theme: ThemeColors;
   deleteChapter: () => void;
   downloadChapter: () => void;
+  cancelDownload?: () => void;
 }
 
 export const DownloadButton: React.FC<DownloadButtonProps> = ({
@@ -21,11 +22,18 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({
   theme,
   deleteChapter,
   downloadChapter,
+  cancelDownload,
 }) => {
   const {
     value: deleteChapterMenuVisible,
     setTrue: showDeleteChapterMenu,
     setFalse: hideDeleteChapterMenu,
+  } = useBoolean();
+
+  const {
+    value: cancelMenuVisible,
+    setTrue: showCancelMenu,
+    setFalse: hideCancelMenu,
   } = useBoolean();
 
   const menuContentStyle = useMemo(
@@ -38,6 +46,30 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({
   );
 
   if (isDownloading) {
+    if (cancelDownload) {
+      return (
+        <Menu
+          visible={cancelMenuVisible}
+          onDismiss={hideCancelMenu}
+          anchor={
+            <ChapterDownloadingButton
+              theme={theme}
+              onPress={showCancelMenu}
+            />
+          }
+          contentStyle={menuContentStyle}
+        >
+          <Menu.Item
+            onPress={() => {
+              cancelDownload();
+              hideCancelMenu();
+            }}
+            title={getString('common.cancel')}
+            titleStyle={menuTitleStyle}
+          />
+        </Menu>
+      );
+    }
     return <ChapterDownloadingButton theme={theme} />;
   }
   if (isDownloaded) {
@@ -70,13 +102,27 @@ interface theme {
 type buttonPropType = theme & {
   onPress: () => void;
 };
-export const ChapterDownloadingButton: React.FC<theme> = ({ theme }) => (
+export const ChapterDownloadingButton: React.FC<theme & { onPress?: () => void }> = ({ theme, onPress }) => (
   <View style={styles.container}>
-    <ActivityIndicator
-      color={theme.outline}
-      size={25}
-      style={styles.activityIndicator}
-    />
+    {onPress ? (
+      <Pressable
+        style={styles.pressable}
+        onPress={onPress}
+        android_ripple={{ color: theme.rippleColor }}
+      >
+        <ActivityIndicator
+          color={theme.outline}
+          size={25}
+          style={styles.activityIndicator}
+        />
+      </Pressable>
+    ) : (
+      <ActivityIndicator
+        color={theme.outline}
+        size={25}
+        style={styles.activityIndicator}
+      />
+    )}
   </View>
 );
 

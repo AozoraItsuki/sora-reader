@@ -646,6 +646,29 @@ export default class ServiceManager {
     }
   }
 
+  removeTaskById(id: string) {
+    const taskList = this.getTaskList();
+    const isCurrentTask = taskList[0]?.id === id;
+
+    if (isCurrentTask && this.currentAbortController) {
+      this.currentAbortController.abort();
+    }
+
+    if (isCurrentTask) {
+      this.pause();
+      setMMKVObject(
+        this.STORE_KEY,
+        taskList.filter(t => t.id !== id),
+      );
+      this.resume();
+    } else {
+      setMMKVObject(
+        this.STORE_KEY,
+        taskList.filter(t => t.id !== id),
+      );
+    }
+  }
+
   removeTasksByName(name: BackgroundTask['name']) {
     const taskList = this.getTaskList();
     const isCurrentTask = taskList[0]?.task?.name === name;

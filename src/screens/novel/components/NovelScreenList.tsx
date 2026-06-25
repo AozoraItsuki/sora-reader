@@ -109,7 +109,7 @@ const NovelScreenList = ({
   const theme = useTheme();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
-  const { downloadingChapterIds, downloadChapter } = useDownload();
+  const { downloadingChapterIds, downloadChapter, cancelChapterDownload } = useDownload();
 
   // Mark chapters as downloaded when their download completes
   const prevDownloadingRef = useRef(downloadingChapterIds);
