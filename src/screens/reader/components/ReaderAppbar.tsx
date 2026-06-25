@@ -38,7 +38,6 @@ const ReaderAppbar = ({
     translateChapter,
     isTranslated,
     isTranslating,
-    translateProgress,
     isOfflineTranslated,
   } = useChapterContext();
   const { statusBarHeight } = useNovelLayout();
@@ -127,40 +126,16 @@ const ReaderAppbar = ({
           </Text>
         </View>
 
-        <View style={styles.translateButtonContainer}>
-          <IconButtonV2
-            name={getTranslateIconName()}
-            size={22}
-            onPress={() => {
-              if (!isOfflineTranslated) translateChapter();
-            }}
-            color={getTranslateIconColor()}
-            theme={theme}
-            disabled={isOfflineTranslated}
-          />
-          <View
-            style={[
-              styles.progressBarContainer,
-              isTranslating ? styles.opacity1 : styles.opacity0,
-            ]}
-          >
-            <View
-              style={[
-                styles.progressBarBackground,
-                { backgroundColor: color(theme.primary).alpha(0.2).string() },
-              ]}
-            />
-            <View
-              style={[
-                styles.progressBarFill,
-                {
-                  backgroundColor: theme.primary,
-                  width: `${Math.max(translateProgress, 2)}%`,
-                },
-              ]}
-            />
-          </View>
-        </View>
+        <IconButtonV2
+          name={getTranslateIconName()}
+          size={22}
+          onPress={() => {
+            if (!isOfflineTranslated) translateChapter();
+          }}
+          color={getTranslateIconColor()}
+          theme={theme}
+          disabled={isOfflineTranslated}
+        />
 
         <IconButtonV2
           name={locked ? 'lock' : 'lock-open-outline'}
@@ -219,32 +194,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 20,
     marginTop: 1,
-  },
-  translateButtonContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginStart: 4,
-    marginBottom: 3,
-  },
-  progressBarContainer: {
-    width: 28,
-    height: 3,
-    borderRadius: 1.5,
-    overflow: 'hidden',
-    marginTop: -6,
-  },
-  progressBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 1.5,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 1.5,
-  },
-  opacity1: {
-    opacity: 1,
-  },
-  opacity0: {
-    opacity: 0,
   },
 });

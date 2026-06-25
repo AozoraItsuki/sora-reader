@@ -483,7 +483,7 @@ const EditTermsModal: React.FC<Props> = ({
   );
 
   const renderTermsTab = () => (
-    <View style={{ flex: 1 }}>
+    <View>
       <View style={styles.termsToolbar}>
         <TouchableOpacity
           style={[
@@ -508,7 +508,7 @@ const EditTermsModal: React.FC<Props> = ({
           </Text>
         </TouchableOpacity>
       </View>
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.termsScrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeaderRow}>
           <View style={[styles.sectionChip, { borderColor: theme.outline }]}>
             <Text style={[styles.sectionChipText, { color: theme.onSurface }]}>
@@ -853,6 +853,9 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  termsScrollView: {
+    maxHeight: 360,
   },
   termsToolbar: {
     flexDirection: 'row',

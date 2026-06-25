@@ -343,14 +343,14 @@ const ChapterFooter = ({
 
       case 'tts':
         return (
-          <View style={styles.tabScrollContent}>
+          <View style={styles.tabFixedContent}>
             <TTSTab />
           </View>
         );
 
       case 'more':
         return (
-          <View style={styles.tabScrollContent}>
+          <View style={styles.tabFixedContent}>
             <TranslateTab />
           </View>
         );
@@ -521,6 +521,9 @@ const styles = StyleSheet.create({
   tabScrollContent: {
     maxHeight: 280,
     paddingVertical: 4,
+  },
+  tabFixedContent: {
+    height: 280,
   },
   prefRow: {
     flexDirection: 'row',
