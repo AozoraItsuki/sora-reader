@@ -131,11 +131,13 @@ export default function ThemeSelectionStep() {
       </View>
       {/* Theme List */}
       <LegendList
+        style={styles.themeList}
         numColumns={3}
         showsHorizontalScrollIndicator={false}
         data={availableThemes}
         extraData={theme}
         keyExtractor={item => 'theme-' + item.id}
+        contentContainerStyle={styles.themeListContent}
         renderItem={({ item }) => (
           <View>
             <ThemePicker
@@ -158,7 +160,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   segmentedControlContainer: {
-    marginBottom: 24,
+    marginBottom: 12,
+  },
+  themeList: {
+    flex: 1,
+  },
+  themeListContent: {
+    paddingBottom: 8,
   },
   amoledContainer: {
     flexDirection: 'row',

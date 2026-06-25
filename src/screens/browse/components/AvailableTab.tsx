@@ -35,13 +35,19 @@ interface AvailablePluginCardProps {
   installPlugin: (plugin: PluginItem) => Promise<void>;
 }
 
+const CARD_HEIGHT = 72;
+const LANG_HEADER_HEIGHT = 46;
+
 const AvailablePluginCard = memo(
   ({ plugin, theme, installPlugin }: AvailablePluginCardProps) => {
+    const itemHeight = plugin.header
+      ? CARD_HEIGHT + LANG_HEADER_HEIGHT
+      : CARD_HEIGHT;
     const ratio = useSharedValue(1);
     const [installing, setInstalling] = useState(false);
 
     const wrapStyle = useAnimatedStyle(() => ({
-      height: ratio.value * 72,
+      height: ratio.value * itemHeight,
       opacity: ratio.value,
       overflow: 'hidden',
     }));

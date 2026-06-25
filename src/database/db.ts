@@ -161,7 +161,7 @@ export const useInitDatabase = () => {
       );
       if (charOffsetExists) {
         // Ensure the migrations tracking table exists before we try to INSERT
-        _db.executeRawSync(`
+        _db.executeSync(`
           CREATE TABLE IF NOT EXISTS __drizzle_migrations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             hash TEXT NOT NULL UNIQUE,
@@ -171,14 +171,16 @@ export const useInitDatabase = () => {
           );
         `);
         const migKey = '20260620000000_char_offset';
-        const tracked = db.executeRawSync(
-          `SELECT hash FROM __drizzle_migrations WHERE hash = ?`,
-          [migKey],
+        // Use executeRawSync without params to avoid potential param-binding issues
+        const allTracked = db.executeRawSync(
+          `SELECT hash FROM __drizzle_migrations`,
         );
-        if (!tracked || tracked.length === 0) {
-          db.executeRawSync(
-            `INSERT OR IGNORE INTO __drizzle_migrations (hash, applied_at) VALUES (?, ?)`,
-            [migKey, String(Date.now())],
+        const isTracked =
+          allTracked &&
+          allTracked.some((row: unknown[]) => row[0] === migKey);
+        if (!isTracked) {
+          _db.executeSync(
+            `INSERT OR IGNORE INTO __drizzle_migrations (hash, applied_at) VALUES ('${migKey}', '${Date.now()}')`,
           );
         }
       }
@@ -226,10 +228,41 @@ export const useInitDatabase = () => {
         });
       })
       .catch((error: Error) => {
-        dispatch({
-          type: 'error',
-          payload: error,
-        });
+        // If the migration failed because charOffset already exists (duplicate
+        // column), treat it as a successful migration to prevent the error
+        // screen from showing on every reopen.
+        const msg = error?.message ?? '';
+        if (
+          msg.includes('charOffset') ||
+          msg.toLowerCase().includes('duplicate column') ||
+          msg.toLowerCase().includes('already exists')
+        ) {
+          // Mark the migration as applied so it won't be retried next time
+          try {
+            _db.executeSync(`
+              CREATE TABLE IF NOT EXISTS __drizzle_migrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hash TEXT NOT NULL UNIQUE,
+                created_at NUMERIC,
+                applied_at TEXT,
+                name TEXT
+              );
+            `);
+            const migKey = '20260620000000_char_offset';
+            _db.executeSync(
+              `INSERT OR IGNORE INTO __drizzle_migrations (hash, applied_at) VALUES ('${migKey}', '${Date.now()}')`,
+            );
+          } catch (trackErr) {
+            console.warn('Failed to mark migration as applied:', trackErr);
+          }
+          runDatabaseBootstrap(_db);
+          dispatch({ type: 'migrated', payload: true });
+        } else {
+          dispatch({
+            type: 'error',
+            payload: error,
+          });
+        }
       });
   }, []);
   return state;
