@@ -12,7 +12,7 @@ import { Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getAllTermsForNovel } from '@utils/readerTerms';
+import { getAllTermsForNovel, buildApplyTermsJs } from '@utils/readerTerms';
 import { ChapterContextProvider, useChapterContext } from './ChapterContext';
 import ChapterLoadingScreen from './ChapterLoadingScreen/ChapterLoadingScreen';
 import ChapterDrawer from './components/ChapterDrawer';
@@ -113,32 +113,7 @@ export const ChapterContent = ({
   const applyTermsToWebView = useCallback(() => {
     const novelId = ctxNovel?.id ?? 0;
     const terms = getAllTermsForNovel(novelId);
-    if (!terms.length) return;
-    const safeTerms = JSON.stringify(terms);
-    const js =
-      '(function(){' +
-      'var chEl=document.getElementById("LNReader-chapter");' +
-      'if(!chEl)return;' +
-      'var walker=document.createTreeWalker(chEl,NodeFilter.SHOW_TEXT,null);' +
-      'var nodes=[];var n;' +
-      'while((n=walker.nextNode()))nodes.push(n);' +
-      'var terms=' + safeTerms + ';' +
-      'nodes.forEach(function(node){' +
-      'var text=node.nodeValue;if(!text)return;' +
-      'terms.forEach(function(t){' +
-      'if(!t.from)return;' +
-      'if(t.caseSensitive){text=text.split(t.from).join(t.to);}' +
-      'else{' +
-      'var lower=text.toLowerCase();' +
-      'var fromLower=t.from.toLowerCase();' +
-      'var result="";var last=0;var idx;' +
-      'while((idx=lower.indexOf(fromLower,last))!==-1){' +
-      'result+=text.slice(last,idx)+t.to;last=idx+t.from.length;}' +
-      'text=result+text.slice(last);}' +
-      '});' +
-      'node.nodeValue=text;' +
-      '});' +
-      '})()';
+    const js = buildApplyTermsJs(terms);
     webViewRef?.current?.injectJavaScript(js);
   }, [ctxNovel?.id, webViewRef]);
 

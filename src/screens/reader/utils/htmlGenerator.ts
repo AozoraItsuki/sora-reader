@@ -220,7 +220,54 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         margin-top: 32px;
         border-top: 1.5px solid var(--theme-outline, rgba(128,128,128,0.35));
       }
-      
+
+      .lnr-term {
+        border-bottom: 1.5px dashed var(--theme-primary, currentColor);
+        cursor: pointer;
+      }
+
+      #lnr-term-tooltip {
+        display: none;
+        position: fixed;
+        background: var(--theme-surface, #fff);
+        color: var(--theme-onSurface, #000);
+        border: 1px solid var(--theme-outline, #ccc);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 13px;
+        max-width: 280px;
+        z-index: 9999;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+        pointer-events: none;
+        line-height: 1.6;
+      }
+      #lnr-term-tooltip.lnr-visible { display: block; }
+      #lnr-term-tooltip .lnr-tt-label {
+        font-size: 11px;
+        opacity: 0.6;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+      }
+      #lnr-term-tooltip .lnr-tt-original {
+        font-weight: bold;
+        color: var(--theme-primary, inherit);
+        font-size: 15px;
+      }
+      #lnr-term-tooltip .lnr-tt-arrow {
+        opacity: 0.5;
+        margin: 2px 0;
+        font-size: 12px;
+      }
+      #lnr-term-tooltip .lnr-tt-replacement {
+        font-size: 14px;
+      }
+      #lnr-term-tooltip .lnr-tt-scope {
+        font-size: 11px;
+        opacity: 0.55;
+        margin-top: 4px;
+      }
+
       @font-face {
         font-family: ${readerSettings.fontFamily};
         src: url("file:///android_asset/fonts/${
@@ -249,6 +296,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         : ''
     }
     <div id="reader-ui"></div>
+    <div id="lnr-term-tooltip"></div>
   </body>
   <script>
     window.onerror = function(message, source, lineno, colno, error) {
@@ -315,6 +363,52 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         }
         _isNearBottomPosted = false;
       };
+
+      // Term tooltip: show bubble when .lnr-term is tapped
+      (function() {
+        var tooltip = document.getElementById('lnr-term-tooltip');
+        if (!tooltip) return;
+
+        document.addEventListener('click', function(e) {
+          var target = e.target;
+          while (target && target !== document.body) {
+            if (target.classList && target.classList.contains('lnr-term')) break;
+            target = target.parentElement;
+          }
+          if (target && target.classList && target.classList.contains('lnr-term')) {
+            var original = decodeURIComponent(target.getAttribute('data-from') || '');
+            var replacement = decodeURIComponent(target.getAttribute('data-to') || '');
+            var scope = target.getAttribute('data-scope') || '';
+            var scopeLabel = scope === 'global' ? 'Global' : 'Novel';
+            tooltip.innerHTML =
+              '<div class="lnr-tt-label">Teks asli</div>' +
+              '<div class="lnr-tt-original">' + original + '</div>' +
+              (replacement && replacement !== original
+                ? '<div class="lnr-tt-arrow">&#8595; diganti menjadi</div>' +
+                  '<div class="lnr-tt-replacement">' + replacement + '</div>'
+                : '') +
+              '<div class="lnr-tt-scope">Cakupan: ' + scopeLabel + '</div>';
+
+            var rect = target.getBoundingClientRect();
+            var vw = window.innerWidth;
+            var vh = window.innerHeight;
+            var ttW = 280;
+            var left = Math.max(8, Math.min(rect.left, vw - ttW - 8));
+            var top = rect.bottom + 6;
+            if (top + 110 > vh) top = Math.max(8, rect.top - 116);
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.classList.add('lnr-visible');
+            e.stopPropagation();
+          } else {
+            tooltip.classList.remove('lnr-visible');
+          }
+        });
+
+        document.addEventListener('scroll', function() {
+          tooltip.classList.remove('lnr-visible');
+        }, { passive: true });
+      })();
     })();
   </script>
 </html>
