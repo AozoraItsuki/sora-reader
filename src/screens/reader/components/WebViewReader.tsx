@@ -61,6 +61,7 @@ type WebViewPostEvent = {
 
 type WebViewReaderProps = {
   onPress?: () => void;
+  onScroll?: () => void;
 };
 
 const onLogMessage = (payload: { nativeEvent: { data: string } }) => {
@@ -88,7 +89,7 @@ const assetsUriPrefix = __DEV__
   ? 'http://localhost:8081/assets'
   : 'file:///android_asset';
 
-const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
+const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   const {
     novel,
     chapter,
@@ -674,6 +675,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         switch (event.type) {
           case 'near-bottom':
             appendNextChapter();
+            break;
+          case 'scroll':
+            onScroll?.();
             break;
           case 'user-interaction':
             resetAutoScroll();

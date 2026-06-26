@@ -283,6 +283,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     (function() {
       var _isNearBottomPosted = false;
       var _appendedChapIds = {};
+      var _scrollThrottled = false;
 
       function checkNearBottom() {
         var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
@@ -292,6 +293,11 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         if (distanceFromBottom < 500 && !_isNearBottomPosted) {
           _isNearBottomPosted = true;
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'near-bottom' }));
+        }
+        if (!_scrollThrottled) {
+          _scrollThrottled = true;
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scroll' }));
+          setTimeout(function() { _scrollThrottled = false; }, 300);
         }
       }
 

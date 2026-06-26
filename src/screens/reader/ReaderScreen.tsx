@@ -75,6 +75,7 @@ export const ChapterContent = ({
     chapter.bookmark ?? false,
   );
   const [locked, setLocked] = useState(false);
+  const [lockBtnVisible, setLockBtnVisible] = useState(false);
   const lastBackPressRef = useRef<number>(0);
   const [sheetTabIndex, setSheetTabIndex] = useState(0);
   const [sheetTabKey, setSheetTabKey] = useState(0);
@@ -188,6 +189,7 @@ export const ChapterContent = ({
   }
   const handleUnlock = useCallback(() => {
     setLocked(false);
+    setLockBtnVisible(false);
     ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
   }, []);
 
@@ -195,20 +197,33 @@ export const ChapterContent = ({
     const next = !locked;
     setLocked(next);
     if (next) {
+      setLockBtnVisible(true);
       lastBackPressRef.current = 0;
       hideHeader();
       ToastAndroid.show('Layar terkunci — ketuk kembali 2x untuk keluar', ToastAndroid.SHORT);
     } else {
+      setLockBtnVisible(false);
       ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
     }
   }, [locked, hideHeader]);
+
+  const handleLockScreenTap = useCallback(() => {
+    setLockBtnVisible(v => !v);
+  }, []);
+
+  const handleLockScreenScroll = useCallback(() => {
+    setLockBtnVisible(false);
+  }, []);
 
   return (
     <View style={[{ paddingStart: left, paddingEnd: right }, styles.container]}>
       {keepScreenOn ? <KeepScreenAwake /> : null}
       <ChapterLoadingScreen isLoading={loading}>
         <View style={styles.container}>
-          <WebViewReader onPress={locked ? undefined : hideHeader} />
+          <WebViewReader
+            onPress={locked ? handleLockScreenTap : hideHeader}
+            onScroll={locked ? handleLockScreenScroll : undefined}
+          />
         </View>
       </ChapterLoadingScreen>
       <ReaderBottomSheetV2
@@ -233,7 +248,7 @@ export const ChapterContent = ({
           />
         </View>
       )}
-      {locked && (
+      {locked && lockBtnVisible && (
         <View style={styles.lockOverlay} pointerEvents="box-none">
           <Pressable
             style={[styles.unlockBtn, { backgroundColor: theme.surface }]}
