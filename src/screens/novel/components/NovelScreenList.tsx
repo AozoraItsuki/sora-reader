@@ -266,6 +266,13 @@ const NovelScreenList = ({
     [novel, downloadChapter],
   );
 
+  const handleCancelDownload = useCallback(
+    (chapter: ChapterInfo) => {
+      cancelChapterDownload(chapter.id);
+    },
+    [cancelChapterDownload],
+  );
+
   const handleToggleRead = useCallback(
     (chapter: ChapterInfo) => {
       if (chapter.unread) {
@@ -543,6 +550,7 @@ const NovelScreenList = ({
           disableHapticFeedback={disableHapticFeedback}
           onDeleteChapter={handleDeleteChapter}
           onDownloadChapter={handleDownloadChapter}
+          onCancelDownload={handleCancelDownload}
           onSelectPress={onSelectPress}
           onSelectLongPress={onSelectLongPress}
           onToggleRead={handleToggleRead}
@@ -563,6 +571,7 @@ const NovelScreenList = ({
       disableHapticFeedback,
       handleDeleteChapter,
       handleDownloadChapter,
+      handleCancelDownload,
       onSelectPress,
       onSelectLongPress,
       handleToggleRead,

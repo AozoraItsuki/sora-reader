@@ -500,6 +500,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
           theme={theme}
           deleteChapter={handleDelete}
           downloadChapter={handleDownload}
+          cancelDownload={onCancelDownload ? handleCancel : undefined}
         />
       ) : null}
     </Pressable>

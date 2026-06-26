@@ -4,7 +4,7 @@ import { TaskQueueScreenProps } from '@navigators/types';
 import ServiceManager, { QueuedBackgroundTask } from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMMKVObject } from 'react-native-mmkv';
 import {
   Appbar as MaterialAppbar,
@@ -13,6 +13,7 @@ import {
   ProgressBar,
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { showToast } from '../../utils/showToast';
 
@@ -31,8 +32,6 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
       setIsRunning(false);
     }
   }, [taskQueue]);
-
-  // TODO: there should probably be a way to cancel a specific task from this screen
 
   return (
     <SafeAreaView excludeTop>
@@ -73,21 +72,35 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
         keyExtractor={(item, index) => 'task_' + index}
         data={taskQueue || []}
         renderItem={({ item }) => (
-          <View style={styles.padding}>
-            <Text style={{ color: theme.onSurface }}>{item.meta.name}</Text>
-            {item.meta.progressText ? (
-              <Text style={{ color: theme.onSurfaceVariant }}>
-                {item.meta.progressText}
-              </Text>
-            ) : null}
-            <ProgressBar
-              indeterminate={
-                item.meta.isRunning && item.meta.progress === undefined
-              }
-              progress={item.meta.progress}
-              color={theme.primary}
-              style={[{ backgroundColor: theme.surface2 }, styles.marginTop]}
-            />
+          <View style={styles.taskRow}>
+            <View style={styles.taskInfo}>
+              <Text style={{ color: theme.onSurface }}>{item.meta.name}</Text>
+              {item.meta.progressText ? (
+                <Text style={{ color: theme.onSurfaceVariant }}>
+                  {item.meta.progressText}
+                </Text>
+              ) : null}
+              <ProgressBar
+                indeterminate={
+                  item.meta.isRunning && item.meta.progress === undefined
+                }
+                progress={item.meta.progress}
+                color={theme.primary}
+                style={[{ backgroundColor: theme.surface2 }, styles.marginTop]}
+              />
+            </View>
+            <Pressable
+              style={[styles.cancelButton]}
+              onPress={() => ServiceManager.manager.removeTaskById(item.id)}
+              android_ripple={{ color: theme.rippleColor, borderless: true, radius: 20 }}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={20}
+                color={theme.onSurfaceVariant}
+              />
+            </Pressable>
           </View>
         )}
         ListEmptyComponent={
@@ -136,5 +149,22 @@ const styles = StyleSheet.create({
   },
   marginTop: { marginTop: 8 },
   paddingBottom: { paddingBottom: 100, flexGrow: 1 },
-  padding: { padding: 16 },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingRight: 8,
+  },
+  taskInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  cancelButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
 });
