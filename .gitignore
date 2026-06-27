@@ -100,3 +100,7 @@ test_db/
 
 # Rock
 .rock/
+
+# Other
+attached_assets/
+*.tar.gz
