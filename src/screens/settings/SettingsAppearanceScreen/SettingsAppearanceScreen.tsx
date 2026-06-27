@@ -1,19 +1,24 @@
-import { Appbar, List, SafeAreaView, SegmentedControl } from '@components';
+import { Appbar, SafeAreaView, SegmentedControl } from '@components';
+import List from '@components/List/List';
 import ColorPickerModal from '@components/ColorPickerModal/ColorPickerModal';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import { useAppSettings, useTheme } from '@hooks/persisted';
+import { useCustomThemes } from '@hooks/persisted/useCustomThemes';
 import { AppearanceSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
 import Color from 'color';
 import React, { useMemo, useState } from 'react';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import {
+  Alert,
   Appearance,
   GestureResponderEvent,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import {
@@ -24,6 +29,7 @@ import {
 import switchTheme from 'react-native-theme-switch-animation';
 
 import SettingSwitch from '../components/SettingSwitch';
+import CreateThemeModal from './CreateThemeModal';
 import LanguagePickerModal from './LanguagePickerModal';
 
 type ThemeMode = 'light' | 'dark' | 'system';
@@ -38,6 +44,8 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
   const [isAmoledBlack = false, setAmoledBlack] =
     useMMKVBoolean('AMOLED_BLACK');
   const [, setCustomAccentColor] = useMMKVString('CUSTOM_ACCENT_COLOR');
+
+  const { customThemes, addCustomTheme, deleteCustomTheme } = useCustomThemes();
 
   const {
     showHistoryTab,
@@ -56,20 +64,16 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
       ? 'light'
       : colorScheme;
 
-  /**
-   * Accent Color Modal
-   */
   const [accentColorModal, setAccentColorModal] = useState(false);
   const showAccentColorModal = () => setAccentColorModal(true);
   const hideAccentColorModal = () => setAccentColorModal(false);
 
-  /**
-   * Language Picker Modal
-   */
   const [languageModal, setLanguageModal] = useState(false);
   const showLanguageModal = () => setLanguageModal(true);
   const hideLanguageModal = () => setLanguageModal(false);
   const [appLocale = ''] = useMMKVString('APP_LOCALE');
+
+  const [createThemeModal, setCreateThemeModal] = useState(false);
 
   const getCurrentLanguageName = (): string => {
     if (!appLocale) {
@@ -99,28 +103,6 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     ],
     [],
   );
-
-  // const handleModeChange = (mode: ThemeMode) => {
-  //   setThemeMode(mode);
-
-  //   if (mode !== 'system') {
-  //     const themes = mode === 'dark' ? darkThemes : lightThemes;
-  //     const currentThemeInMode = themes.find(t => t.id === theme.id);
-
-  //     if (!currentThemeInMode) {
-  //       setThemeId(themes[0].id);
-  //     }
-  //   }
-  // };
-
-  // const handleThemeSelect = (selectedTheme: ThemeColors) => {
-  //   setThemeId(selectedTheme.id);
-  //   setCustomAccentColor(undefined);
-
-  //   if (actualThemeMode !== 'system') {
-  //     setThemeMode(selectedTheme.isDark ? 'dark' : 'light');
-  //   }
-  // };
 
   const handleModeChange = (mode: ThemeMode, event: GestureResponderEvent) => {
     setThemeMode(mode);
@@ -159,6 +141,27 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     });
   };
 
+  const handleDeleteCustomTheme = (t: ThemeColors) => {
+    Alert.alert(
+      'Hapus Tema',
+      `Hapus tema "${t.name}"?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: () => deleteCustomTheme(t.id),
+        },
+      ],
+    );
+  };
+
+  const customThemesForMode = customThemes.filter(
+    t => t.isDark === (actualThemeMode === 'dark'),
+  );
+
+  const builtInThemes = actualThemeMode === 'light' ? lightThemes : darkThemes;
+
   return (
     <SafeAreaView excludeTop>
       <Appbar
@@ -175,7 +178,6 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
             {getString('appearanceScreen.appTheme')}
           </List.SubHeader>
 
-          {/* Theme Mode Selector */}
           <View style={styles.segmentedControlContainer}>
             <SegmentedControl
               options={themeModeOptions}
@@ -185,10 +187,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
             />
           </View>
 
-          {/* Light Themes */}
-          {/* <Text style={[{ color: theme.onSurface }, styles.themeSectionText]}>
-            {getString('appearanceScreen.lightTheme')}
-          </Text>*/}
+          {/* Built-in Themes */}
           <View style={styles.scrollViewContainer}>
             <ScrollView
               contentContainerStyle={[
@@ -198,19 +197,59 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               horizontal={true}
               showsHorizontalScrollIndicator={false}
             >
-              {(actualThemeMode === 'light' ? lightThemes : darkThemes).map(
-                item => (
+              {builtInThemes.map(item => (
+                <ThemePicker
+                  horizontal
+                  key={item.id}
+                  currentTheme={theme}
+                  theme={item}
+                  onPress={e => handleThemeSelect(item, e)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Custom Themes */}
+          <List.SubHeader theme={theme}>
+            Tema Kustom
+          </List.SubHeader>
+          <View style={styles.scrollViewContainer}>
+            <ScrollView
+              contentContainerStyle={[
+                styles.themePickerRow,
+                { backgroundColor: theme.surfaceVariant },
+              ]}
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+            >
+              {customThemesForMode.map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  onLongPress={() => handleDeleteCustomTheme(item)}
+                  activeOpacity={0.85}
+                >
                   <ThemePicker
                     horizontal
-                    key={item.id}
                     currentTheme={theme}
                     theme={item}
                     onPress={e => handleThemeSelect(item, e)}
                   />
-                ),
-              )}
+                </TouchableOpacity>
+              ))}
+              {/* Add button */}
+              <TouchableOpacity
+                style={[
+                  styles.addThemeBtn,
+                  { borderColor: theme.outline, backgroundColor: Color(theme.primary).alpha(0.08).string() },
+                ]}
+                onPress={() => setCreateThemeModal(true)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="plus" size={32} color={theme.primary} />
+              </TouchableOpacity>
             </ScrollView>
           </View>
+
           {theme.isDark ? (
             <SettingSwitch
               label={getString('appearanceScreen.pureBlackDarkMode')}
@@ -291,6 +330,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
         visible={languageModal}
         onDismiss={hideLanguageModal}
       />
+      <CreateThemeModal
+        visible={createThemeModal}
+        onDismiss={() => setCreateThemeModal(false)}
+        onSave={input => addCustomTheme(input)}
+      />
     </SafeAreaView>
   );
 };
@@ -304,13 +348,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  themeSectionText: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
   themePickerRow: {
     borderRadius: 24,
-    // marginHorizontal: 8,
     paddingHorizontal: 4,
     paddingTop: 8,
     paddingBottom: 2,
@@ -323,5 +362,16 @@ const styles = StyleSheet.create({
   segmentedControlContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  addThemeBtn: {
+    width: 95,
+    height: 140,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+    marginBottom: 20,
   },
 });
