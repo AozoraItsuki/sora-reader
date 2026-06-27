@@ -6,21 +6,32 @@ on:
       - main
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: write
   actions: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
-    name: Build Android
+    name: Build App
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 60
 
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -29,42 +40,54 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '24'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
+      - name: Get pnpm Store Directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm Cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Android
+      - name: Generate Environment Variables
+        run: |
+          pnpm generate:env:release \
+            --build-type "Github Action" \
+            --node-env "production" \
+            --myanimelist-client-id "${{ vars.MYANIMELIST_CLIENT_ID }}" \
+            --anilist-client-id "${{ vars.ANILIST_CLIENT_ID }}"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK Components
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.1.12297006"
+
+      - name: Build Android Release with Rock
         uses: callstackincubator/android@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
         with:
-          source-dir: android
-          gradle-task: assemblePreRelease
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-preRelease
-          path: |
-            android/app/build/outputs/apk/**/*.apk
-            android/app/build/outputs/**/*.apk
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
-        with:
-          tag_name: nightly-${{ github.run_number }}
-          name: Nightly Build #${{ github.run_number }}
-          prerelease: true
-          generate_release_notes: true
-          files: |
-            android/app/build/outputs/apk/**/*.apk
-            android/app/build/outputs/**/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          re-sign: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          variant: preRelease

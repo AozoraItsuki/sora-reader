@@ -1,6 +1,4 @@
-# Cloned from tachiyomi
-
-name: Issue moderator
+name: Issue Moderator
 
 on:
   issues:
@@ -10,9 +8,10 @@ on:
 
 jobs:
   moderate:
+    name: Moderate Issues
     runs-on: ubuntu-latest
     steps:
-      - name: Moderate issues
+      - name: Moderate Issues
         uses: tachiyomiorg/issue-moderator-action@v1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
