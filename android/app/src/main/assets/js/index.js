@@ -22,129 +22,6 @@ const ChapterEnding = () => {
         );
 };
 
-const Scrollbar = () => {
-  const horizontal = van.derive(
-    () => !reader.generalSettings.val.verticalSeekbar,
-  );
-  let lock = false;
-  const percentage = van.state(0);
-  const update = ratio => {
-    const scrollHeight =
-      document.documentElement.scrollHeight || document.body.scrollHeight;
-    const maxScrollY = scrollHeight - window.innerHeight;
-    if (ratio === undefined) {
-      ratio = maxScrollY > 0 ? window.scrollY / maxScrollY : 1;
-    }
-    if (ratio > 1) {
-      ratio = 1;
-    }
-    if (ratio < 0) {
-      ratio = 0;
-    }
-    if (reader.generalSettings.val.pageReader) {
-      pageReader.movePage(
-        parseInt(pageReader.totalPages.val * Math.min(0.99, ratio)),
-      );
-      return;
-    }
-    percentage.val = parseInt(ratio * 100);
-    if (lock) {
-      const targetTop = maxScrollY > 0 ? maxScrollY * ratio : 0;
-      // console.log('[PROGRESS_DEBUG] scrollbar updated: dragged to ratio=' + ratio + ', targetTop=' + targetTop + ', current scrollY=' + window.scrollY + ', maxScrollY=' + maxScrollY);
-      window.scrollTo({
-        top: targetTop,
-        behavior: 'instant',
-      });
-    }
-  };
-  window.addEventListener(
-    'scroll',
-    () => !lock && !reader.generalSettings.val.pageReader && update(),
-  );
-  return div(
-    { id: 'ScrollBar' },
-    div(
-      { class: 'scrollbar-item scrollbar-text', id: 'scrollbar-percentage' },
-      () =>
-        reader.generalSettings.val.pageReader
-          ? pageReader.page.val + 1
-          : percentage.val,
-    ),
-    div(
-      { class: 'scrollbar-item', id: 'scrollbar-slider' },
-      div(
-        { id: 'scrollbar-track' },
-        div(
-          {
-            id: 'scrollbar-progress',
-            style: () => {
-              const percentageValue = reader.generalSettings.val.pageReader
-                ? (pageReader.page.val /
-                    Math.max(1, pageReader.totalPages.val - 1)) *
-                  100
-                : percentage.val;
-              return horizontal.val
-                ? `width: ${percentageValue}%; height: 100%;`
-                : `height: ${percentageValue}%; width: 100%;`;
-            },
-          },
-          div(
-            {
-              id: 'scrollbar-thumb-wrapper',
-              ontouchstart: () => {
-                lock = true;
-              },
-              ontouchend: () => {
-                lock = false;
-              },
-              ontouchmove: function (e) {
-                const slider = this.parentElement.parentElement.parentElement;
-                const sliderHeight = horizontal.val
-                  ? slider.clientWidth
-                  : slider.clientHeight;
-                const sliderOffsetY = horizontal.val
-                  ? slider.getBoundingClientRect().left
-                  : slider.getBoundingClientRect().top;
-                const ratio =
-                  ((horizontal.val
-                    ? e.changedTouches[0].clientX
-                    : e.changedTouches[0].clientY) -
-                    sliderOffsetY) /
-                  sliderHeight;
-                update(ratio < 0 ? 0 : ratio);
-              },
-            },
-            div({ id: 'scrollbar-thumb' }),
-          ),
-        ),
-      ),
-    ),
-    div(
-      {
-        class: 'scrollbar-item scrollbar-text',
-        id: 'scrollbar-percentage-max',
-      },
-      () =>
-        reader.generalSettings.val.pageReader ? pageReader.totalPages.val : 100,
-    ),
-  );
-};
-
-const ToolWrapper = () => {
-  const horizontal = van.derive(
-    () => !reader.generalSettings.val.verticalSeekbar,
-  );
-  return div(
-    {
-      id: 'ToolWrapper',
-      class: () =>
-        `${reader.hidden.val ? 'hidden' : ''} ${
-          horizontal.val ? 'horizontal' : ''
-        }`,
-    },
-    Scrollbar(),
-  );
-};
 
 const ImageModal = ({ src }) => {
   return div(
@@ -302,9 +179,6 @@ const TTSController = () => {
         controllerElement.style.top = `${clientY}px`;
         const hoverElements = document.elementsFromPoint(clientX, clientY);
         const newHoverElement = hoverElements.reverse().find(e => {
-          if (e.id.includes('scrollbar')) {
-            return false;
-          }
           return tts.readable(e);
         });
         hoverElement?.classList.remove('highlight');
@@ -358,7 +232,6 @@ const TTSController = () => {
 
 const ReaderUI = () => {
   return div(
-    ToolWrapper(),
     TTSController(),
     ModalWrapper(),
     Footer(),

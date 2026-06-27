@@ -158,7 +158,6 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     <link rel="stylesheet" href="${assetsUriPrefix}/css/index.css">
     <link rel="stylesheet" href="${assetsUriPrefix}/css/pageReader.css">
     <link rel="stylesheet" href="${assetsUriPrefix}/css/pullSpinner.css">
-    <link rel="stylesheet" href="${assetsUriPrefix}/css/toolWrapper.css">
     <link rel="stylesheet" href="${assetsUriPrefix}/css/tts.css">
     <style>
       :root {
