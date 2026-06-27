@@ -6,6 +6,7 @@ import {
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import * as LocalAuthentication from 'expo-local-authentication';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
@@ -84,7 +85,7 @@ const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.content}>
-          <Text style={[styles.lockIcon]}>⚠️</Text>
+          <MaterialCommunityIcons name="alert-circle-outline" size={64} color={theme.error} style={styles.lockIcon} />
           <Text style={[styles.title, { color: theme.onSurface }]}>
             {getString('securitySettingsScreen.credentialsRevokedTitle')}
           </Text>
@@ -112,7 +113,7 @@ const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.content}>
-        <Text style={[styles.lockIcon]}>🔒</Text>
+        <MaterialCommunityIcons name="lock" size={64} color={theme.primary} style={styles.lockIcon} />
         <Text style={[styles.title, { color: theme.onSurface }]}>
           {getString('securitySettingsScreen.appLocked')}
         </Text>
@@ -239,7 +240,6 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   lockIcon: {
-    fontSize: 64,
     marginBottom: 24,
   },
   subtitle: {

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<resources>
+  <color name="iconBackground">#1C1B1F</color>
+  <color name="splashscreen_background">#1C1B1F</color>
+  <color name="colorPrimary">#00BCD4</color>
+  <color name="colorPrimaryDark">#1C1B1F</color>
+  <color name="navigationBarColor">#1C1B1F</color>
+  <color name="notification_icon_color">#FFC107</color>
+</resources>

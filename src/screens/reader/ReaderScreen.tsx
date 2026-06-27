@@ -7,8 +7,9 @@ import { ChapterScreenProps } from '@navigators/types';
 import { useFocusEffect } from '@react-navigation/native';
 import { resolveUrl } from '@services/plugin/fetch';
 import { getString } from '@strings/translations';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import { Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -95,7 +96,7 @@ export const ChapterContent = ({
         return true;
       }
       lastBackPressRef.current = now;
-      ToastAndroid.show('Ketuk tombol kembali sekali lagi untuk keluar', ToastAndroid.SHORT);
+      ToastAndroid.show(getString('readerScreen.lockScreen.tapBackToExit'), ToastAndroid.SHORT);
       return true;
     }
     return false;
@@ -165,7 +166,7 @@ export const ChapterContent = ({
   const handleUnlock = useCallback(() => {
     setLocked(false);
     setLockBtnVisible(false);
-    ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
+    ToastAndroid.show(getString('readerScreen.lockScreen.screenUnlocked'), ToastAndroid.SHORT);
   }, []);
 
   const handleToggleLock = useCallback(() => {
@@ -175,10 +176,10 @@ export const ChapterContent = ({
       setLockBtnVisible(true);
       lastBackPressRef.current = 0;
       hideHeader();
-      ToastAndroid.show('Layar terkunci — ketuk kembali 2x untuk keluar', ToastAndroid.SHORT);
+      ToastAndroid.show(getString('readerScreen.lockScreen.screenLocked'), ToastAndroid.SHORT);
     } else {
       setLockBtnVisible(false);
-      ToastAndroid.show('Layar tidak terkunci', ToastAndroid.SHORT);
+      ToastAndroid.show(getString('readerScreen.lockScreen.screenUnlocked'), ToastAndroid.SHORT);
     }
   }, [locked, hideHeader]);
 
@@ -230,7 +231,7 @@ export const ChapterContent = ({
             onPress={handleUnlock}
             android_ripple={{ color: theme.rippleColor, borderless: true, radius: 28 }}
           >
-            <Text style={[styles.unlockIcon, { color: theme.primary }]}>🔒</Text>
+            <MaterialCommunityIcons name="lock" size={22} color={theme.primary} />
           </Pressable>
         </View>
       )}
@@ -261,8 +262,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     opacity: 0.85,
-  },
-  unlockIcon: {
-    fontSize: 22,
   },
 });

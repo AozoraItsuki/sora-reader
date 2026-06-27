@@ -652,7 +652,12 @@
     "nextChapter": "Next: %{name}",
     "noNextChapter": "There's no next chapter",
     "noPreviousChapter": "There's no previous chapter",
-    "usingOfflineTranslation": "Using offline translated version"
+    "usingOfflineTranslation": "Using offline translated version",
+    "lockScreen": {
+      "tapBackToExit": "Tap back once more to exit",
+      "screenUnlocked": "Screen unlocked",
+      "screenLocked": "Screen locked — tap back 2× to exit"
+    }
   },
   "readerSettings": {
     "autoScrollInterval": "Scroll interval (seconds)",

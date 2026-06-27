@@ -556,6 +556,9 @@ export interface StringMap {
   'readerScreen.noNextChapter': 'string';
   'readerScreen.noPreviousChapter': 'string';
   'readerScreen.usingOfflineTranslation': 'string';
+  'readerScreen.lockScreen.tapBackToExit': 'string';
+  'readerScreen.lockScreen.screenUnlocked': 'string';
+  'readerScreen.lockScreen.screenLocked': 'string';
   'readerSettings.autoScrollInterval': 'string';
   'readerSettings.autoScrollOffset': 'string';
   'readerSettings.backgroundColor': 'string';

@@ -652,7 +652,12 @@
     "nextChapter": "Berikutnya: %{name}",
     "noNextChapter": "Tidak ada bab berikutnya",
     "noPreviousChapter": "Tidak ada bab sebelumnya",
-    "usingOfflineTranslation": "Menggunakan versi terjemahan offline"
+    "usingOfflineTranslation": "Menggunakan versi terjemahan offline",
+    "lockScreen": {
+      "tapBackToExit": "Ketuk tombol kembali sekali lagi untuk keluar",
+      "screenUnlocked": "Layar tidak terkunci",
+      "screenLocked": "Layar terkunci — ketuk kembali 2x untuk keluar"
+    }
   },
   "readerSettings": {
     "autoScrollInterval": "Interval gulir (detik)",
