@@ -250,6 +250,7 @@ const TrackerButton = ({
 );
 
 const genreKeyExtractor = (_item: string, index: number) => 'genre' + index;
+const tagKeyExtractor = (_item: string, index: number) => 'tag' + index;
 
 const NovelGenres = memo(
   ({ theme, genres }: { theme: ThemeColors; genres: string }) => {
@@ -272,12 +273,35 @@ const NovelGenres = memo(
   },
 );
 
+const NovelTags = memo(
+  ({ theme, tags }: { theme: ThemeColors; tags: string }) => {
+    const data = useMemo(() => tags.split(/,\s*/), [tags]);
+    const renderTag = useCallback(
+      ({ item }: { item: string }) => <Chip label={item} theme={theme} />,
+      [theme],
+    );
+
+    return (
+      <FlatList
+        contentContainerStyle={styles.genreContainer}
+        horizontal
+        data={data}
+        keyExtractor={tagKeyExtractor}
+        renderItem={renderTag}
+        showsHorizontalScrollIndicator={false}
+        removeClippedSubviews={false}
+      />
+    );
+  },
+);
+
 export {
   CoverImage,
   FollowButton,
   NovelGenres,
   NovelInfo,
   NovelInfoContainer,
+  NovelTags,
   NovelThumbnail,
   NovelTitle,
   TrackerButton,

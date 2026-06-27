@@ -19,6 +19,7 @@ export const novel = sqliteTable(
     artist: text('artist'),
     status: text('status').default('Unknown'),
     genres: text('genres'),
+    tags: text('tags'),
     inLibrary: integer('inLibrary', { mode: 'boolean' }).default(false),
     isLocal: integer('isLocal', { mode: 'boolean' }).default(false),
     totalPages: integer('totalPages').default(0),

@@ -11,6 +11,7 @@ export interface NovelInfo {
   artist?: string | null;
   status?: NovelStatus | string | null;
   genres?: string | null;
+  tags?: string | null;
   inLibrary?: boolean | null;
   isLocal?: boolean | null;
   totalPages?: number | null;

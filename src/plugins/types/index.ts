@@ -73,6 +73,7 @@ export enum NovelStatus {
 
 export interface SourceNovel extends NovelItem {
   genres?: string;
+  tags?: string;
   summary?: string;
   author?: string;
   artist?: string;

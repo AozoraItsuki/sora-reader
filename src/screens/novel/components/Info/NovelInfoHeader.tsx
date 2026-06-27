@@ -38,6 +38,7 @@ import {
   NovelGenres,
   NovelInfo,
   NovelInfoContainer,
+  NovelTags,
   NovelThumbnail,
   NovelTitle,
 } from './NovelInfoComponents';
@@ -342,6 +343,9 @@ const NovelInfoHeader = ({
             />
             {novel.genres ? (
               <NovelGenres theme={theme} genres={novel.genres} />
+            ) : null}
+            {novel.tags ? (
+              <NovelTags theme={theme} tags={novel.tags} />
             ) : null}
           </>
         )}

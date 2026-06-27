@@ -41,6 +41,7 @@ export const insertNovelAndChapters = async (
         artist: sourceNovel.artist || null,
         status: sourceNovel.status || null,
         genres: sourceNovel.genres || null,
+        tags: sourceNovel.tags || null,
         totalPages: sourceNovel.totalPages || 0,
       })
       .onConflictDoNothing()
@@ -351,6 +352,7 @@ export const restoreLibrary = async (novel: NovelInfo) => {
         artist: novel.artist || '',
         status: novel.status || '',
         genres: novel.genres || '',
+        tags: novel.tags || '',
         totalPages: sourceNovel.totalPages || 0,
         inLibrary: true,
       })
@@ -364,6 +366,7 @@ export const restoreLibrary = async (novel: NovelInfo) => {
           artist: novel.artist || '',
           status: novel.status || '',
           genres: novel.genres || '',
+          tags: novel.tags || '',
           totalPages: sourceNovel.totalPages || 0,
           inLibrary: true,
         },
@@ -409,6 +412,7 @@ export const updateNovelInfo = async (info: NovelInfo) => {
         author: info.author || '',
         artist: info.artist || '',
         genres: info.genres || '',
+        tags: info.tags || '',
         status: info.status || '',
         isLocal: info.isLocal,
       })
