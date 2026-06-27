@@ -1,0 +1,22 @@
+workflows:
+  android-release:
+    name: Android Release
+
+    environment:
+      node: 20
+      java: 21
+
+    cache:
+      cache_paths:
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - ~/.pnpm-store
+
+    scripts:
+      - npm install -g pnpm
+      - pnpm install
+      - pnpm run build:release:android
+
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/*.aab
