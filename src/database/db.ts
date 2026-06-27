@@ -28,7 +28,7 @@ class MyLogger implements Logger {
   }
 }
 
-const DB_NAME = 'lnreader.db';
+const DB_NAME = 'sorareader.db';
 const _db = open({ name: DB_NAME, location: '../files/SQLite' });
 
 /**
@@ -204,7 +204,7 @@ export const useInitDatabase = () => {
         if (readDurationCheck) {
           // 1. Migrate existing readDuration data to a new table
           db.executeRawSync(`
-            INSERT OR IGNORE INTO LNReader_eXtended_Chapter_History (chapterId, readDuration)
+            INSERT OR IGNORE INTO SoraReader_eXtended_Chapter_History (chapterId, readDuration)
             SELECT id, readDuration 
             FROM Chapter 
             WHERE readDuration IS NOT NULL AND readDuration > 0;

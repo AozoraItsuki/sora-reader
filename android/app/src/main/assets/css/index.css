@@ -37,12 +37,12 @@ body:not(.page-reader) .transition-chapter {
   padding-right: var(--readerSettings-padding);
 }
 
-#LNReader-chapter {
+#SoraReader-chapter {
   padding-left: var(--readerSettings-padding);
   padding-right: var(--readerSettings-padding);
 }
 
-.lnreader-chapter-block {
+.sorareader-chapter-block {
   padding-left: var(--readerSettings-padding);
   padding-right: var(--readerSettings-padding);
   overflow-x: hidden;

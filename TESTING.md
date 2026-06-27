@@ -1,4 +1,4 @@
-# Testing Guide for LNReader
+# Testing Guide for SoraReader
 
 This guide explains how to write tests in this React Native project using Jest and React Testing Library.
 

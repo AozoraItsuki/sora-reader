@@ -40,7 +40,7 @@ export const generateAppendChapterHtml = (options: {
   chapterName: string;
 }): string => {
   const { html, chapterId, chapterName } = options;
-  return `<div id="ch-${chapterId}" class="lnreader-chapter-block" data-chapter-id="${chapterId}"><div class="chapter-append-divider">${chapterName}</div>${html}</div>`;
+  return `<div id="ch-${chapterId}" class="sorareader-chapter-block" data-chapter-id="${chapterId}"><div class="chapter-append-divider">${chapterName}</div>${html}</div>`;
 };
 
 export const generateReaderHtml = (options: HtmlTemplateOptions) => {
@@ -97,9 +97,9 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
       ? '<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">'
       : '';
 
-  // <meta name="lnreader-chapter-type" content="video">
+  // <meta name="sorareader-chapter-type" content="video">
   const isVideoChapter =
-    /<meta\s+name=["']lnreader-chapter-type["']\s+content=["']video["']/i.test(
+    /<meta\s+name=["']sorareader-chapter-type["']\s+content=["']video["']/i.test(
       html,
     );
 
@@ -186,7 +186,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         --reader-bottomInset: ${readerBottomInset}px;
       }
 
-      #LNReader-title-novel {
+      #SoraReader-title-novel {
         display: block;
         font-size: 1.25em;
         font-weight: bold;
@@ -279,15 +279,15 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     <style>${readerSettings.customCSS || ''}</style>
   </head>
   <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
-    <div id="LNReader-chapter" class="lnreader-chapter-block" data-chapter-id="${chapter.id}">
-      <div id="LNReader-title-novel">
+    <div id="SoraReader-chapter" class="sorareader-chapter-block" data-chapter-id="${chapter.id}">
+      <div id="SoraReader-title-novel">
         ${chapter.name}
       </div>
       ${html}  
     </div>
     ${
       nextChapterHtml && nextChapter
-        ? `<div id="LNReader-next-chapter-seamless" data-chapter-id="${nextChapter.id}" style="margin-top:32px; border-top: 1.5px solid var(--theme-outline, #888); padding-top: 8px;">
+        ? `<div id="SoraReader-next-chapter-seamless" data-chapter-id="${nextChapter.id}" style="margin-top:32px; border-top: 1.5px solid var(--theme-outline, #888); padding-top: 8px;">
         <div class="transition-chapter" style="text-align:center; padding: 12px 0 8px 0; font-size:0.97em; opacity:0.7;">
           ${strings.nextChapter}
         </div>

@@ -3,7 +3,7 @@ import { integer, sqliteTable } from 'drizzle-orm/sqlite-core';
 import { chapter } from './chapter';
 
 export const extendedChapterHistorySchema = sqliteTable(
-  'LNReader_eXtended_Chapter_History',
+  'SoraReader_eXtended_Chapter_History',
   {
     chapterId: integer('chapterId')
       .primaryKey()

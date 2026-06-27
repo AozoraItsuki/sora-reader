@@ -32,11 +32,11 @@
     "nix:emulator": "nix develop .#emulator --extra-experimental-features nix-command --extra-experimental-features flakes"
   },
   "codegenConfig": {
-    "name": "LNReaderSpec",
+    "name": "SoraReaderSpec",
     "type": "modules",
     "jsSrcsDir": "specs",
     "android": {
-      "javaPackageName": "com.lnreader.spec"
+      "javaPackageName": "com.sorareader.spec"
     }
   },
   "dependencies": {

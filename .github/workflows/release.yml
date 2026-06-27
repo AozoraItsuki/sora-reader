@@ -178,15 +178,15 @@ jobs:
           pnpm rock build:android --variant release \
             --extra-params "--build-cache -PreactNativeArchitectures=${{ matrix.abi }} -PcommitCount=${{ needs.prepare.outputs.commit_count }}"
           mv android/app/build/outputs/apk/release/app-release.apk \
-            android/app/build/outputs/apk/release/LNReader-v${{ needs.prepare.outputs.version }}-r${{ needs.prepare.outputs.commit_count }}-${{ matrix.apk_suffix }}.apk
+            android/app/build/outputs/apk/release/SoraReader-v${{ needs.prepare.outputs.version }}-r${{ needs.prepare.outputs.commit_count }}-${{ matrix.apk_suffix }}.apk
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.prepare.outputs.version }}
-          name: "LNReader v${{ needs.prepare.outputs.version }}"
+          name: "SoraReader v${{ needs.prepare.outputs.version }}"
           body: ${{ needs.prepare.outputs.commit_msg }}
           prerelease: ${{ inputs.prerelease }}
           make_latest: ${{ !inputs.prerelease }}
           files: |
-            android/app/build/outputs/apk/release/LNReader-v${{ needs.prepare.outputs.version }}-r${{ needs.prepare.outputs.commit_count }}-${{ matrix.apk_suffix }}.apk
+            android/app/build/outputs/apk/release/SoraReader-v${{ needs.prepare.outputs.version }}-r${{ needs.prepare.outputs.commit_count }}-${{ matrix.apk_suffix }}.apk

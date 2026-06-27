@@ -1,6 +1,6 @@
-## LNReader eXtended
+## SoraReader eXtended
 
-This is a modified version for my personal use. It is perfectly compatible with the original LNReader's plugins and backup files, allowing you to easily migrate to this application.
+This is a modified version for my personal use. It is perfectly compatible with the original SoraReader's plugins and backup files, allowing you to easily migrate to this application.
 
 > [!WARNING]  
 > This version is not recommended for production use.
@@ -19,7 +19,7 @@ This is a modified version for my personal use. It is perfectly compatible with 
 | :-: | :-: | :-: | :-: |
 | <img src="./.github/readme-images/v2/applock.jpg" width="220" /> | <img src="./.github/readme-images/v2/book_detail.jpg" width="220" /> | <img src="./.github/readme-images/v2/reader.jpg" width="220" /> | <img src="./.github/readme-images/v2/translate.jpg" width="220" /> |
 
-### Key Changes from the Original LNReader
+### Key Changes from the Original SoraReader
 
 - **Advanced Light Novel Structure**: Partial support for organizing Japanese Light Novels into "series" and "volumes" based on the legacy Page structure.
 - **Auto HTTPS Upgrade**: The reader WebView now automatically upgrades insecure HTTP connections to HTTPS.
@@ -41,49 +41,49 @@ This is a modified version for my personal use. It is perfectly compatible with 
 <summary><b>Original README</b> (Click to expand/collapse)</summary>
 
 <p align="center">
-  <a href="https://lnreader.app">
+  <a href="https://sorareader.app">
     <img src="./.github/readme-images/icon_new.png" align="center" width="128" />
   </a>
 </p>
 
-<h1 align="center">LNReader</h1>
+<h1 align="center">SoraReader</h1>
 
 <p align="center">
-  LNReader is a free and open source light novel reader for Android, inspired by Tachiyomi.
+  SoraReader is a free and open source light novel reader for Android, inspired by Tachiyomi.
 </p>
 
 <div align="center">
   <a href="https://discord.gg/QdcWN4MD63">
     <img alt="Discord Chat" src="https://img.shields.io/discord/835746409357246465.svg?logo=discord&logoColor=white&logoWidth=20&labelColor=5865F2&color=4752C4&label=discord&style=flat">
   </a>
-  <a href="https://github.com/lnreader/lnreader/releases">
-    <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/lnreader/lnreader/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat">
+  <a href="https://github.com/sorareader/sorareader/releases">
+    <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/sorareader/sorareader/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat">
   </a>
 </div>
 
 <div align="center">
-  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/lnreader/lnreader/build.yml?labelColor=27303D&style=flat">
-  <a href="https://github.com/lnreader/lnreader/blob/main/LICENSE">
-    <img alt="GitHub" src="https://img.shields.io/github/license/lnreader/lnreader?labelColor=27303D&color=1a73e8&style=flat">
+  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/sorareader/sorareader/build.yml?labelColor=27303D&style=flat">
+  <a href="https://github.com/sorareader/sorareader/blob/main/LICENSE">
+    <img alt="GitHub" src="https://img.shields.io/github/license/sorareader/sorareader?labelColor=27303D&color=1a73e8&style=flat">
   </a>
-  <a title="Crowdin" target="_blank" href="https://crowdin.com/project/lnreader">
-    <img src="https://badges.crowdin.net/lnreader/localized.svg">
+  <a title="Crowdin" target="_blank" href="https://crowdin.com/project/sorareader">
+    <img src="https://badges.crowdin.net/sorareader/localized.svg">
   </a>
 </div>
 
 <h2 align="center">Download</h2>
 
 <p align="center">
-  <a href="https://github.com/lnreader/lnreader/releases/latest">
-    <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/lnreader/lnreader?label=Stable&labelColor=0d7377&color=084c4e&style=flat">
+  <a href="https://github.com/sorareader/sorareader/releases/latest">
+    <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/sorareader/sorareader?label=Stable&labelColor=0d7377&color=084c4e&style=flat">
   </a>
-  <a href="https://github.com/lnreader/lnreader/releases/latest">
-    <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/lnreader/lnreader?include_prereleases&sort=semver&label=Beta&labelColor=3d3d5c&color=2a2a47&style=flat">
+  <a href="https://github.com/sorareader/sorareader/releases/latest">
+    <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/sorareader/sorareader?include_prereleases&sort=semver&label=Beta&labelColor=3d3d5c&color=2a2a47&style=flat">
   </a>
 </p>
 
 <p align="center">
-  Get the app from our <a href="https://github.com/lnreader/lnreader/releases">releases page</a>.
+  Get the app from our <a href="https://github.com/sorareader/sorareader/releases">releases page</a>.
 </p>
 
 <p align="center">
@@ -98,13 +98,13 @@ This is a modified version for my personal use. It is perfectly compatible with 
 
 ## Plugins
 
-LNReader does not have any affiliation with the content providers available.
+SoraReader does not have any affiliation with the content providers available.
 
-Plugin requests should be created at [lnreader-plugins](https://github.com/lnreader/lnreader-plugins).
+Plugin requests should be created at [sorareader-plugins](https://github.com/sorareader/sorareader-plugins).
 
 ## Translation
 
-Help translate LNReader into your language on [Crowdin](https://crowdin.com/project/lnreader).
+Help translate SoraReader into your language on [Crowdin](https://crowdin.com/project/sorareader).
 
 ## Building & Contributing
 
@@ -112,6 +112,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## License
 
-[MIT](https://github.com/lnreader/lnreader/blob/main/LICENSE)
+[MIT](https://github.com/sorareader/sorareader/blob/main/LICENSE)
 
 </details>

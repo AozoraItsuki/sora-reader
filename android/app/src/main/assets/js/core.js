@@ -20,7 +20,7 @@ class Reader {
     this.readerSettings = van.state(readerSettings);
     this.generalSettings = van.state(chapterGeneralSettings);
 
-    this.chapterElement = document.querySelector('#LNReader-chapter');
+    this.chapterElement = document.querySelector('#SoraReader-chapter');
     this.selection = window.getSelection();
     this.viewport = document.querySelector('meta[name=viewport]');
 
@@ -59,7 +59,7 @@ class Reader {
         const viewportBottom = scrollY + innerHeight;
 
         // Find which chapter block is currently being read
-        const chapBlocks = document.querySelectorAll('.lnreader-chapter-block');
+        const chapBlocks = document.querySelectorAll('.sorareader-chapter-block');
         let targetBlock = null;
 
         if (chapBlocks.length > 1) {
@@ -178,7 +178,7 @@ class Reader {
 
 window.reader = new Reader();
 
-// Support legacy JavaScript variables from LNReader v1
+// Support legacy JavaScript variables from SoraReader v1
 /**
  * @param {string} globalName
  * @param {function} getParent

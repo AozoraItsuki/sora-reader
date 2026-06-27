@@ -1,6 +1,6 @@
 /* core-player.css */
 
-#lnreader-player-container {
+#sorareader-player-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -11,19 +11,19 @@
   overflow: hidden;
 }
 
-#lnreader-player-container video {
+#sorareader-player-container video {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-#lnreader-player-container iframe {
+#sorareader-player-container iframe {
   width: 100%;
   height: 100%;
   border: none;
 }
 
-#lnreader-debug-overlay {
+#sorareader-debug-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -41,11 +41,11 @@
   display: none;
 }
 
-#lnreader-debug-overlay.active {
+#sorareader-debug-overlay.active {
   display: block;
 }
 
-.lnreader-debug-msg {
+.sorareader-debug-msg {
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   padding: 2px 0;
   word-wrap: break-word;

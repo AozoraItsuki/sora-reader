@@ -57,9 +57,9 @@ const SettingsReaderScreen = () => {
 
   const novel = {
     'artist': null,
-    'author': 'LNReader-kun',
+    'author': 'SoraReader-kun',
     'cover':
-      'file:///storage/emulated/0/Android/data/com.rajarsheechatterjee.LNReader/files/Novels/lightnovelcave/16/cover.png?1717862123181',
+      'file:///storage/emulated/0/Android/data/com.AozoraItsuki.SoraReader/files/Novels/lightnovelcave/16/cover.png?1717862123181',
     'genres': 'Action,Hero',
     'id': 16,
     'inLibrary': true,

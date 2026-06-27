@@ -47,7 +47,7 @@ const MIGRATION_STATEMENTS = [
 )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS chapter_novel_path_unique ON Chapter (novelId, path)`,
   `CREATE INDEX IF NOT EXISTS chapterNovelIdIndex ON Chapter (novelId, position, page, id)`,
-  `CREATE TABLE IF NOT EXISTS LNReader_eXtended_Chapter_History (
+  `CREATE TABLE IF NOT EXISTS SoraReader_eXtended_Chapter_History (
 	chapterId integer PRIMARY KEY NOT NULL,
 	readDuration integer DEFAULT 0 NOT NULL,
 	FOREIGN KEY (chapterId) REFERENCES Chapter(id) ON DELETE CASCADE

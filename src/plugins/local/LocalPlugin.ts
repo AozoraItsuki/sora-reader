@@ -32,7 +32,7 @@ class LocalPlugin implements Plugin {
   version = '1.0.0';
   url = '';
   iconUrl =
-    'https://raw.githubusercontent.com/Yuneko-dev/lnreader-plugins/refs/heads/master/public/static/epub.png';
+    'https://raw.githubusercontent.com/Yuneko-dev/sorareader-plugins/refs/heads/master/public/static/epub.png';
   imageRequestInit: ImageRequestInit = { headers: {} };
   hasSettings = true;
   webStorageUtilized = false;

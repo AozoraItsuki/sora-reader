@@ -93,7 +93,7 @@ export const createBackup = async (
     }));
 
     const datetime = dayjs().format('YYYY-MM-DD_HH_mm');
-    const fileName = 'lnreader_backup_' + datetime + '.zip';
+    const fileName = 'sorareader_backup_' + datetime + '.zip';
 
     checkAborted(signal);
 

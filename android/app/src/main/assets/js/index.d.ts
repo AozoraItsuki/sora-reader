@@ -58,7 +58,7 @@ interface TTS {
   readable: (element?: HTMLElement) => void;
 }
 
-interface LNReaderPlayerAPI {
+interface SoraReaderPlayerAPI {
   container: HTMLElement | null;
   videoElement: HTMLVideoElement | null;
   iframeElement: HTMLIFrameElement | null;
@@ -86,5 +86,5 @@ declare global {
   const reader: Reader;
   const tts: TTS;
   const pageReader: PageReader;
-  const LNReaderPlayer: LNReaderPlayerAPI | undefined;
+  const SoraReaderPlayer: SoraReaderPlayerAPI | undefined;
 }

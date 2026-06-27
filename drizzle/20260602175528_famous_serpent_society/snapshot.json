@@ -15,7 +15,7 @@
       "entityType": "tables"
     },
     {
-      "name": "LNReader_eXtended_Chapter_History",
+      "name": "SoraReader_eXtended_Chapter_History",
       "entityType": "tables"
     },
     {
@@ -208,7 +208,7 @@
       "generated": null,
       "name": "chapterId",
       "entityType": "columns",
-      "table": "LNReader_eXtended_Chapter_History"
+      "table": "SoraReader_eXtended_Chapter_History"
     },
     {
       "type": "integer",
@@ -218,7 +218,7 @@
       "generated": null,
       "name": "readDuration",
       "entityType": "columns",
-      "table": "LNReader_eXtended_Chapter_History"
+      "table": "SoraReader_eXtended_Chapter_History"
     },
     {
       "type": "integer",
@@ -461,9 +461,9 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
-      "name": "fk_LNReader_eXtended_Chapter_History_chapterId_Chapter_id_fk",
+      "name": "fk_SoraReader_eXtended_Chapter_History_chapterId_Chapter_id_fk",
       "entityType": "fks",
-      "table": "LNReader_eXtended_Chapter_History"
+      "table": "SoraReader_eXtended_Chapter_History"
     },
     {
       "columns": [
@@ -488,8 +488,8 @@
         "chapterId"
       ],
       "nameExplicit": false,
-      "name": "LNReader_eXtended_Chapter_History_pk",
-      "table": "LNReader_eXtended_Chapter_History",
+      "name": "SoraReader_eXtended_Chapter_History_pk",
+      "table": "SoraReader_eXtended_Chapter_History",
       "entityType": "pks"
     },
     {

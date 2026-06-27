@@ -14,7 +14,7 @@ class TTS {
       'STRONG',
       'A',
     ];
-    this.internalElementIds = ['LNReader-title-novel'];
+    this.internalElementIds = ['SoraReader-title-novel'];
     this.prevElement = null;
     this.currentElement = reader.chapterElement;
     this.started = false;
@@ -218,7 +218,7 @@ class TTS {
     if (!this.reading) {
       if (
         this.currentElement &&
-        this.currentElement.id !== 'LNReader-chapter'
+        this.currentElement.id !== 'SoraReader-chapter'
       ) {
         this.speak();
         this.reading = true;

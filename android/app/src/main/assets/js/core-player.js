@@ -3,7 +3,7 @@
 // core-player.js
 
 (function () {
-  class LNReaderPlayer {
+  class SoraReaderPlayer {
     constructor() {
       this.container = null;
       this.videoElement = null;
@@ -20,22 +20,22 @@
       if (this.container) return; // Prevent double initialization
       // Check debug mode
       const debugMeta = document.querySelector(
-        'meta[name="lnreader-debug-mode"]',
+        'meta[name="sorareader-debug-mode"]',
       );
       if (debugMeta && debugMeta.content === 'true') {
         this.isDebugMode = true;
       }
 
       // Get chapter content element to append player inside
-      const chapterEl = document.getElementById('LNReader-chapter');
+      const chapterEl = document.getElementById('SoraReader-chapter');
 
       // Create container
       this.container = document.createElement('div');
-      this.container.id = 'lnreader-player-container';
+      this.container.id = 'sorareader-player-container';
 
       // Create debug overlay
       this.debugOverlay = document.createElement('div');
-      this.debugOverlay.id = 'lnreader-debug-overlay';
+      this.debugOverlay.id = 'sorareader-debug-overlay';
       if (this.isDebugMode) {
         this.debugOverlay.classList.add('active');
       }
@@ -46,19 +46,19 @@
         document.body.appendChild(this.container);
       }
 
-      this.log('LNReaderPlayer initialized');
+      this.log('SoraReaderPlayer initialized');
 
       // Check auto-play direct mode
       const modeMeta = document.querySelector(
-        'meta[name="lnreader-video-mode"]',
+        'meta[name="sorareader-video-mode"]',
       );
       if (modeMeta && modeMeta.content === 'direct') {
         this.log('Direct mode detected');
         const urlMeta = document.querySelector(
-          'meta[name="lnreader-video-url"]',
+          'meta[name="sorareader-video-url"]',
         );
         const typeMeta = document.querySelector(
-          'meta[name="lnreader-video-type"]',
+          'meta[name="sorareader-video-type"]',
         );
 
         if (urlMeta && typeMeta) {
@@ -84,10 +84,10 @@
     }
 
     log(msg) {
-      console.log('[LNReaderPlayer]', msg);
+      console.log('[SoraReaderPlayer]', msg);
       if (this.isDebugMode && this.debugOverlay) {
         const msgEl = document.createElement('div');
-        msgEl.className = 'lnreader-debug-msg';
+        msgEl.className = 'sorareader-debug-msg';
         msgEl.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
         this.debugOverlay.appendChild(msgEl);
         this.debugOverlay.scrollTop = this.debugOverlay.scrollHeight;
@@ -213,7 +213,7 @@
       this.destroyCurrentMedia();
 
       const playerTypeMeta = document.querySelector(
-        'meta[name="lnreader-player-type"]',
+        'meta[name="sorareader-player-type"]',
       );
       const playerType = playerTypeMeta ? playerTypeMeta.content : 'html5';
 
@@ -233,7 +233,7 @@
       this.destroyCurrentMedia();
 
       const playerTypeMeta = document.querySelector(
-        'meta[name="lnreader-player-type"]',
+        'meta[name="sorareader-player-type"]',
       );
       const playerType = playerTypeMeta ? playerTypeMeta.content : 'html5';
 
@@ -327,14 +327,14 @@
   }
 
   // Make it global
-  window.LNReaderPlayer = new LNReaderPlayer();
+  window.SoraReaderPlayer = new SoraReaderPlayer();
 
   // Auto-init when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () =>
-      window.LNReaderPlayer.init(),
+      window.SoraReaderPlayer.init(),
     );
   } else {
-    window.LNReaderPlayer.init();
+    window.SoraReaderPlayer.init();
   }
 })();

@@ -148,7 +148,7 @@ export function buildApplyTermsJs(terms: ReaderTerm[]): string {
 
   return `(function(){
 var terms=${safeTerms};
-var chEl=document.getElementById('LNReader-chapter');
+var chEl=document.getElementById('SoraReader-chapter');
 if(!chEl)return;
 
 function esc(s){var re=new RegExp('[.*+?^$'+'{}()|[\\\\]\\\\\\\\]','g');return s.replace(re,'\\\\$&');}
