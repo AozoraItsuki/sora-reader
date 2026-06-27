@@ -151,7 +151,7 @@ var terms=${safeTerms};
 var chEl=document.getElementById('LNReader-chapter');
 if(!chEl)return;
 
-function esc(s){return s.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&');}
+function esc(s){return s.replace(new RegExp('[.*+?^${}()|[\\\\]\\\\\\\\]','g'),'\\\\$&');}
 function buildRe(fromStr,cs){
   var parts=fromStr.split('|').map(function(p){return esc(p.trim());}).filter(Boolean);
   if(!parts.length)return null;
