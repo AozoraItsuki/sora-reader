@@ -51,7 +51,12 @@
     "allowProxyAPIDesc": "Enables the LocalHttpServer Proxy API used by plugins to bypass CORS. Takes effect immediately.",
     "verboseLogging": "Verbose Logging",
     "verboseLoggingDesc": "Print detailed logs including system logs (reduces performance)",
-    "restartRequiredToast": "Please restart the app to apply changes"
+    "restartRequiredToast": "Please restart the app to apply changes",
+    "reloadLibrary": "Reload library",
+    "reloadLibraryDesc": "Re-fetch cover, description, genres, tags and chapters for all library novels",
+    "reloadLibraryWarning": "This will re-fetch metadata and chapters for all novels in your library. Reading progress will be preserved.",
+    "reloadLibraryProgress": "%{current}/%{total} — %{name}",
+    "reloadLibraryDone": "Reload complete: %{success} updated, %{failed} failed"
   },
   "aiSettingsScreen": {
     "endpointUrl": "Endpoint URL",

@@ -8,7 +8,7 @@ import ServiceManager from '@services/ServiceManager';
 import NativeFile from '@specs/NativeFile';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { NOVEL_STORAGE } from '@utils/Storages';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 
 import { fetchNovel, fetchPage } from '../plugin/fetch';
 
@@ -20,7 +20,7 @@ const updateNovelMetadata = async (
   novelId: number,
   novel: SourceNovel,
 ) => {
-  const { name, summary, author, artist, genres, status, totalPages } = novel;
+  const { name, summary, author, artist, genres, tags, status, totalPages } = novel;
   let { cover } = novel;
   const novelDir = `${NOVEL_STORAGE}/${pluginId}/${novelId}`;
 
@@ -54,6 +54,7 @@ const updateNovelMetadata = async (
         author: author || 'unknown',
         artist: artist || null,
         genres: genres || null,
+        tags: tags || null,
         status: status || null,
         totalPages: totalPages || 0,
       })
@@ -411,6 +412,45 @@ const updateNovelPage = async (
     downloadNewChapters,
     page,
   );
+};
+
+/**
+ * Re-fetch metadata and chapters for all library novels.
+ * Reading progress (unread status, bookmarks, position) is preserved.
+ */
+export const reloadAllLibraryNovels = async (
+  onProgress?: (current: number, total: number, novelName: string) => void,
+): Promise<{ success: number; failed: number }> => {
+  const novels = await dbManager
+    .select({
+      id: novelSchema.id,
+      name: novelSchema.name,
+      path: novelSchema.path,
+      pluginId: novelSchema.pluginId,
+    })
+    .from(novelSchema)
+    .where(and(eq(novelSchema.inLibrary, true), ne(novelSchema.pluginId, LOCAL_PLUGIN_ID)))
+    .all();
+
+  let success = 0;
+  let failed = 0;
+  const total = novels.length;
+
+  for (let i = 0; i < novels.length; i++) {
+    const novel = novels[i];
+    onProgress?.(i + 1, total, novel.name);
+    try {
+      await updateNovel(novel.pluginId, novel.path, novel.id, {
+        refreshNovelMetadata: true,
+        downloadNewChapters: false,
+      });
+      success++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return { success, failed };
 };
 
 export { updateNovel, updateNovelPage };

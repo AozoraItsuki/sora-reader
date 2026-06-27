@@ -15,12 +15,13 @@ import { NOVEL_UPDATE_RANDOM_KEY } from '@hooks/persisted/useUpdates';
 import { AdvancedSettingsScreenProps } from '@navigators/types';
 import { store } from '@plugins/helpers/storage';
 import CookieManager from '@preeternal/react-native-cookie-manager';
+import { reloadAllLibraryNovels } from '@services/updates/LibraryUpdateQueries';
 import NativeLocalServer from '@specs/NativeLocalServer';
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { getUserAgentSync } from 'react-native-device-info';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { Portal, Text, TextInput } from 'react-native-paper';
@@ -67,6 +68,29 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
     setFalse: hideUserAgentModal,
   } = useBoolean();
 
+  const {
+    value: reloadLibraryDialog,
+    setTrue: showReloadLibraryDialog,
+    setFalse: hideReloadLibraryDialog,
+  } = useBoolean();
+  const [reloadProgress, setReloadProgress] = useState<{
+    current: number;
+    total: number;
+    name: string;
+  } | null>(null);
+
+  const handleReloadLibrary = async () => {
+    hideReloadLibraryDialog();
+    setReloadProgress({ current: 0, total: 0, name: '' });
+    const { success, failed } = await reloadAllLibraryNovels(
+      (current, total, name) => setReloadProgress({ current, total, name }),
+    );
+    setReloadProgress(null);
+    showToast(
+      getString('advancedSettingsScreen.reloadLibraryDone', { success, failed }),
+    );
+  };
+
   return (
     <SafeAreaView excludeTop>
       <Appbar
@@ -99,6 +123,12 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
           <List.Item
             title={getString('advancedSettingsScreen.deleteReadChapters')}
             onPress={showDeleteReadChaptersDialog}
+            theme={theme}
+          />
+          <List.Item
+            title={getString('advancedSettingsScreen.reloadLibrary')}
+            description={getString('advancedSettingsScreen.reloadLibraryDesc')}
+            onPress={showReloadLibraryDialog}
             theme={theme}
           />
           <List.Item
@@ -207,6 +237,33 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
           theme={theme}
         />
         <ConfirmationDialog
+          message={getString('advancedSettingsScreen.reloadLibraryWarning')}
+          visible={reloadLibraryDialog}
+          onSubmit={handleReloadLibrary}
+          onDismiss={hideReloadLibraryDialog}
+          theme={theme}
+        />
+        <Modal
+          visible={reloadProgress !== null}
+          dismissable={false}
+        >
+          <View style={styles.progressModal}>
+            <Text style={[styles.progressTitle, { color: theme.onSurface }]}>
+              {getString('advancedSettingsScreen.reloadLibrary')}
+            </Text>
+            {reloadProgress && reloadProgress.total > 0 ? (
+              <Text style={[styles.progressText, { color: theme.onSurfaceVariant }]}>
+                {getString('advancedSettingsScreen.reloadLibraryProgress', {
+                  current: reloadProgress.current,
+                  total: reloadProgress.total,
+                  name: reloadProgress.name,
+                })}
+              </Text>
+            ) : null}
+            <ActivityIndicator animating color={theme.primary} style={styles.progressIndicator} />
+          </View>
+        </Modal>
+        <ConfirmationDialog
           message={getString('advancedSettingsScreen.clearUpdatesWarning')}
           visible={clearUpdatesDialog}
           onSubmit={async () => {
@@ -295,5 +352,23 @@ const styles = StyleSheet.create({
     height: 120,
     marginBottom: 8,
     marginTop: 16,
+  },
+  progressModal: {
+    alignItems: 'center',
+    borderRadius: 16,
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  progressText: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  progressIndicator: {
+    marginTop: 4,
   },
 });

@@ -51,7 +51,12 @@
     "allowProxyAPIDesc": "Mengaktifkan API Proxy LocalHttpServer yang digunakan plugin untuk melewati CORS. Berlaku segera.",
     "verboseLogging": "Log Terperinci",
     "verboseLoggingDesc": "Tampilkan log lengkap termasuk log sistem (mengurangi performa)",
-    "restartRequiredToast": "Harap mulai ulang aplikasi untuk menerapkan perubahan"
+    "restartRequiredToast": "Harap mulai ulang aplikasi untuk menerapkan perubahan",
+    "reloadLibrary": "Muat ulang perpustakaan",
+    "reloadLibraryDesc": "Ambil ulang sampul, deskripsi, genre, tag, dan bab untuk semua novel di perpustakaan",
+    "reloadLibraryWarning": "Ini akan mengambil ulang metadata dan bab untuk semua novel. Progres membaca akan tetap tersimpan.",
+    "reloadLibraryProgress": "%{current}/%{total} — %{name}",
+    "reloadLibraryDone": "Selesai: %{success} berhasil, %{failed} gagal"
   },
   "aiSettingsScreen": {
     "endpointUrl": "URL Endpoint",

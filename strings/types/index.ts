@@ -53,6 +53,11 @@ export interface StringMap {
   'advancedSettingsScreen.verboseLogging': 'string';
   'advancedSettingsScreen.verboseLoggingDesc': 'string';
   'advancedSettingsScreen.restartRequiredToast': 'string';
+  'advancedSettingsScreen.reloadLibrary': 'string';
+  'advancedSettingsScreen.reloadLibraryDesc': 'string';
+  'advancedSettingsScreen.reloadLibraryWarning': 'string';
+  'advancedSettingsScreen.reloadLibraryProgress': 'string';
+  'advancedSettingsScreen.reloadLibraryDone': 'string';
   'aiSettingsScreen.endpointUrl': 'string';
   'aiSettingsScreen.apiKey': 'string';
   'aiSettingsScreen.modelName': 'string';
