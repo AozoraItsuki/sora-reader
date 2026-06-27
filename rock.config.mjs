@@ -2,10 +2,10 @@
 import { platformAndroid } from '@rock-js/platform-android';
 import { pluginMetro } from '@rock-js/plugin-metro';
 import { providerGitHub } from '@rock-js/provider-github';
-import { loadEnvFile } from 'node:process';
+//import { loadEnvFile } from 'node:process';
 
 // Loads environment variables from the default .env file
-loadEnvFile();
+//loadEnvFile();
 
 /** @type {import('rock').Config} */
 export default {
