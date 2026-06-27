@@ -5,7 +5,12 @@ export const MMKVStorage = createMMKV();
 export function getMMKVObject<T>(key: string) {
   const data = MMKVStorage.getString(key);
   if (data) {
-    return JSON.parse(data) as T;
+    try {
+      return JSON.parse(data) as T;
+    } catch {
+      MMKVStorage.delete(key);
+      return undefined;
+    }
   }
   return undefined;
 }
