@@ -56,19 +56,14 @@ export async function torNewIdentity(proxy: ProxyConfig): Promise<boolean> {
   const commands =
     `AUTHENTICATE "${password}"\r\nSIGNAL NEWNYM\r\nQUIT\r\n`;
 
-  try {
-    await fetch(`http://${host}:${port}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: commands,
-      signal: AbortSignal.timeout(5000),
-    }).catch(() => {
-      // Expected: Tor's control port is not HTTP, so fetch will parse-error,
-      // but the raw TCP bytes (our commands) are already sent and processed.
-    });
-  } catch {
-    // Ignore — commands may still have been received by the control port
-  }
+  // Tor's control port is not HTTP — fetch will always parse-error,
+  // but the raw TCP bytes (our commands) are sent and processed before that.
+  await fetch(`http://${host}:${port}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: commands,
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
 
   return true;
 }

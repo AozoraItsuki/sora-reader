@@ -371,11 +371,13 @@ export default class ServiceManager {
         continue;
       }
 
-      // Handle parallel downloads
       if (currentTask.task.name === 'DOWNLOAD_CHAPTER') {
+        // Read settings once — used by both parallel and sequential paths
         const downloadSettings =
           getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
           initialDownloadSettings;
+        const retryDelayMs = (downloadSettings.retryDelaySeconds ?? 60) * 1000;
+        const chapterDelayMs = (downloadSettings.chapterDelaySeconds ?? 0) * 1000;
         const parallelEnabled =
           downloadSettings.parallelChaptersEnabled ||
           downloadSettings.parallelNovelsEnabled;
@@ -415,10 +417,6 @@ export default class ServiceManager {
           }
 
           const completedIds = new Set<string>();
-          const retryDelayMs =
-            (downloadSettings.retryDelaySeconds ?? 60) * 1000;
-          const chapterDelayMs =
-            (downloadSettings.chapterDelaySeconds ?? 0) * 1000;
 
           await Promise.allSettled(
             tasksToRun.map(async t => {
@@ -427,7 +425,6 @@ export default class ServiceManager {
                 try {
                   await manager.executeDownloadTask(t, startingTasks);
                   doneTasks['DOWNLOAD_CHAPTER'] += 1;
-                  lastError = undefined;
                   break;
                 } catch (error: any) {
                   lastError = error;
@@ -458,23 +455,13 @@ export default class ServiceManager {
           setMMKVObject(manager.STORE_KEY, remaining);
           continue;
         }
-      }
 
-      // Sequential processing
-      if (currentTask.task.name === 'DOWNLOAD_CHAPTER') {
-        const downloadSettings =
-          getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
-          initialDownloadSettings;
-        const retryDelayMs =
-          (downloadSettings.retryDelaySeconds ?? 60) * 1000;
-        const chapterDelayMs =
-          (downloadSettings.chapterDelaySeconds ?? 0) * 1000;
+        // Sequential download
         let lastError: any;
         while (BackgroundService.isRunning()) {
           try {
             await manager.executeTask(currentTask, startingTasks);
             doneTasks[currentTask.task.name] += 1;
-            lastError = undefined;
             break;
           } catch (error: any) {
             lastError = error;
@@ -509,9 +496,8 @@ export default class ServiceManager {
           });
         }
       }
-      {
-        setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
-      }
+
+      setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
     }
 
     if (manager.getTaskList().length === 0) {

@@ -92,13 +92,9 @@ async function fetchChapterWithProxyRetry(
 ): Promise<string> {
   const proxy = { ...initialDownloadSettings.proxy, ...downloadSettings.proxy };
   const isTorMode = proxy.mode === 'tor';
-  const identityWaitMs =
-    (downloadSettings.retryDelaySeconds ?? 60) * 1000;
+  const identityWaitMs = (downloadSettings.retryDelaySeconds ?? 60) * 1000;
 
-  const attempt = async (): Promise<string> => {
-    const text = await plugin.parseChapter(chapterPath);
-    return text;
-  };
+  const attempt = () => plugin.parseChapter(chapterPath);
 
   let chapterText: string;
   try {
