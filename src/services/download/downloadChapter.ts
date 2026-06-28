@@ -8,6 +8,9 @@ import {
   AIProvider,
 } from '@hooks/persisted/useAIProviders';
 import {
+  DOWNLOAD_SETTINGS,
+  DownloadSettings,
+  initialDownloadSettings,
   initialTranslateSettings,
   TRANSLATE_SETTINGS,
   TranslateSettings,
@@ -27,6 +30,10 @@ import { showToast } from '@utils/showToast';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import * as cheerio from 'cheerio';
 import { eq } from 'drizzle-orm';
+import {
+  isCloudflareOrIPBanError,
+  torNewIdentity,
+} from './torControl';
 
 const createChapterFolder = async (
   path: string,
@@ -58,7 +65,6 @@ const downloadFiles = async (
   const loadedCheerio = cheerio.load(html);
   const imgs = loadedCheerio('img').toArray();
 
-  // Collect image download tasks and run them in parallel
   const downloadTasks = imgs.map((img, i) => {
     const elem = loadedCheerio(img);
     const url = elem.attr('src');
@@ -78,6 +84,51 @@ const downloadFiles = async (
   await Promise.all(downloadTasks);
   NativeFile.writeFile(folder + '/index.html', loadedCheerio.html());
 };
+
+async function fetchChapterWithProxyRetry(
+  plugin: Plugin,
+  chapterPath: string,
+  downloadSettings: DownloadSettings,
+): Promise<string> {
+  const proxy = { ...initialDownloadSettings.proxy, ...downloadSettings.proxy };
+  const isTorMode = proxy.mode === 'tor';
+
+  const attempt = async (): Promise<string> => {
+    const text = await plugin.parseChapter(chapterPath);
+    return text;
+  };
+
+  let chapterText: string;
+  try {
+    chapterText = await attempt();
+  } catch (err: any) {
+    if (isTorMode && isCloudflareOrIPBanError(err)) {
+      showToast(getString('downloadSettingsScreen.proxyNewIdentityRequested'));
+      try {
+        await torNewIdentity(proxy);
+      } catch {
+        showToast(getString('downloadSettingsScreen.proxyNewIdentityFailed'));
+      }
+      // Retry once after new identity
+      chapterText = await attempt();
+    } else {
+      throw err;
+    }
+  }
+
+  // Check if the returned HTML itself is a Cloudflare challenge page
+  if (isTorMode && chapterText && isCloudflareOrIPBanError(null, chapterText)) {
+    showToast(getString('downloadSettingsScreen.proxyNewIdentityRequested'));
+    try {
+      await torNewIdentity(proxy);
+    } catch {
+      showToast(getString('downloadSettingsScreen.proxyNewIdentityFailed'));
+    }
+    chapterText = await attempt();
+  }
+
+  return chapterText;
+}
 
 export const downloadChapter = async (
   { chapterId }: { chapterId: number },
@@ -105,7 +156,17 @@ export const downloadChapter = async (
   if (!plugin) {
     throw new Error(getString('downloadScreen.pluginNotFound'));
   }
-  const chapterText = await plugin.parseChapter(chapter.path);
+
+  const downloadSettings =
+    getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
+    initialDownloadSettings;
+
+  const chapterText = await fetchChapterWithProxyRetry(
+    plugin,
+    chapter.path,
+    downloadSettings,
+  );
+
   if (chapterText && chapterText.length) {
     let finalHtml = chapterText;
 
@@ -130,7 +191,6 @@ export const downloadChapter = async (
         );
         const loadedCheerio = cheerio.load(finalHtml, null, false);
         const metaHTML = '<meta id="offline-translated-marker"/>';
-        // Ensure body exists or prepend to whatever root cheerio has
         if (loadedCheerio('body').length > 0) {
           loadedCheerio('body').prepend(metaHTML);
         } else {
@@ -140,7 +200,6 @@ export const downloadChapter = async (
       } catch (e) {
         console.error(e);
         showToast('Error when translating chapter ' + chapter.name);
-        // fallback to original html
         finalHtml = chapterText;
       }
     }

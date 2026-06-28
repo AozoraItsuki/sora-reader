@@ -528,11 +528,36 @@ export const useTranslateSettings = () => {
 
 // --- Download Settings ---
 
+export type ProxyMode = 'disabled' | 'http' | 'socks5' | 'tor';
+
+export interface ProxyConfig {
+  mode: ProxyMode;
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  torControlHost: string;
+  torControlPort: string;
+  torControlPassword: string;
+}
+
+export const defaultProxyConfig: ProxyConfig = {
+  mode: 'disabled',
+  host: '',
+  port: '',
+  username: '',
+  password: '',
+  torControlHost: '127.0.0.1',
+  torControlPort: '9051',
+  torControlPassword: '',
+};
+
 export interface DownloadSettings {
   parallelChaptersEnabled: boolean;
   parallelChaptersCount: number;
   parallelNovelsEnabled: boolean;
   retryOnError: boolean;
+  proxy: ProxyConfig;
 }
 
 export const initialDownloadSettings: DownloadSettings = {
@@ -540,6 +565,7 @@ export const initialDownloadSettings: DownloadSettings = {
   parallelChaptersCount: 3,
   parallelNovelsEnabled: false,
   retryOnError: true,
+  proxy: defaultProxyConfig,
 };
 
 export const useDownloadSettings = () => {

@@ -5,12 +5,21 @@ import {
   useDownloadSettings,
   useTheme,
 } from '@hooks/persisted';
+import { defaultProxyConfig, ProxyMode } from '@hooks/persisted/useSettings';
 import { DownloadSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import SettingSwitch from '../components/SettingSwitch';
 import ParallelChaptersCountModal from './modals/ParallelChaptersCountModal';
+import ProxySettingsModal from './modals/ProxySettingsModal';
+
+const PROXY_MODE_LABELS: Record<ProxyMode, string> = {
+  disabled: getString('downloadSettingsScreen.proxyDisabled'),
+  http: 'HTTP / HTTPS',
+  socks5: 'SOCKS5',
+  tor: 'Tor',
+};
 
 const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => {
   const theme = useTheme();
@@ -22,10 +31,15 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
     parallelChaptersCount,
     parallelNovelsEnabled,
     retryOnError,
+    proxy,
     setDownloadSettings,
   } = useDownloadSettings();
 
   const parallelChaptersCountModal = useBoolean();
+  const proxySettingsModal = useBoolean();
+
+  const mergedProxy = { ...defaultProxyConfig, ...proxy };
+  const proxyModeLabel = PROXY_MODE_LABELS[mergedProxy.mode] ?? getString('downloadSettingsScreen.proxyDisabled');
 
   return (
     <SafeAreaView excludeTop>
@@ -94,12 +108,27 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
             }
             theme={theme}
           />
+          <List.Divider theme={theme} />
+          <List.SubHeader theme={theme}>
+            {getString('downloadSettingsScreen.proxy')}
+          </List.SubHeader>
+          <List.Item
+            title={getString('downloadSettingsScreen.proxyMode')}
+            description={proxyModeLabel}
+            onPress={proxySettingsModal.setTrue}
+            theme={theme}
+          />
         </List.Section>
       </ScrollView>
       <ParallelChaptersCountModal
         parallelChaptersCount={parallelChaptersCount}
         modalVisible={parallelChaptersCountModal.value}
         hideModal={parallelChaptersCountModal.setFalse}
+        theme={theme}
+      />
+      <ProxySettingsModal
+        visible={proxySettingsModal.value}
+        onDismiss={proxySettingsModal.setFalse}
         theme={theme}
       />
     </SafeAreaView>
