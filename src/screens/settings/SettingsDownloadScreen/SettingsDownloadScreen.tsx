@@ -14,6 +14,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import SettingSwitch from '../components/SettingSwitch';
 import ParallelChaptersCountModal from './modals/ParallelChaptersCountModal';
 import ProxySettingsModal from './modals/ProxySettingsModal';
+import RetryDelayModal from './modals/RetryDelayModal';
 
 const PROXY_MODE_LABELS: Record<ProxyMode, string> = {
   disabled: getString('downloadSettingsScreen.proxyDisabled'),
@@ -32,6 +33,7 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
     parallelChaptersCount,
     parallelNovelsEnabled,
     retryOnError,
+    retryDelaySeconds,
     proxyEnabled,
     proxy,
     setDownloadSettings,
@@ -39,6 +41,7 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
 
   const parallelChaptersCountModal = useBoolean();
   const proxySettingsModal = useBoolean();
+  const retryDelayModal = useBoolean();
 
   const mergedProxy = { ...defaultProxyConfig, ...proxy };
   const proxyModeLabel = PROXY_MODE_LABELS[mergedProxy.mode] ?? getString('downloadSettingsScreen.proxyDisabled');
@@ -120,6 +123,17 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
             }
             theme={theme}
           />
+          {retryOnError && (
+            <List.Item
+              title={getString('downloadSettingsScreen.retryDelay')}
+              description={getString(
+                'downloadSettingsScreen.retryDelayOption',
+                { seconds: retryDelaySeconds ?? 60 },
+              )}
+              onPress={retryDelayModal.setTrue}
+              theme={theme}
+            />
+          )}
           <List.Divider theme={theme} />
           <List.SubHeader theme={theme}>
             {getString('downloadSettingsScreen.proxy')}
@@ -148,6 +162,12 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
       <ProxySettingsModal
         visible={proxySettingsModal.value}
         onDismiss={proxySettingsModal.setFalse}
+        theme={theme}
+      />
+      <RetryDelayModal
+        retryDelaySeconds={retryDelaySeconds ?? 60}
+        modalVisible={retryDelayModal.value}
+        hideModal={retryDelayModal.setFalse}
         theme={theme}
       />
     </SafeAreaView>

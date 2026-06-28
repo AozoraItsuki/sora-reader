@@ -113,6 +113,7 @@ export const initialDownloadSettings = {
   parallelChaptersCount: 3,
   parallelNovelsEnabled: false,
   retryOnError: true,
+  retryDelaySeconds: 60,
 };
 
 export const useDownloadSettings = jest.fn(() => ({

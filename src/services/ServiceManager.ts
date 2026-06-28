@@ -415,39 +415,36 @@ export default class ServiceManager {
           }
 
           const completedIds = new Set<string>();
+          const retryDelayMs =
+            (downloadSettings.retryDelaySeconds ?? 60) * 1000;
 
           await Promise.allSettled(
             tasksToRun.map(async t => {
-              try {
-                await manager.executeDownloadTask(t, startingTasks);
-                doneTasks['DOWNLOAD_CHAPTER'] += 1;
-              } catch (error: any) {
-                if (downloadSettings.retryOnError) {
-                  await new Promise(r => setTimeout(r, 5000));
-                  try {
-                    await manager.executeDownloadTask(t, startingTasks);
-                    doneTasks['DOWNLOAD_CHAPTER'] += 1;
-                  } catch (retryError: any) {
-                    await Notifications.scheduleNotificationAsync({
-                      content: {
-                        title: t.meta?.name || 'Download Error',
-                        body: retryError?.message || String(retryError),
-                      },
-                      trigger: null,
-                    });
+              let lastError: any;
+              while (BackgroundService.isRunning()) {
+                try {
+                  await manager.executeDownloadTask(t, startingTasks);
+                  doneTasks['DOWNLOAD_CHAPTER'] += 1;
+                  lastError = undefined;
+                  break;
+                } catch (error: any) {
+                  lastError = error;
+                  if (!downloadSettings.retryOnError) {
+                    break;
                   }
-                } else {
-                  await Notifications.scheduleNotificationAsync({
-                    content: {
-                      title: t.meta?.name || 'Download Error',
-                      body: error?.message || String(error),
-                    },
-                    trigger: null,
-                  });
+                  await new Promise(r => setTimeout(r, retryDelayMs));
                 }
-              } finally {
-                completedIds.add(t.id);
               }
+              if (lastError) {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: t.meta?.name || 'Download Error',
+                    body: lastError?.message || String(lastError),
+                  },
+                  trigger: null,
+                });
+              }
+              completedIds.add(t.id);
             }),
           );
 
@@ -460,38 +457,41 @@ export default class ServiceManager {
       }
 
       // Sequential processing
-      try {
-        await manager.executeTask(currentTask, startingTasks);
-        doneTasks[currentTask.task.name] += 1;
-      } catch (error: any) {
-        if (currentTask.task.name === 'DOWNLOAD_CHAPTER') {
-          const downloadSettings =
-            getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
-            initialDownloadSettings;
-          if (downloadSettings.retryOnError) {
-            await new Promise(r => setTimeout(r, 5000));
-            try {
-              await manager.executeTask(currentTask, startingTasks);
-              doneTasks[currentTask.task.name] += 1;
-            } catch (retryError: any) {
-              await Notifications.scheduleNotificationAsync({
-                content: {
-                  title: currentTask.meta?.name || 'Task Error',
-                  body: retryError?.message || String(retryError),
-                },
-                trigger: null,
-              });
+      if (currentTask.task.name === 'DOWNLOAD_CHAPTER') {
+        const downloadSettings =
+          getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
+          initialDownloadSettings;
+        const retryDelayMs =
+          (downloadSettings.retryDelaySeconds ?? 60) * 1000;
+        let lastError: any;
+        while (BackgroundService.isRunning()) {
+          try {
+            await manager.executeTask(currentTask, startingTasks);
+            doneTasks[currentTask.task.name] += 1;
+            lastError = undefined;
+            break;
+          } catch (error: any) {
+            lastError = error;
+            if (!downloadSettings.retryOnError) {
+              break;
             }
-          } else {
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: currentTask.meta?.name || 'Task Error',
-                body: error?.message || String(error),
-              },
-              trigger: null,
-            });
+            await new Promise(r => setTimeout(r, retryDelayMs));
           }
-        } else {
+        }
+        if (lastError) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: currentTask.meta?.name || 'Task Error',
+              body: lastError?.message || String(lastError),
+            },
+            trigger: null,
+          });
+        }
+      } else {
+        try {
+          await manager.executeTask(currentTask, startingTasks);
+          doneTasks[currentTask.task.name] += 1;
+        } catch (error: any) {
           await Notifications.scheduleNotificationAsync({
             content: {
               title: currentTask.meta?.name || 'Task Error',
@@ -500,7 +500,8 @@ export default class ServiceManager {
             trigger: null,
           });
         }
-      } finally {
+      }
+      {
         setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
       }
     }

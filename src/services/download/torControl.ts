@@ -70,7 +70,5 @@ export async function torNewIdentity(proxy: ProxyConfig): Promise<boolean> {
     // Ignore — commands may still have been received by the control port
   }
 
-  // Wait for Tor to build a new circuit
-  await new Promise(r => setTimeout(r, 3000));
   return true;
 }

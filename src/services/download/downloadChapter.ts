@@ -92,6 +92,8 @@ async function fetchChapterWithProxyRetry(
 ): Promise<string> {
   const proxy = { ...initialDownloadSettings.proxy, ...downloadSettings.proxy };
   const isTorMode = proxy.mode === 'tor';
+  const identityWaitMs =
+    (downloadSettings.retryDelaySeconds ?? 60) * 1000;
 
   const attempt = async (): Promise<string> => {
     const text = await plugin.parseChapter(chapterPath);
@@ -103,13 +105,12 @@ async function fetchChapterWithProxyRetry(
     chapterText = await attempt();
   } catch (err: any) {
     if (isTorMode && isCloudflareOrIPBanError(err)) {
-      showToast(getString('downloadSettingsScreen.proxyNewIdentityRequested'));
       try {
         await torNewIdentity(proxy);
       } catch {
-        showToast(getString('downloadSettingsScreen.proxyNewIdentityFailed'));
+        // Ignore — identity request best-effort
       }
-      // Retry once after new identity
+      await new Promise(r => setTimeout(r, identityWaitMs));
       chapterText = await attempt();
     } else {
       throw err;
@@ -118,12 +119,12 @@ async function fetchChapterWithProxyRetry(
 
   // Check if the returned HTML itself is a Cloudflare challenge page
   if (isTorMode && chapterText && isCloudflareOrIPBanError(null, chapterText)) {
-    showToast(getString('downloadSettingsScreen.proxyNewIdentityRequested'));
     try {
       await torNewIdentity(proxy);
     } catch {
-      showToast(getString('downloadSettingsScreen.proxyNewIdentityFailed'));
+      // Ignore — identity request best-effort
     }
+    await new Promise(r => setTimeout(r, identityWaitMs));
     chapterText = await attempt();
   }
 

@@ -324,6 +324,8 @@ export interface StringMap {
   'downloadSettingsScreen.parallelNovelsDesc': 'string';
   'downloadSettingsScreen.retryOnError': 'string';
   'downloadSettingsScreen.retryOnErrorDesc': 'string';
+  'downloadSettingsScreen.retryDelay': 'string';
+  'downloadSettingsScreen.retryDelayOption': 'string';
   'downloadSettingsScreen.errorHandling': 'string';
   'downloadSettingsScreen.proxy': 'string';
   'downloadSettingsScreen.proxyEnable': 'string';
