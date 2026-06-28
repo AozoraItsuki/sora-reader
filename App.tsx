@@ -15,10 +15,12 @@ import { initLocalServer } from '@plugins/local/localServerManager';
 import AppLockOverlay, { useAppLock } from '@screens/more/AppLockScreen';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
+import { restoreNativeProxyFromStorage } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
 import * as Notifications from 'expo-notifications';
 import React, { Suspense, useEffect } from 'react';
 import { NativeModules, StatusBar, StyleSheet } from 'react-native';
+
 import FileViewer from 'react-native-file-viewer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -27,6 +29,9 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import Main from './src/navigators/Main';
+
+// Restore proxy settings into native OkHttp client as early as possible
+restoreNativeProxyFromStorage();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => {

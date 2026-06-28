@@ -7,6 +7,7 @@ import {
 } from '@hooks/persisted/useSettings';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
+import { applyNativeProxy } from '@utils/nativeProxy';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
@@ -79,6 +80,7 @@ const ProxySettingsModal: React.FC<ProxySettingsModalProps> = ({
       torControlPassword,
     };
     setDownloadSettings({ proxy: newProxy });
+    applyNativeProxy(newProxy);
     onDismiss();
   };
 

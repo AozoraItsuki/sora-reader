@@ -20,6 +20,9 @@ import com.AozoraItsuki.NativeEpub.NativeEpubPackage
 import com.AozoraItsuki.LocalServer.LocalServerPackage
 import com.AozoraItsuki.TikTokTTS.TikTokTTSPackage
 import com.AozoraItsuki.NativeCDPProxy.CDPProxyPackage
+import com.AozoraItsuki.NativeProxy.ProxyClientFactory
+import com.AozoraItsuki.NativeProxy.ProxyPackage
+import com.facebook.react.modules.network.OkHttpClientProvider
 import expo.modules.ApplicationLifecycleDispatcher
 
 class MainApplication : Application(), ReactApplication {
@@ -38,12 +41,14 @@ class MainApplication : Application(), ReactApplication {
                     add(LocalServerPackage())
                     add(TikTokTTSPackage())
                     add(CDPProxyPackage())
+                    add(ProxyPackage())
                 },
         )
     }
 
     override fun onCreate() {
         super.onCreate()
+        OkHttpClientProvider.setOkHttpClientFactory(ProxyClientFactory(applicationContext))
         setupCrashHandler()
         loadReactNative(this)
         ApplicationLifecycleDispatcher.onApplicationCreate(this)
