@@ -14,6 +14,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import SettingSwitch from '../components/SettingSwitch';
 import ParallelChaptersCountModal from './modals/ParallelChaptersCountModal';
 import ProxySettingsModal from './modals/ProxySettingsModal';
+import ChapterDelayModal from './modals/ChapterDelayModal';
 import RetryDelayModal from './modals/RetryDelayModal';
 
 const PROXY_MODE_LABELS: Record<ProxyMode, string> = {
@@ -34,6 +35,7 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
     parallelNovelsEnabled,
     retryOnError,
     retryDelaySeconds,
+    chapterDelaySeconds,
     proxyEnabled,
     proxy,
     setDownloadSettings,
@@ -42,6 +44,7 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
   const parallelChaptersCountModal = useBoolean();
   const proxySettingsModal = useBoolean();
   const retryDelayModal = useBoolean();
+  const chapterDelayModal = useBoolean();
 
   const mergedProxy = { ...defaultProxyConfig, ...proxy };
   const proxyModeLabel = PROXY_MODE_LABELS[mergedProxy.mode] ?? getString('downloadSettingsScreen.proxyDisabled');
@@ -114,6 +117,18 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
           <List.SubHeader theme={theme}>
             {getString('downloadSettingsScreen.errorHandling')}
           </List.SubHeader>
+          <List.Item
+            title={getString('downloadSettingsScreen.chapterDelay')}
+            description={
+              (chapterDelaySeconds ?? 0) === 0
+                ? getString('downloadSettingsScreen.chapterDelayNone')
+                : getString('downloadSettingsScreen.chapterDelayOption', {
+                    seconds: chapterDelaySeconds ?? 0,
+                  })
+            }
+            onPress={chapterDelayModal.setTrue}
+            theme={theme}
+          />
           <SettingSwitch
             label={getString('downloadSettingsScreen.retryOnError')}
             description={getString('downloadSettingsScreen.retryOnErrorDesc')}
@@ -168,6 +183,12 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
         retryDelaySeconds={retryDelaySeconds ?? 60}
         modalVisible={retryDelayModal.value}
         hideModal={retryDelayModal.setFalse}
+        theme={theme}
+      />
+      <ChapterDelayModal
+        chapterDelaySeconds={chapterDelaySeconds ?? 0}
+        modalVisible={chapterDelayModal.value}
+        hideModal={chapterDelayModal.setFalse}
         theme={theme}
       />
     </SafeAreaView>

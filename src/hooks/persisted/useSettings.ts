@@ -558,6 +558,7 @@ export interface DownloadSettings {
   parallelNovelsEnabled: boolean;
   retryOnError: boolean;
   retryDelaySeconds: number;
+  chapterDelaySeconds: number;
   proxyEnabled: boolean;
   proxy: ProxyConfig;
 }
@@ -568,6 +569,7 @@ export const initialDownloadSettings: DownloadSettings = {
   parallelNovelsEnabled: false,
   retryOnError: true,
   retryDelaySeconds: 60,
+  chapterDelaySeconds: 0,
   proxyEnabled: false,
   proxy: defaultProxyConfig,
 };

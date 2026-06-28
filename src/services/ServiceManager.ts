@@ -417,6 +417,8 @@ export default class ServiceManager {
           const completedIds = new Set<string>();
           const retryDelayMs =
             (downloadSettings.retryDelaySeconds ?? 60) * 1000;
+          const chapterDelayMs =
+            (downloadSettings.chapterDelaySeconds ?? 0) * 1000;
 
           await Promise.allSettled(
             tasksToRun.map(async t => {
@@ -443,6 +445,8 @@ export default class ServiceManager {
                   },
                   trigger: null,
                 });
+              } else if (chapterDelayMs > 0) {
+                await new Promise(r => setTimeout(r, chapterDelayMs));
               }
               completedIds.add(t.id);
             }),
@@ -463,6 +467,8 @@ export default class ServiceManager {
           initialDownloadSettings;
         const retryDelayMs =
           (downloadSettings.retryDelaySeconds ?? 60) * 1000;
+        const chapterDelayMs =
+          (downloadSettings.chapterDelaySeconds ?? 0) * 1000;
         let lastError: any;
         while (BackgroundService.isRunning()) {
           try {
@@ -486,6 +492,8 @@ export default class ServiceManager {
             },
             trigger: null,
           });
+        } else if (chapterDelayMs > 0) {
+          await new Promise(r => setTimeout(r, chapterDelayMs));
         }
       } else {
         try {

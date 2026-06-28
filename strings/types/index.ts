@@ -326,6 +326,10 @@ export interface StringMap {
   'downloadSettingsScreen.retryOnErrorDesc': 'string';
   'downloadSettingsScreen.retryDelay': 'string';
   'downloadSettingsScreen.retryDelayOption': 'string';
+  'downloadSettingsScreen.chapterDelay': 'string';
+  'downloadSettingsScreen.chapterDelayDesc': 'string';
+  'downloadSettingsScreen.chapterDelayNone': 'string';
+  'downloadSettingsScreen.chapterDelayOption': 'string';
   'downloadSettingsScreen.errorHandling': 'string';
   'downloadSettingsScreen.proxy': 'string';
   'downloadSettingsScreen.proxyEnable': 'string';
