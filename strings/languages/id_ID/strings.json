@@ -368,6 +368,8 @@
     "retryOnErrorDesc": "Tunggu 5 detik dan coba ulang otomatis saat unduhan gagal",
     "errorHandling": "Penanganan Error",
     "proxy": "Proxy",
+    "proxyEnable": "Aktifkan Proxy",
+    "proxyEnableDesc": "Arahkan unduhan melalui proxy yang dikonfigurasi",
     "proxyMode": "Mode Proxy",
     "proxyModeDesc": "Arahkan unduhan melalui server proxy",
     "proxySettings": "Pengaturan Proxy",

@@ -8,6 +8,7 @@ import {
 import { defaultProxyConfig, ProxyMode } from '@hooks/persisted/useSettings';
 import { DownloadSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
+import { applyNativeProxy, clearNativeProxy } from '@utils/nativeProxy';
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import SettingSwitch from '../components/SettingSwitch';
@@ -31,6 +32,7 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
     parallelChaptersCount,
     parallelNovelsEnabled,
     retryOnError,
+    proxyEnabled,
     proxy,
     setDownloadSettings,
   } = useDownloadSettings();
@@ -40,6 +42,16 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
 
   const mergedProxy = { ...defaultProxyConfig, ...proxy };
   const proxyModeLabel = PROXY_MODE_LABELS[mergedProxy.mode] ?? getString('downloadSettingsScreen.proxyDisabled');
+
+  const handleToggleProxy = () => {
+    const next = !proxyEnabled;
+    setDownloadSettings({ proxyEnabled: next });
+    if (next) {
+      applyNativeProxy(mergedProxy);
+    } else {
+      clearNativeProxy();
+    }
+  };
 
   return (
     <SafeAreaView excludeTop>
@@ -112,9 +124,16 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
           <List.SubHeader theme={theme}>
             {getString('downloadSettingsScreen.proxy')}
           </List.SubHeader>
+          <SettingSwitch
+            label={getString('downloadSettingsScreen.proxyEnable')}
+            description={getString('downloadSettingsScreen.proxyEnableDesc')}
+            value={proxyEnabled}
+            onPress={handleToggleProxy}
+            theme={theme}
+          />
           <List.Item
-            title={getString('downloadSettingsScreen.proxyMode')}
-            description={proxyModeLabel}
+            title={getString('downloadSettingsScreen.proxySettings')}
+            description={proxyEnabled ? proxyModeLabel : getString('downloadSettingsScreen.proxyDisabled')}
             onPress={proxySettingsModal.setTrue}
             theme={theme}
           />

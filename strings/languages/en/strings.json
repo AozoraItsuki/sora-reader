@@ -368,6 +368,8 @@
     "retryOnErrorDesc": "Wait 5 seconds and automatically retry when a download fails",
     "errorHandling": "Error Handling",
     "proxy": "Proxy",
+    "proxyEnable": "Enable Proxy",
+    "proxyEnableDesc": "Route downloads through the configured proxy",
     "proxyMode": "Proxy Mode",
     "proxyModeDesc": "Route downloads through a proxy server",
     "proxySettings": "Proxy Settings",

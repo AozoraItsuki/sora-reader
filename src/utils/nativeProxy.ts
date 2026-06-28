@@ -33,12 +33,14 @@ export function clearNativeProxy() {
 /**
  * Called once at app startup to restore the saved proxy settings
  * into the native OkHttp client before any network request is made.
+ * Respects the proxyEnabled toggle — if off, does nothing.
  */
 export function restoreNativeProxyFromStorage() {
   const settings =
     getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) || initialDownloadSettings;
+  const proxyEnabled = settings.proxyEnabled ?? false;
   const proxy = settings.proxy || defaultProxyConfig;
-  if (proxy.mode !== 'disabled') {
+  if (proxyEnabled && proxy.mode !== 'disabled') {
     applyNativeProxy(proxy);
   }
 }

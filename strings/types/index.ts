@@ -326,6 +326,8 @@ export interface StringMap {
   'downloadSettingsScreen.retryOnErrorDesc': 'string';
   'downloadSettingsScreen.errorHandling': 'string';
   'downloadSettingsScreen.proxy': 'string';
+  'downloadSettingsScreen.proxyEnable': 'string';
+  'downloadSettingsScreen.proxyEnableDesc': 'string';
   'downloadSettingsScreen.proxyMode': 'string';
   'downloadSettingsScreen.proxyModeDesc': 'string';
   'downloadSettingsScreen.proxySettings': 'string';
