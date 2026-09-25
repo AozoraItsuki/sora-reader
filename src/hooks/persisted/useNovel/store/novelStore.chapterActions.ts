@@ -249,14 +249,14 @@ export const createNovelStoreChapterActions = ({
       );
     },
 
-    updateChapterProgress: (chapterId, progress) => {
+    updateChapterProgress: (chapterId, progress, charOffset) =>
       updateChapterProgressAction(
         chapterId,
         progress,
         mutateChapters,
         chapterActionsDependencies,
-      );
-    },
+        charOffset,
+      ),
 
     deleteChapter: chapter => {
       deleteChapterAction(

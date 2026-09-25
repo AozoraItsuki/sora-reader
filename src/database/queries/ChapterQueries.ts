@@ -251,15 +251,34 @@ export const deleteReadChaptersFromDb = async (): Promise<void> => {
   showToast(getString('novelScreen.readChaptersDeleted'));
 };
 
+const isFiniteNumber = (value: number): value is number =>
+  Number.isFinite(value);
+
 export const updateChapterProgress = async (
   chapterId: number,
   progress: number,
   charOffset?: number,
 ): Promise<void> => {
+  const safeProgress = isFiniteNumber(progress) ? progress : 0;
+  const normalizedProgress = Math.max(0, Math.min(safeProgress, 100));
+  let normalizedCharOffset: number | undefined;
+  if (charOffset !== undefined) {
+    if (isFiniteNumber(charOffset) && charOffset >= 0) {
+      normalizedCharOffset = Math.floor(charOffset);
+    } else {
+      normalizedCharOffset = undefined;
+    }
+  }
+
   await dbManager.write(async tx => {
     await tx
       .update(chapterSchema)
-      .set({ progress, ...(charOffset !== undefined ? { charOffset } : {}) })
+      .set({
+        progress: normalizedProgress,
+        ...(normalizedCharOffset !== undefined
+          ? { charOffset: normalizedCharOffset }
+          : {}),
+      })
       .where(eq(chapterSchema.id, chapterId))
       .run();
   });

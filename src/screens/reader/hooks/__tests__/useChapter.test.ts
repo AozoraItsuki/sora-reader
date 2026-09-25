@@ -246,6 +246,8 @@ describe('useChapter', () => {
     act(() => {
       result.current.saveProgress(40);
       result.current.saveProgress(130);
+      result.current.saveProgress(-10);
+      result.current.saveProgress(Number.NaN);
     });
 
     expect(store.state.updateChapterProgress).toHaveBeenNthCalledWith(
@@ -258,6 +260,14 @@ describe('useChapter', () => {
       initialChapter.id,
       100,
     );
+    expect(store.state.updateChapterProgress).toHaveBeenNthCalledWith(
+      3,
+      initialChapter.id,
+      0,
+    );
+    // NaN normalizes to 0, identical to the previous save, so the redundant
+    // persistence write is skipped.
+    expect(store.state.updateChapterProgress).toHaveBeenCalledTimes(3);
     expect(store.state.markChapterRead).toHaveBeenCalledTimes(1);
     expect(store.state.markChapterRead).toHaveBeenCalledWith(initialChapter.id);
     expect(mockParseChapterNumber).toHaveBeenCalledWith(
@@ -265,6 +275,51 @@ describe('useChapter', () => {
       initialChapter.name,
     );
     expect(updateAllTrackedNovels).toHaveBeenCalledWith({ progress: 5 });
+  });
+
+  it('skips redundant persistence writes for repeated identical progress saves', async () => {
+    const store = createStore();
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    store.state.updateChapterProgress.mockClear();
+    store.state.markChapterRead.mockClear();
+
+    act(() => {
+      result.current.saveProgress(40);
+      result.current.saveProgress(40);
+      result.current.saveProgress(40, initialChapter.id, 100);
+      result.current.saveProgress(40, initialChapter.id, 100.9);
+      result.current.saveProgress(100);
+      result.current.saveProgress(100);
+    });
+
+    // Identical consecutive saves persist once; charOffset 100 and 100.9 both
+    // normalize to 100 so the second is skipped; the repeated 100 skips both
+    // the progress write and the mark-as-read write.
+    expect(store.state.updateChapterProgress).toHaveBeenCalledTimes(3);
+    expect(store.state.updateChapterProgress).toHaveBeenNthCalledWith(
+      1,
+      initialChapter.id,
+      40,
+    );
+    expect(store.state.updateChapterProgress).toHaveBeenNthCalledWith(
+      2,
+      initialChapter.id,
+      40,
+      100,
+    );
+    expect(store.state.updateChapterProgress).toHaveBeenNthCalledWith(
+      3,
+      initialChapter.id,
+      100,
+    );
+    expect(store.state.markChapterRead).toHaveBeenCalledTimes(1);
+    expect(store.state.markChapterRead).toHaveBeenCalledWith(initialChapter.id);
   });
 
   it('sets error and remains stable when chapter fetch fails', async () => {
@@ -322,5 +377,162 @@ describe('useChapter', () => {
 
     expect(result.current.chapter.id).toBe(nextChapter.id);
     expect(result.current.chapterText).toBe('SANITIZED:next body');
+  });
+
+  it('persists a target chapter offset before publishing its lastRead pointer', async () => {
+    // Given: a base chapter is loaded and a separate target chapter is read.
+    const targetChapter = makeChapter(2);
+    const store = createStore({
+      [initialChapter.id]: 'base body',
+      [targetChapter.id]: 'target body',
+    });
+    const persistence = createDeferred<void>();
+    store.state.updateChapterProgress.mockReturnValue(persistence.promise);
+    mockGetDbChapter.mockImplementation(async id =>
+      id === targetChapter.id ? targetChapter : initialChapter,
+    );
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    mockInsertHistory.mockClear();
+    store.state.setLastRead.mockClear();
+
+    // When: progress is saved for the infinite-scroll target.
+    act(() => {
+      result.current.saveProgress(40, targetChapter.id, 321);
+    });
+
+    // Then: persistence is awaited before history and lastRead work begins.
+    expect(store.state.updateChapterProgress).toHaveBeenCalledWith(
+      targetChapter.id,
+      40,
+      321,
+    );
+    expect(mockInsertHistory).not.toHaveBeenCalledWith(targetChapter.id);
+    expect(store.state.setLastRead).not.toHaveBeenCalledWith(targetChapter);
+
+    await act(async () => {
+      persistence.resolve();
+      await persistence.promise;
+    });
+
+    await waitFor(() =>
+      expect(store.state.setLastRead).toHaveBeenCalledWith(targetChapter),
+    );
+    expect(mockInsertHistory).toHaveBeenCalledWith(targetChapter.id);
+  });
+
+  it('does not let a base chapter cleanup restore lastRead after a target save', async () => {
+    // Given: base hydration is still pending while a target save completes.
+    const targetChapter = makeChapter(2);
+    const baseHydration = createDeferred<ReturnType<typeof makeChapter>>();
+    const store = createStore({ [initialChapter.id]: 'base body' });
+    mockGetDbChapter.mockImplementation(id =>
+      id === targetChapter.id
+        ? Promise.resolve(targetChapter)
+        : baseHydration.promise,
+    );
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    const { result, unmount } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+
+    // When: the target is saved and the reader then unmounts.
+    act(() => {
+      result.current.saveProgress(55, targetChapter.id, 17);
+    });
+    await waitFor(() =>
+      expect(store.state.setLastRead).toHaveBeenCalledWith(targetChapter),
+    );
+    unmount();
+
+    // Then: the late base read cannot publish the older chapter pointer.
+    await act(async () => {
+      baseHydration.resolve(initialChapter);
+      await baseHydration.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(store.state.setLastRead).not.toHaveBeenCalledWith(initialChapter);
+  });
+
+  it('ignores initial chapter hydration that resolves after a newer chapter read', async () => {
+    // Given: initial hydration is delayed while a newer chapter is loaded.
+    const initialHydration = createDeferred<ReturnType<typeof makeChapter>>();
+    const store = createStore({
+      [initialChapter.id]: 'base body',
+      [nextChapter.id]: 'next body',
+    });
+    mockGetDbChapter.mockImplementation(id =>
+      id === initialChapter.id ? initialHydration.promise : nextChapter,
+    );
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+
+    // When: the user navigates to the next chapter before hydration resolves.
+    await act(async () => {
+      await result.current.getChapter(nextChapter);
+    });
+    expect(result.current.chapter.id).toBe(nextChapter.id);
+
+    // Then: the stale base hydration cannot replace the newer chapter.
+    await act(async () => {
+      initialHydration.resolve(initialChapter);
+      await initialHydration.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.chapter.id).toBe(nextChapter.id);
+  });
+
+  it('keeps manual navigation progress and read marking on the selected chapter', async () => {
+    // Given: the next chapter is available for manual navigation.
+    const store = createStore({
+      [initialChapter.id]: 'base body',
+      [nextChapter.id]: 'next body',
+    });
+    mockGetNextChapter.mockImplementation(
+      async (_novelId: number, position: number) =>
+        position === initialChapter.position ? nextChapter : undefined,
+    );
+    mockGetDbChapter.mockImplementation(async id =>
+      id === initialChapter.id ? initialChapter : nextChapter,
+    );
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // When: the user manually selects the next chapter and finishes it.
+    act(() => {
+      result.current.navigateChapter('NEXT');
+    });
+    await waitFor(() => expect(result.current.chapter.id).toBe(nextChapter.id));
+
+    await act(async () => {
+      await result.current.saveProgress(97);
+    });
+
+    // Then: the selected chapter receives progress and read state.
+    expect(store.state.updateChapterProgress).toHaveBeenCalledWith(
+      nextChapter.id,
+      97,
+    );
+    expect(store.state.markChapterRead).toHaveBeenCalledWith(nextChapter.id);
+    await waitFor(() =>
+      expect(store.state.setLastRead).toHaveBeenCalledWith(nextChapter),
+    );
   });
 });

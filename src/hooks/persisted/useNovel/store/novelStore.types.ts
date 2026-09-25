@@ -48,7 +48,11 @@ export interface NovelStoreChapterActions {
   markChaptersRead: (chapters: ChapterInfo[]) => void;
   markPreviousChaptersUnread: (chapterId: number) => void;
   markChaptersUnread: (chapters: ChapterInfo[]) => void;
-  updateChapterProgress: (chapterId: number, progress: number) => void;
+  updateChapterProgress: (
+    chapterId: number,
+    progress: number,
+    charOffset?: number,
+  ) => Promise<void>;
   deleteChapter: (chapter: ChapterInfo) => void;
   deleteChapters: (chapters: ChapterInfo[]) => void;
   refreshChapters: () => void;

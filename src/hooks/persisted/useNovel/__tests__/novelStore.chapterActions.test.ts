@@ -298,6 +298,28 @@ describe('novelStore.chapterActions', () => {
     expect(harness.set).not.toHaveBeenCalled();
   });
 
+  it('updateChapterProgress forwards the character offset and database promise', async () => {
+    const harness = createHarness();
+    const writePromise = Promise.resolve();
+    (
+      updateChapterProgressAction as jest.MockedFunction<
+        typeof updateChapterProgressAction
+      >
+    ).mockReturnValue(writePromise);
+
+    const result = harness.actions.updateChapterProgress(1, 50, 120);
+
+    expect(updateChapterProgressAction).toHaveBeenCalledWith(
+      1,
+      50,
+      expect.any(Function),
+      harness.chapterDeps,
+      120,
+    );
+    expect(result).toBe(writePromise);
+    await expect(result).resolves.toBeUndefined();
+  });
+
   it('bookmarkChapters delegates to chapterActions and mutate guard blocks writes without novel', () => {
     const harness = createHarness({ novel: undefined });
     (
@@ -394,6 +416,7 @@ describe('novelStore.chapterActions', () => {
       50,
       expect.any(Function),
       harness.chapterDeps,
+      undefined,
     );
     expect(deleteChapterAction).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),

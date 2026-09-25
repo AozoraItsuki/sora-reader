@@ -57,6 +57,7 @@ type WebViewPostEvent = {
   total?: number;
   initialScrollPosition?: 'start' | 'end';
   chapterId?: number;
+  charOffset?: number;
 };
 
 type WebViewReaderProps = {
@@ -548,7 +549,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     prevChapterIdRef.current = chapter.id;
 
     const terms = getAllTermsForNovel(novel.id ?? 0);
-    const processedHtml = terms.length > 0 ? applyTermsToHtml(html, terms) : html;
+    const processedHtml =
+      terms.length > 0 ? applyTermsToHtml(html, terms) : html;
 
     sourceDataRef.current = {
       baseUrl: novel.isLocal
@@ -580,7 +582,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         isSettingsPreview: false,
         nextChapterHtml: '', // Always empty — injected via JS to avoid reload
         strings: {
-          finished: `${getString('readerScreen.finished')}: ${chapter.name?.trim()}`,
+          finished: `${getString(
+            'readerScreen.finished',
+          )}: ${chapter.name?.trim()}`,
           nextChapter: getString('readerScreen.nextChapter', {
             name: nextChapter?.name,
           }),

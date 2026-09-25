@@ -93,6 +93,17 @@ export default function useChapter(
   const [isOfflineTranslated, setIsOfflineTranslated] = useState(false);
   const originalChapterText = useRef<string>('');
   const chapterIdRef = useRef<number>(initialChapter.id);
+  const activeChapterIdRef = useRef<number>(initialChapter.id);
+  const chapterSessionRef = useRef(0);
+  const progressCommitRef = useRef(0);
+  // Last persisted progress per save target. Scroll-driven `save` events fire
+  // repeatedly with identical values; skipping them avoids redundant DB writes
+  // and redundant store remaps/re-renders.
+  const lastSavedProgressRef = useRef<{
+    chapId: number;
+    pct: number;
+    charOffset: number | undefined;
+  } | null>(null);
 
   // --- Background pre-translate state (persists across chapter navigation) ---
   // Cache: stores the translated HTML for exactly 1 pre-translated chapter
@@ -179,6 +190,8 @@ export default function useChapter(
   useEffect(() => {
     const cache = translatedChapterCache.current;
     return () => {
+      chapterSessionRef.current += 1;
+      progressCommitRef.current += 1;
       currentTranslateAbort.current?.abort();
       backgroundTranslateAbort.current?.abort();
       cache.clear();
@@ -190,7 +203,12 @@ export default function useChapter(
       const rawText = await Promise.resolve(
         chapterTextCache.read(chap.id) ?? loadChapterText(chap.id, chap.path),
       );
-      return sanitizeChapterText(novel.pluginId, novel.name, chap.name, rawText);
+      return sanitizeChapterText(
+        novel.pluginId,
+        novel.name,
+        chap.name,
+        rawText,
+      );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapterTextCache, novel.pluginId, novel.name],
@@ -280,12 +298,29 @@ export default function useChapter(
 
   const getChapter = useCallback(
     async (navChapter?: ChapterInfo) => {
+      const requestedChapterId = navChapter?.id ?? chapter.id;
+      if (navChapter) {
+        chapterSessionRef.current += 1;
+        activeChapterIdRef.current = requestedChapterId;
+      } else if (requestedChapterId !== activeChapterIdRef.current) {
+        return;
+      }
+
+      const readSession = chapterSessionRef.current;
+      const isCurrentRead = () =>
+        readSession === chapterSessionRef.current &&
+        requestedChapterId === activeChapterIdRef.current;
+
       try {
         const dbChapter = navChapter
           ? undefined
           : await getDbChapter(chapter.id);
+        if (!isCurrentRead()) return;
+
         const chap = dbChapter ?? navChapter ?? chapter;
         const cachedText = await chapterTextCache.read(chap.id);
+        if (!isCurrentRead()) return;
+
         const text =
           cachedText && cachedText.length > 0
             ? cachedText
@@ -297,6 +332,7 @@ export default function useChapter(
             text,
           ],
         );
+        if (!isCurrentRead()) return;
 
         let nextChap = nextChapResult;
         let prevChap = prevChapResult;
@@ -348,6 +384,7 @@ export default function useChapter(
             );
           } catch {}
         }
+        if (!isCurrentRead()) return;
 
         // Cancel foreground translation from previous chapter
         currentTranslateAbort.current?.abort();
@@ -501,10 +538,14 @@ export default function useChapter(
             setAdjacentChapter([nextChap!, prevChap!]);
           }
         }
-      } catch (e: any) {
-        setError(e.message);
+      } catch (error: unknown) {
+        if (isCurrentRead()) {
+          setError(error instanceof Error ? error.message : String(error));
+          setLoading(false);
+          activeChapterIdRef.current = chapter.id;
+        }
       } finally {
-        setLoading(false);
+        if (isCurrentRead()) setLoading(false);
       }
     },
     [
@@ -591,26 +632,69 @@ export default function useChapter(
   }, [chapter.name, novel.name, trackedNovel, tracker, updateAllTrackedNovels]);
 
   const saveProgress = useCallback(
-    (percentage: number, targetChapterId?: number, charOffset?: number) => {
-      if (!incognitoMode) {
-        const chapId = targetChapterId ?? chapter.id;
-        const clampedPct = percentage > 100 ? 100 : percentage;
-        updateChapterProgress(chapId, clampedPct, charOffset);
+    async (
+      percentage: number,
+      targetChapterId?: number,
+      charOffset?: number,
+    ): Promise<void> => {
+      if (incognitoMode) return;
 
-        // When reading into a different chapter via infinite scroll, keep
-        // "Continue Reading" pointing at the chapter the user is actually on.
-        if (targetChapterId && targetChapterId !== chapter.id) {
-          getDbChapter(targetChapterId).then(
-            result => result && setLastRead(result),
-          );
+      const chapId = targetChapterId ?? chapter.id;
+      const clampedPct = Number.isFinite(percentage)
+        ? Math.min(100, Math.max(0, percentage))
+        : 0;
+      // Normalize the same way the persistence layer does, so the dedupe key
+      // reflects the value that would actually be stored.
+      const normalizedCharOffset =
+        charOffset !== undefined &&
+        Number.isFinite(charOffset) &&
+        charOffset >= 0
+          ? Math.floor(charOffset)
+          : undefined;
+      const lastSaved = lastSavedProgressRef.current;
+      if (
+        lastSaved &&
+        lastSaved.chapId === chapId &&
+        lastSaved.pct === clampedPct &&
+        lastSaved.charOffset === normalizedCharOffset
+      ) {
+        return;
+      }
+      lastSavedProgressRef.current = {
+        chapId,
+        pct: clampedPct,
+        charOffset: normalizedCharOffset,
+      };
+      const commit = ++progressCommitRef.current;
+      const readSession = chapterSessionRef.current;
+      const isCurrentCommit = () =>
+        commit === progressCommitRef.current &&
+        readSession === chapterSessionRef.current;
+      const isTargetChapter =
+        targetChapterId !== undefined && targetChapterId !== chapter.id;
+      const persistence =
+        charOffset === undefined
+          ? updateChapterProgress(chapId, clampedPct)
+          : updateChapterProgress(chapId, clampedPct, charOffset);
+
+      if (clampedPct >= 97) {
+        // a relative number
+        markChapterRead(chapId);
+        if (!isTargetChapter) {
+          updateTracker();
         }
+      }
 
-        if (percentage >= 97) {
-          // a relative number
-          markChapterRead(chapId);
-          if (!targetChapterId || targetChapterId === chapter.id) {
-            updateTracker();
-          }
+      await Promise.resolve(persistence);
+
+      if (isTargetChapter) {
+        await Promise.resolve(insertHistory(chapId));
+
+        if (!isCurrentCommit()) return;
+
+        const result = await getDbChapter(chapId);
+        if (isCurrentCommit() && result) {
+          setLastRead(result);
         }
       }
     },
@@ -683,7 +767,6 @@ export default function useChapter(
     navigateChapterRef.current = navigateChapter;
   }, [navigateChapter]);
 
-
   const connectSPenRemote = useCallback(() => {
     if (!sPenEmitter) {
       return () => {};
@@ -717,15 +800,24 @@ export default function useChapter(
   }, [connectSPenRemote]);
 
   useEffect(() => {
-    if (!incognitoMode) {
-      insertHistory(chapter.id);
-      getDbChapter(chapter.id).then(result => result && setLastRead(result));
-    }
+    if (incognitoMode) return;
+
+    const chapterId = chapter.id;
+    const readSession = chapterSessionRef.current;
+    const commit = progressCommitRef.current;
+    insertHistory(chapterId);
+    void Promise.resolve(getDbChapter(chapterId)).then(result => {
+      if (
+        result &&
+        readSession === chapterSessionRef.current &&
+        commit === progressCommitRef.current
+      ) {
+        setLastRead(result);
+      }
+    });
 
     return () => {
-      if (!incognitoMode) {
-        getDbChapter(chapter.id).then(result => result && setLastRead(result));
-      }
+      chapterSessionRef.current += 1;
     };
   }, [incognitoMode, setLastRead, setLoading, chapter.id]);
 

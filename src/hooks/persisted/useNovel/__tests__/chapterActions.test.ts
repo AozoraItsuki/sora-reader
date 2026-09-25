@@ -158,6 +158,47 @@ describe('chapterActions', () => {
     expect(state.getState()[0].progress).toBe(100);
   });
 
+  it('updateChapterProgressAction persists and mirrors an optional character offset', async () => {
+    const deps = createDeps();
+    const state = createStateMutator([
+      makeChapter(1, { progress: 10, charOffset: 20 }),
+    ]);
+    let resolveWrite: () => void = () => {};
+    const writePromise = new Promise<void>(resolve => {
+      resolveWrite = () => resolve();
+    });
+    deps.updateChapterProgress.mockReturnValue(writePromise);
+
+    const result = updateChapterProgressAction(
+      1,
+      45,
+      state.mutate,
+      deps,
+      120,
+    );
+
+    expect(result).toBe(writePromise);
+    expect(deps.updateChapterProgress).toHaveBeenCalledWith(1, 45, 120);
+    expect(state.getState()[0]).toEqual(
+      expect.objectContaining({ progress: 45, charOffset: 120 }),
+    );
+
+    resolveWrite();
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it('updateChapterProgressAction keeps database write errors observable', async () => {
+    const deps = createDeps();
+    const state = createStateMutator([makeChapter(1)]);
+    const writeError = new Error('progress write failed');
+    deps.updateChapterProgress.mockRejectedValue(writeError);
+
+    await expect(
+      updateChapterProgressAction(1, 45, state.mutate, deps, 120),
+    ).rejects.toBe(writeError);
+    expect(deps.showToast).toHaveBeenCalledWith(writeError.message);
+  });
+
   it('deleteChapterAction is safe no-op when novel is absent', async () => {
     const deps = createDeps();
     const state = createStateMutator([makeChapter(1), makeChapter(2)]);

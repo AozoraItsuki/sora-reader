@@ -329,19 +329,31 @@ describe('NovelScreenList (task 12 context boundary cutover)', () => {
     expect(store.state.openPage).toHaveBeenCalledWith(1);
   });
 
-  it('keeps continue-reading FAB navigation parity with lastRead fallback chain', () => {
-    const lastRead = { ...baseChapter, id: 42 };
+  it('keeps continue-reading FAB navigation parity with the current lastRead target', () => {
+    // Given: firstUnreadChapter is stale while lastRead points to the persisted target.
+    const lastRead = {
+      ...baseChapter,
+      id: 42,
+      progress: 0.73,
+      charOffset: 812,
+    };
     const store = createStore({
-      firstUnreadChapter: { ...baseChapter, id: 99 },
+      firstUnreadChapter: {
+        ...baseChapter,
+        id: 99,
+        progress: 0,
+        charOffset: 0,
+      },
       lastRead,
     });
 
     wireStoreSelectors(store);
-
     renderList();
 
+    // When: the user presses the continue-reading FAB.
     fireEvent.press(screen.getByTestId('continue-reading-fab'));
 
+    // Then: navigation keeps the current target identity and offset.
     expect(navigation.navigate).toHaveBeenCalledWith('ReaderStack', {
       screen: 'Chapter',
       params: { novel: baseNovel, chapter: lastRead },

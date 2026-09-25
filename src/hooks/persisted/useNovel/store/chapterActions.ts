@@ -32,7 +32,11 @@ export interface ChapterActionsDependencies {
     novelId: number,
   ) => Promise<void>;
   markChaptersUnread: (chapterIds: number[]) => Promise<void>;
-  updateChapterProgress: (chapterId: number, progress: number) => Promise<void>;
+  updateChapterProgress: (
+    chapterId: number,
+    progress: number,
+    charOffset?: number,
+  ) => Promise<void>;
   deleteChapter: (
     pluginId: string,
     novelId: number,
@@ -208,17 +212,35 @@ export const markChaptersUnreadAction = (
   );
 };
 
+const isFiniteNumber = (value: number): value is number =>
+  Number.isFinite(value);
+
 export const updateChapterProgressAction = (
   chapterId: number,
   progress: number,
   mutateChapters: MutateChapters,
   deps: ChapterActionsDependencies = defaultChapterActionsDependencies,
-) => {
-  const normalizedProgress = Math.min(progress, 100);
-  runAsyncAction(
-    deps.updateChapterProgress(chapterId, normalizedProgress),
-    deps,
-  );
+  charOffset?: number,
+): Promise<void> => {
+  const safeProgress = isFiniteNumber(progress) ? progress : 0;
+  const normalizedProgress = Math.max(0, Math.min(safeProgress, 100));
+  let normalizedCharOffset: number | undefined;
+  if (charOffset !== undefined) {
+    if (isFiniteNumber(charOffset) && charOffset >= 0) {
+      normalizedCharOffset = Math.floor(charOffset);
+    } else {
+      normalizedCharOffset = undefined;
+    }
+  }
+  const writePromise =
+    normalizedCharOffset === undefined
+      ? deps.updateChapterProgress(chapterId, normalizedProgress)
+      : deps.updateChapterProgress(
+          chapterId,
+          normalizedProgress,
+          normalizedCharOffset,
+        );
+  runAsyncAction(writePromise, deps);
 
   mutateChapters(chs =>
     chs.map(c => {
@@ -229,9 +251,14 @@ export const updateChapterProgressAction = (
       return {
         ...c,
         progress: normalizedProgress,
+        ...(normalizedCharOffset !== undefined
+          ? { charOffset: normalizedCharOffset }
+          : {}),
       };
     }),
   );
+
+  return writePromise;
 };
 
 export const deleteChapterAction = (

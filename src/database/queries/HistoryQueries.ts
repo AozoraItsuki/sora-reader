@@ -6,28 +6,69 @@ import {
 } from '@database/schema';
 import { getString } from '@strings/translations';
 import { showToast } from '@utils/showToast';
-import { desc, eq, getColumns, isNotNull, sql } from 'drizzle-orm';
+import { desc, eq, isNotNull, sql } from 'drizzle-orm';
 
 /**
  * Get reading history from the database using Drizzle ORM.
- * Groups by novelId and takes the latest read chapter for each novel.
+ * Returns one latest read chapter for each novel.
  */
 export const getHistoryFromDb = async () => {
-  return dbManager
+  const rankedChapters = dbManager
     .select({
-      ...getColumns(chapterSchema),
+      chapterId: chapterSchema.id,
+      novelId: chapterSchema.novelId,
+      path: chapterSchema.path,
+      name: chapterSchema.name,
+      releaseTime: chapterSchema.releaseTime,
+      bookmark: chapterSchema.bookmark,
+      unread: chapterSchema.unread,
+      readTime: chapterSchema.readTime,
+      isDownloaded: chapterSchema.isDownloaded,
+      updatedTime: chapterSchema.updatedTime,
+      chapterNumber: chapterSchema.chapterNumber,
+      page: chapterSchema.page,
+      position: chapterSchema.position,
+      progress: chapterSchema.progress,
+      charOffset: chapterSchema.charOffset,
       pluginId: novelSchema.pluginId,
       novelName: novelSchema.name,
       novelPath: novelSchema.path,
       novelCover: novelSchema.cover,
-      novelId: novelSchema.id,
+      historyRank: sql<number>`row_number() over (
+        partition by ${chapterSchema.novelId}
+        order by ${chapterSchema.readTime} desc, ${chapterSchema.id} desc
+      )`.as('historyRank'),
     })
     .from(chapterSchema)
     .innerJoin(novelSchema, eq(chapterSchema.novelId, novelSchema.id))
     .where(isNotNull(chapterSchema.readTime))
-    .groupBy(chapterSchema.novelId)
-    .having(sql`${chapterSchema.readTime} = MAX(${chapterSchema.readTime})`)
-    .orderBy(desc(chapterSchema.readTime))
+    .as('rankedChapters');
+
+  return dbManager
+    .select({
+      id: rankedChapters.chapterId,
+      novelId: rankedChapters.novelId,
+      path: rankedChapters.path,
+      name: rankedChapters.name,
+      releaseTime: rankedChapters.releaseTime,
+      bookmark: rankedChapters.bookmark,
+      unread: rankedChapters.unread,
+      readTime: rankedChapters.readTime,
+      isDownloaded: rankedChapters.isDownloaded,
+      updatedTime: rankedChapters.updatedTime,
+      chapterNumber: rankedChapters.chapterNumber,
+      page: rankedChapters.page,
+      position: rankedChapters.position,
+      progress: rankedChapters.progress,
+      charOffset: rankedChapters.charOffset,
+      pluginId: rankedChapters.pluginId,
+      novelName: rankedChapters.novelName,
+      novelPath: rankedChapters.novelPath,
+      novelCover: rankedChapters.novelCover,
+    })
+    .from(rankedChapters)
+    .where(eq(rankedChapters.historyRank, 1))
+    .orderBy(desc(rankedChapters.readTime), desc(rankedChapters.chapterId))
     .all();
 };
 

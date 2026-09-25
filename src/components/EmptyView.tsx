@@ -20,15 +20,24 @@ const EmptyView = ({
   description,
   style,
   children,
+  iconStyle,
 }: EmptyViewProps) => {
   const theme = useTheme();
 
-  const iconBg = Color(theme.primary).alpha(0.1).string();
+  const primary = theme?.primary ?? theme?.outline ?? '#999999';
+  const themeColor =
+    theme?.onSurfaceVariant ?? theme?.outline ?? theme?.primary ?? '#999999';
+
+  const iconBg = Color(primary).alpha(0.1).string();
 
   return (
     <View style={styles.container}>
       <View style={[styles.iconWrapper, { backgroundColor: iconBg }]}>
-        {iconName ? (
+        {icon ? (
+          <Text style={[styles.iconText, { color: themeColor }, iconStyle]}>
+            {icon}
+          </Text>
+        ) : iconName ? (
           <MaterialCommunityIcons
             name={iconName as any}
             size={40}
@@ -42,7 +51,7 @@ const EmptyView = ({
           />
         )}
       </View>
-      <Text style={[styles.description, { color: theme.onSurfaceVariant }, style]}>
+      <Text style={[styles.description, { color: themeColor }, style]}>
         {description}
       </Text>
       {children}
@@ -74,5 +83,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     opacity: 0.75,
+  },
+  iconText: {
+    fontSize: 40,
   },
 });

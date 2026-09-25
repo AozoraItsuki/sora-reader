@@ -53,6 +53,7 @@ const makeChapter = (id: number, overrides: Partial<ChapterInfo> = {}) => ({
   isDownloaded: false,
   bookmark: false,
   progress: 0,
+  charOffset: 0,
   page: '1',
   position: id,
   ...overrides,

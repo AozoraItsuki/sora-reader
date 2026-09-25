@@ -564,6 +564,27 @@ describe('ChapterQueries', () => {
       const chapter = chapters.find(c => c.id === chapterId);
       expect(chapter?.progress).toBe(50);
     });
+
+    it('should persist a character offset without clearing it on later updates', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, { inLibrary: true });
+      const chapterId = await insertTestChapter(testDb, novelId, {
+        progress: 10,
+        charOffset: 20,
+      });
+
+      await updateChapterProgress(chapterId, 50, 240);
+      let chapter = await getChapter(chapterId);
+      expect(chapter).toEqual(
+        expect.objectContaining({ progress: 50, charOffset: 240 }),
+      );
+
+      await updateChapterProgress(chapterId, 60);
+      chapter = await getChapter(chapterId);
+      expect(chapter).toEqual(
+        expect.objectContaining({ progress: 60, charOffset: 240 }),
+      );
+    });
   });
 
   describe('updateChapterProgressByIds', () => {

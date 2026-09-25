@@ -43,7 +43,8 @@ const MIGRATION_STATEMENTS = [
 	chapterNumber real,
 	page text DEFAULT '1',
 	position integer DEFAULT 0,
-	progress integer
+	progress integer,
+	charOffset integer DEFAULT 0
 )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS chapter_novel_path_unique ON Chapter (novelId, path)`,
   `CREATE INDEX IF NOT EXISTS chapterNovelIdIndex ON Chapter (novelId, position, page, id)`,
@@ -63,6 +64,7 @@ const MIGRATION_STATEMENTS = [
 	artist text,
 	status text DEFAULT 'Unknown',
 	genres text,
+	tags text,
 	inLibrary integer DEFAULT false,
 	isLocal integer DEFAULT false,
 	totalPages integer DEFAULT 0,

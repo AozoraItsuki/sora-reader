@@ -66,6 +66,37 @@ describe('HistoryQueries', () => {
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(chapterId1);
     });
+
+    it('should return one latest chapter per novel with a deterministic tie-breaker', async () => {
+      const testDb = getTestDb();
+      const firstNovelId = await insertTestNovel(testDb, { inLibrary: true });
+      const secondNovelId = await insertTestNovel(testDb, { inLibrary: true });
+      const tiedReadTime = '2026-09-25 12:00:00';
+      const firstChapterId = await insertTestChapter(testDb, firstNovelId, {
+        readTime: tiedReadTime,
+      });
+      const targetChapterId = await insertTestChapter(testDb, firstNovelId, {
+        readTime: tiedReadTime,
+      });
+      const secondNovelChapterId = await insertTestChapter(
+        testDb,
+        secondNovelId,
+        {
+          readTime: '2026-09-25 11:00:00',
+        },
+      );
+
+      const result = await getHistoryFromDb();
+
+      expect(result).toHaveLength(2);
+      expect(result.find(item => item.novelId === firstNovelId)?.id).toBe(
+        targetChapterId,
+      );
+      expect(result.find(item => item.novelId === secondNovelId)?.id).toBe(
+        secondNovelChapterId,
+      );
+      expect(result.map(item => item.id)).not.toContain(firstChapterId);
+    });
   });
 
   describe('insertHistory', () => {
