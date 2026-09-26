@@ -119,7 +119,7 @@ jobs:
 
       - name: Build Debug APK
         if: env.VARIANT != 'release'
-        run: pnpm rock build:android --variant debug
+        run: pnpm rock build:android --variant debug --extra-params "--build-cache"
 
       - name: Build Release APK
         if: env.VARIANT == 'release'
@@ -129,7 +129,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          pnpm rock build:android --variant release
+          pnpm rock build:android --variant release --extra-params "--build-cache"
           ls android/app/build/outputs/apk/release/
 
       - name: Upload APK Artifact

@@ -18,6 +18,10 @@ workflows:
     name: Android Debug
     max_build_duration: 120
     instance_type: mac_mini_m2
+    cache_paths:
+      - ~/.gradle/caches
+      - ~/.gradle/wrapper
+      - ~/Library/pnpm/store
     environment:
       node: 22
       java: 17
@@ -58,7 +62,7 @@ workflows:
       - name: Build debug APK with Rock
         script: |
           chmod +x android/gradlew
-          pnpm rock build:android --variant debug
+          pnpm rock build:android --variant debug --extra-params "--build-cache"
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
     publishing:
@@ -71,6 +75,10 @@ workflows:
     name: Android Release
     max_build_duration: 120
     instance_type: mac_mini_m2
+    cache_paths:
+      - ~/.gradle/caches
+      - ~/.gradle/wrapper
+      - ~/Library/pnpm/store
     environment:
       node: 22
       java: 17
@@ -116,7 +124,7 @@ workflows:
       - name: Build release APK with Rock
         script: |
           chmod +x android/gradlew
-          pnpm rock build:android --variant release
+          pnpm rock build:android --variant release --extra-params "--build-cache"
           ls android/app/build/outputs/apk/release/
       - name: Publish to GitHub Releases
         script: |
