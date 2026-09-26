@@ -112,7 +112,7 @@ workflows:
             "ndk;27.1.12297006"
       - name: Decode keystore
         script: |
-          echo "$KEYSTORE_B64" | base64 --decode > android/app/release.keystore
+          python3 -c "import base64, os; open('android/app/release.keystore', 'wb').write(base64.b64decode(os.environ['KEYSTORE_B64']))"
       - name: Build release APK with Rock
         script: |
           chmod +x android/gradlew
