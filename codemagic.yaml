@@ -18,10 +18,11 @@ workflows:
     name: Android Debug
     max_build_duration: 120
     instance_type: mac_mini_m2
-    cache_paths:
-      - ~/.gradle/caches
-      - ~/.gradle/wrapper
-      - ~/Library/pnpm/store
+    caching:
+      cache_paths:
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - ~/Library/pnpm/store
     environment:
       node: 22
       java: 17
@@ -76,10 +77,11 @@ workflows:
     name: Android Release
     max_build_duration: 120
     instance_type: mac_mini_m2
-    cache_paths:
-      - ~/.gradle/caches
-      - ~/.gradle/wrapper
-      - ~/Library/pnpm/store
+    caching:
+      cache_paths:
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - ~/Library/pnpm/store
     environment:
       node: 22
       java: 17
