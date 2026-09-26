@@ -6,6 +6,9 @@
 #    - Group "sora_env": MYANIMELIST_CLIENT_ID, ANILIST_CLIENT_ID (untuk generate:env:release).
 #    - Group "android_keystore" (hanya untuk workflow android-release):
 #        KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+#    - Group "github_publish" (hanya untuk upload ke GitHub Releases):
+#        GH_PAT (Personal Access Token: repo -> Contents Read & Write;
+#        repo privat: sekalian butuh Actions Read? tidak — cukup Contents)
 # 3. Pilih workflow android-debug / android-release lalu Start new build.
 #
 # Catatan: file ini harus bernama codemagic.yaml di root repo.
@@ -74,6 +77,7 @@ workflows:
       groups:
         - sora_env
         - android_keystore
+        - github_publish
       vars:
         ROCK_HEADLESS: '1'
         KEYSTORE_FILE: release.keystore
@@ -114,6 +118,21 @@ workflows:
           chmod +x android/gradlew
           pnpm rock build:android --variant release
           ls android/app/build/outputs/apk/release/
+      - name: Publish to GitHub Releases
+        script: |
+          TAG="codemagic-${CM_COMMIT:0:7}-$(date +%Y%m%d%H%M)"
+          FILES=(android/app/build/outputs/apk/release/*.apk android/app/build/outputs/bundle/release/*.aab)
+          EXISTING=()
+          for f in "${FILES[@]}"; do
+            [ -f "$f" ] && EXISTING+=("$f")
+          done
+          if [ ${#EXISTING[@]} -eq 0 ]; then
+            echo "No APK/AAB found, skipping GitHub Release"
+            exit 1
+          fi
+          GH_TOKEN="$GH_PAT" gh release create "$TAG" "${EXISTING[@]}" \
+            --title "SoraReader $TAG" \
+            --generate-notes
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
       - android/app/build/outputs/bundle/**/*.aab
