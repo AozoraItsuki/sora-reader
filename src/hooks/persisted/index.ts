@@ -1,3 +1,10 @@
+export type { BackupOptions } from './useBackupOptions';
+export {
+  BACKUP_OPTIONS,
+  getBackupOptions,
+  initialBackupOptions,
+  useBackupOptions,
+} from './useBackupOptions';
 export { default as useCategories } from './useCategories';
 export { default as useDisabledRepositories } from './useDisabledRepositories';
 export { default as useDownload } from './useDownload';

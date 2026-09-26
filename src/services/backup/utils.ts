@@ -23,6 +23,7 @@ import {
   getApiKey,
   setApiKey,
 } from '@hooks/persisted/useAIProviders';
+import { getBackupOptions } from '@hooks/persisted/useBackupOptions';
 import { DISABLED_REPOSITORIES } from '@hooks/persisted/useDisabledRepositories';
 import { SELF_HOST_BACKUP } from '@hooks/persisted/useSelfHost';
 import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
@@ -40,7 +41,7 @@ import { showToast } from '@utils/showToast';
 import { ROOT_STORAGE } from '@utils/Storages';
 
 import { version } from '../../../package.json';
-import { BackupEntryName } from './types';
+import { BackupEntryName, ZipBackupName } from './types';
 
 const BTAG = '[Backup]';
 
@@ -48,6 +49,12 @@ const APP_STORAGE_URI = 'file://' + ROOT_STORAGE;
 
 export const CACHE_DIR_PATH =
   NativeFile.getConstants().ExternalCachesDirectoryPath + '/BackupData';
+
+const removeIfExists = (path: string) => {
+  if (NativeFile.exists(path)) {
+    NativeFile.unlink(path);
+  }
+};
 
 const backupMMKVData = () => {
   const excludeKeys = [
@@ -84,12 +91,24 @@ const restoreMMKVData = (data: any) => {
 };
 
 export const prepareBackupData = async (cacheDirPath: string) => {
-  const novelDirPath = cacheDirPath + '/' + BackupEntryName.NOVEL_AND_CHAPTERS;
-  if (NativeFile.exists(novelDirPath)) {
-    NativeFile.unlink(novelDirPath);
-  }
+  const options = getBackupOptions();
+  DebugLogService.addEntry(
+    'log',
+    `${BTAG} Backup options: ${JSON.stringify(options)}`,
+  );
 
-  NativeFile.mkdir(novelDirPath); // this also creates cacheDirPath
+  const novelDirPath = cacheDirPath + '/' + BackupEntryName.NOVEL_AND_CHAPTERS;
+  NativeFile.mkdir(cacheDirPath);
+
+  // The data archive is built from cacheDirPath, so anything left over from a
+  // previous backup (including a previous downloaded-files archive) must be
+  // dropped, otherwise a disabled section would still end up in the archive.
+  removeIfExists(novelDirPath);
+  removeIfExists(cacheDirPath + '/' + ZipBackupName.DOWNLOAD);
+  removeIfExists(cacheDirPath + '/' + BackupEntryName.CATEGORY);
+  removeIfExists(cacheDirPath + '/' + BackupEntryName.REPOSITORY);
+  removeIfExists(cacheDirPath + '/' + BackupEntryName.SETTING);
+  removeIfExists(cacheDirPath + '/' + BackupEntryName.API_KEYS);
 
   // version
   try {
@@ -108,118 +127,136 @@ export const prepareBackupData = async (cacheDirPath: string) => {
   }
 
   // novels
-  DebugLogService.addEntry('log', `${BTAG} Backing up novels...`);
-  // Query all history
-  const allHistory = await getAllHistoryRaw();
-  // Convert history to a map of chapterId to history entry
-  const historyMap = new Map<number, number>();
-  allHistory.forEach(entry => {
-    historyMap.set(entry.chapterId, entry.readDuration);
-  });
-  await getAllNovels().then(async novels => {
-    DebugLogService.addEntry(
-      'log',
-      `${BTAG} Found ${novels.length} novels to backup`,
-    );
-    for (let i_ = 0; i_ < novels.length; i_++) {
-      const novel = novels[i_];
-      try {
-        if (!novel.inLibrary && !novel.isLocal) {
+  if (!options.backupNovels) {
+    DebugLogService.addEntry('log', `${BTAG} Skipping novels backup`);
+  } else {
+    DebugLogService.addEntry('log', `${BTAG} Backing up novels...`);
+    NativeFile.mkdir(novelDirPath);
+    // Query all history
+    const allHistory = await getAllHistoryRaw();
+    // Convert history to a map of chapterId to history entry
+    const historyMap = new Map<number, number>();
+    allHistory.forEach(entry => {
+      historyMap.set(entry.chapterId, entry.readDuration);
+    });
+    await getAllNovels().then(async novels => {
+      DebugLogService.addEntry(
+        'log',
+        `${BTAG} Found ${novels.length} novels to backup`,
+      );
+      for (let i_ = 0; i_ < novels.length; i_++) {
+        const novel = novels[i_];
+        try {
+          if (!novel.inLibrary && !novel.isLocal) {
+            DebugLogService.addEntry(
+              'log',
+              `${BTAG} Skipping novel not in library and not local: ${novel.name}`,
+            );
+            continue;
+          }
+          const chapters = await getNovelChapters(novel.id);
+          // Attach readDuration to chapters
+          const backupChapters = chapters.map(chapter => ({
+            ...chapter,
+            readDuration: historyMap.get(chapter.id) || 0,
+          }));
           DebugLogService.addEntry(
             'log',
-            `${BTAG} Skipping novel not in library and not local: ${novel.name}`,
+            `${BTAG} [${i_ + 1}/${novels.length}] Processing novel: ${
+              novel.name
+            } (${chapters.length} chapters)`,
           );
-          continue;
+          NativeFile.writeFile(
+            novelDirPath + '/' + novel.id + '.json',
+            JSON.stringify({
+              chapters: backupChapters,
+              ...novel,
+              cover: novel.cover?.replace(APP_STORAGE_URI, ''),
+            }),
+          );
+        } catch (error: any) {
+          showToast(
+            getString('backupScreen.novelBackupFailed', {
+              novelName: novel.name,
+              error: error?.message,
+            }),
+          );
         }
-        const chapters = await getNovelChapters(novel.id);
-        // Attach readDuration to chapters
-        const backupChapters = chapters.map(chapter => ({
-          ...chapter,
-          readDuration: historyMap.get(chapter.id) || 0,
-        }));
-        DebugLogService.addEntry(
-          'log',
-          `${BTAG} [${i_ + 1}/${novels.length}] Processing novel: ${
-            novel.name
-          } (${chapters.length} chapters)`,
-        );
-        NativeFile.writeFile(
-          novelDirPath + '/' + novel.id + '.json',
-          JSON.stringify({
-            chapters: backupChapters,
-            ...novel,
-            cover: novel.cover?.replace(APP_STORAGE_URI, ''),
-          }),
-        );
-      } catch (error: any) {
-        showToast(
-          getString('backupScreen.novelBackupFailed', {
-            novelName: novel.name,
-            error: error?.message,
-          }),
-        );
       }
-    }
-  });
+    });
+  }
 
   // categories
-  try {
-    DebugLogService.addEntry('log', `${BTAG} Backing up categories...`);
-    const categories = await getCategoriesFromDb();
-    const novelCategories = await getAllNovelCategories();
-    DebugLogService.addEntry(
-      'log',
-      `${BTAG} Found ${categories.length} categories`,
-    );
-    NativeFile.writeFile(
-      cacheDirPath + '/' + BackupEntryName.CATEGORY,
-      JSON.stringify(
-        categories.map(category => {
-          return {
-            ...category,
-            novelIds: novelCategories
-              .filter(nc => nc.categoryId === category.id)
-              .map(nc => nc.novelId),
-          };
+  if (!options.backupCategories) {
+    DebugLogService.addEntry('log', `${BTAG} Skipping categories backup`);
+  } else {
+    try {
+      DebugLogService.addEntry('log', `${BTAG} Backing up categories...`);
+      const categories = await getCategoriesFromDb();
+      const novelCategories = await getAllNovelCategories();
+      DebugLogService.addEntry(
+        'log',
+        `${BTAG} Found ${categories.length} categories`,
+      );
+      NativeFile.writeFile(
+        cacheDirPath + '/' + BackupEntryName.CATEGORY,
+        JSON.stringify(
+          categories.map(category => {
+            return {
+              ...category,
+              novelIds: novelCategories
+                .filter(nc => nc.categoryId === category.id)
+                .map(nc => nc.novelId),
+            };
+          }),
+        ),
+      );
+    } catch (error: any) {
+      showToast(
+        getString('backupScreen.categoryFileWriteFailed', {
+          error: error?.message || String(error),
         }),
-      ),
-    );
-  } catch (error: any) {
-    showToast(
-      getString('backupScreen.categoryFileWriteFailed', {
-        error: error?.message || String(error),
-      }),
-    );
+      );
+    }
   }
+
   // repositories
-  try {
-    DebugLogService.addEntry('log', `${BTAG} Backing up repositories...`);
-    const repositories = await getRepositoriesFromDb();
-    NativeFile.writeFile(
-      cacheDirPath + '/' + BackupEntryName.REPOSITORY,
-      JSON.stringify(repositories),
-    );
-  } catch (error: any) {
-    showToast(
-      getString('backupScreen.repositoryFileWriteFailed', {
-        error: error?.message || String(error),
-      }),
-    );
+  if (!options.backupRepositories) {
+    DebugLogService.addEntry('log', `${BTAG} Skipping repositories backup`);
+  } else {
+    try {
+      DebugLogService.addEntry('log', `${BTAG} Backing up repositories...`);
+      const repositories = await getRepositoriesFromDb();
+      NativeFile.writeFile(
+        cacheDirPath + '/' + BackupEntryName.REPOSITORY,
+        JSON.stringify(repositories),
+      );
+    } catch (error: any) {
+      showToast(
+        getString('backupScreen.repositoryFileWriteFailed', {
+          error: error?.message || String(error),
+        }),
+      );
+    }
   }
 
   // settings
-  try {
-    DebugLogService.addEntry('log', `${BTAG} Backing up settings...`);
-    NativeFile.writeFile(
-      cacheDirPath + '/' + BackupEntryName.SETTING,
-      JSON.stringify(backupMMKVData()),
-    );
-  } catch (error: any) {
-    showToast(
-      getString('backupScreen.settingsFileWriteFailed', {
-        error: error?.message || String(error),
-      }),
-    );
+  if (!options.backupSettings) {
+    DebugLogService.addEntry('log', `${BTAG} Skipping settings backup`);
+  } else {
+    try {
+      DebugLogService.addEntry('log', `${BTAG} Backing up settings...`);
+      NativeFile.writeFile(
+        cacheDirPath + '/' + BackupEntryName.SETTING,
+        JSON.stringify(backupMMKVData()),
+      );
+    } catch (error: any) {
+      showToast(
+        getString('backupScreen.settingsFileWriteFailed', {
+          error: error?.message || String(error),
+        }),
+      );
+    }
   }
 
   // API Keys

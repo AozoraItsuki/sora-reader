@@ -1,3 +1,4 @@
+import { getBackupOptions } from '@hooks/persisted/useBackupOptions';
 import {
   keepLocalCopy,
   pick,
@@ -51,22 +52,29 @@ export const createBackup = async (
 
     checkAborted(signal);
 
-    setMeta?.(meta => ({
-      ...meta,
-      progress: 1 / 4,
-      progressText: getString('backupScreen.uploadingDownloadedFiles'),
-    }));
+    if (getBackupOptions().backupDownloadedFiles) {
+      setMeta?.(meta => ({
+        ...meta,
+        progress: 1 / 4,
+        progressText: getString('backupScreen.uploadingDownloadedFiles'),
+      }));
 
-    await sleep(200);
+      await sleep(200);
 
-    checkAborted(signal);
+      checkAborted(signal);
 
-    DebugLogService.addEntry('log', `${BTAG} Zipping downloaded files...`);
-    await NativeZipArchive.zip(
-      ROOT_STORAGE,
-      CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD,
-    );
-    DebugLogService.addEntry('log', `${BTAG} Downloaded files zipped`);
+      DebugLogService.addEntry('log', `${BTAG} Zipping downloaded files...`);
+      await NativeZipArchive.zip(
+        ROOT_STORAGE,
+        CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD,
+      );
+      DebugLogService.addEntry('log', `${BTAG} Downloaded files zipped`);
+    } else {
+      DebugLogService.addEntry(
+        'log',
+        `${BTAG} Skipping downloaded files (disabled in backup settings)`,
+      );
+    }
 
     checkAborted(signal);
 

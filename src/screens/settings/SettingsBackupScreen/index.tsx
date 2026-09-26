@@ -1,6 +1,7 @@
-import { Appbar, List, SafeAreaView } from '@components';
+import { Appbar, List, SafeAreaView, SwitchItem } from '@components';
 import { useBoolean } from '@hooks';
 import { useTheme } from '@hooks/persisted';
+import { useBackupOptions } from '@hooks/persisted/useBackupOptions';
 import { BackupSettingsScreenProps } from '@navigators/types';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
@@ -26,6 +27,15 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
     setTrue: openSelfHostModal,
   } = useBoolean();
 
+  const {
+    backupNovels,
+    backupDownloadedFiles,
+    backupCategories,
+    backupRepositories,
+    backupSettings,
+    setBackupOptions,
+  } = useBackupOptions();
+
   return (
     <SafeAreaView excludeTop>
       <Appbar
@@ -34,6 +44,56 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
         theme={theme}
       />
       <ScrollView style={styles.paddingBottom}>
+        <List.Section>
+          <List.SubHeader theme={theme}>
+            {getString('backupScreen.backupSections')}
+          </List.SubHeader>
+          <SwitchItem
+            label={getString('backupScreen.includeNovels')}
+            description={getString('backupScreen.includeNovelsDesc')}
+            value={backupNovels}
+            onPress={() => setBackupOptions({ backupNovels: !backupNovels })}
+            theme={theme}
+          />
+          <SwitchItem
+            label={getString('backupScreen.includeDownloadedFiles')}
+            description={getString('backupScreen.includeDownloadedFilesDesc')}
+            value={backupDownloadedFiles}
+            onPress={() =>
+              setBackupOptions({
+                backupDownloadedFiles: !backupDownloadedFiles,
+              })
+            }
+            theme={theme}
+          />
+          <SwitchItem
+            label={getString('backupScreen.includeCategories')}
+            description={getString('backupScreen.includeCategoriesDesc')}
+            value={backupCategories}
+            onPress={() =>
+              setBackupOptions({ backupCategories: !backupCategories })
+            }
+            theme={theme}
+          />
+          <SwitchItem
+            label={getString('backupScreen.includeRepositories')}
+            description={getString('backupScreen.includeRepositoriesDesc')}
+            value={backupRepositories}
+            onPress={() =>
+              setBackupOptions({ backupRepositories: !backupRepositories })
+            }
+            theme={theme}
+          />
+          <SwitchItem
+            label={getString('backupScreen.includeSettings')}
+            description={getString('backupScreen.includeSettingsDesc')}
+            value={backupSettings}
+            onPress={() =>
+              setBackupOptions({ backupSettings: !backupSettings })
+            }
+            theme={theme}
+          />
+        </List.Section>
         <List.Section>
           <List.SubHeader theme={theme}>
             {getString('backupScreen.remoteBackup')}

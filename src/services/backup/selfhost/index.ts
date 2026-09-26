@@ -1,4 +1,6 @@
 import { download, upload } from '@api/remote';
+import { getBackupOptions } from '@hooks/persisted/useBackupOptions';
+import DebugLogService from '@services/DebugLogService';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import { sleep } from '@utils/sleep';
@@ -6,6 +8,8 @@ import { ROOT_STORAGE } from '@utils/Storages';
 
 import { ZipBackupName } from '../types';
 import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
+
+const BTAG = '[Backup]';
 
 export interface SelfHostData {
   host: string;
@@ -37,15 +41,22 @@ export const createSelfHostBackup = async (
 
   await upload(host, backupFolder, ZipBackupName.DATA, CACHE_DIR_PATH);
 
-  setMeta(meta => ({
-    ...meta,
-    progress: 2 / 3,
-    progressText: getString('backupScreen.uploadingDownloadedFiles'),
-  }));
+  if (getBackupOptions().backupDownloadedFiles) {
+    setMeta(meta => ({
+      ...meta,
+      progress: 2 / 3,
+      progressText: getString('backupScreen.uploadingDownloadedFiles'),
+    }));
 
-  await sleep(200);
+    await sleep(200);
 
-  await upload(host, backupFolder, ZipBackupName.DOWNLOAD, ROOT_STORAGE);
+    await upload(host, backupFolder, ZipBackupName.DOWNLOAD, ROOT_STORAGE);
+  } else {
+    DebugLogService.addEntry(
+      'log',
+      `${BTAG} Skipping downloaded files (disabled in backup settings)`,
+    );
+  }
 
   setMeta(meta => ({
     ...meta,

@@ -1,6 +1,8 @@
 import { exists } from '@api/drive';
 import { download, updateMetadata, uploadMedia } from '@api/drive/request';
 import { DriveFile } from '@api/drive/types';
+import { getBackupOptions } from '@hooks/persisted/useBackupOptions';
+import DebugLogService from '@services/DebugLogService';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import { sleep } from '@utils/sleep';
@@ -8,6 +10,8 @@ import { ROOT_STORAGE } from '@utils/Storages';
 
 import { ZipBackupName } from '../types';
 import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
+
+const BTAG = '[Backup]';
 
 export const createDriveBackup = async (
   backupFolder: DriveFile,
@@ -44,22 +48,29 @@ export const createDriveBackup = async (
     file.parents[0],
   );
 
-  setMeta(meta => ({
-    ...meta,
-    progress: 2 / 3,
-    progressText: getString('backupScreen.uploadingDownloadedFiles'),
-  }));
+  if (getBackupOptions().backupDownloadedFiles) {
+    setMeta(meta => ({
+      ...meta,
+      progress: 2 / 3,
+      progressText: getString('backupScreen.uploadingDownloadedFiles'),
+    }));
 
-  const file2 = await uploadMedia(ROOT_STORAGE);
-  await updateMetadata(
-    file2.id,
-    {
-      name: ZipBackupName.DOWNLOAD,
-      mimeType: 'application/zip',
-      parents: [backupFolder.id],
-    },
-    file2.parents[0],
-  );
+    const file2 = await uploadMedia(ROOT_STORAGE);
+    await updateMetadata(
+      file2.id,
+      {
+        name: ZipBackupName.DOWNLOAD,
+        mimeType: 'application/zip',
+        parents: [backupFolder.id],
+      },
+      file2.parents[0],
+    );
+  } else {
+    DebugLogService.addEntry(
+      'log',
+      `${BTAG} Skipping downloaded files (disabled in backup settings)`,
+    );
+  }
 
   setMeta(meta => ({
     ...meta,
