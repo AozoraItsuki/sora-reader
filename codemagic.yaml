@@ -52,8 +52,9 @@ workflows:
           pnpm run generate:env:debug
       - name: Ensure Android SDK components
         script: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager \
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
@@ -111,8 +112,9 @@ workflows:
             --anilist-client-id "$ANILIST_CLIENT_ID"
       - name: Ensure Android SDK components
         script: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager \
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
