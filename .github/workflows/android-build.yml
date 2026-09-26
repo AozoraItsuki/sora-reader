@@ -26,6 +26,7 @@ concurrency:
 
 env:
   VARIANT: ${{ inputs.variant || 'debug' }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build-android:
