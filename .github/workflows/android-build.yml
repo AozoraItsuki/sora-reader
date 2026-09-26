@@ -28,6 +28,7 @@ env:
   VARIANT: ${{ inputs.variant || 'debug' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NODE_ENV: production
+  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m"
 
 jobs:
   build-android:
@@ -120,7 +121,7 @@ jobs:
 
       - name: Build Debug APK
         if: env.VARIANT != 'release'
-        run: pnpm rock build:android --variant debug --extra-params "--build-cache"
+        run: pnpm rock build:android --variant debug
 
       - name: Build Release APK
         if: env.VARIANT == 'release'
@@ -130,7 +131,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          pnpm rock build:android --variant release --extra-params "--build-cache"
+          pnpm rock build:android --variant release
           ls android/app/build/outputs/apk/release/
 
       - name: Upload APK Artifact

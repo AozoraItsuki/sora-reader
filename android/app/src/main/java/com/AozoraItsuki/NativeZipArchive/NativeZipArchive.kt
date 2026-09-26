@@ -9,6 +9,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
@@ -90,6 +91,10 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
     }
 
     private fun zipProcess(sourceDirPath: String, zos: ZipOutputStream) {
+        // Max DEFLATE compression: standard zip, universally readable, smaller
+        // backup payloads. Chapter images (JPEG/PNG/WebP) barely shrink further —
+        // the real size lever is skipping downloads via backup section toggles.
+        zos.setLevel(Deflater.BEST_COMPRESSION)
         val sourceDir = File(sourceDirPath)
         sourceDir.walkBottomUp().filter { it.isFile }.forEach { file ->
             val zipFileName =
