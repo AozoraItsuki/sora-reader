@@ -18,7 +18,7 @@ workflows:
     name: Android Debug
     max_build_duration: 120
     instance_type: mac_mini_m2
-    caching:
+    cache:
       cache_paths:
         - ~/.gradle/caches
         - ~/.gradle/wrapper
@@ -77,7 +77,7 @@ workflows:
     name: Android Release
     max_build_duration: 120
     instance_type: mac_mini_m2
-    caching:
+    cache:
       cache_paths:
         - ~/.gradle/caches
         - ~/.gradle/wrapper
