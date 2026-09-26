@@ -1,99 +1,15 @@
-# Codemagic CI for SoraReader (React Native 0.83 + Rock, pnpm, Gradle 9)
+# Codemagic CI for SoraReader (release only).
 #
-# Setup (lakukan sekali di dashboard Codemagic):
-# 1. Add application -> pilih repo ini.
-# 2. Environment variable groups (Teams -> codemagic.yaml settings atau App settings):
-#    - Group "sora_env": MYANIMELIST_CLIENT_ID, ANILIST_CLIENT_ID (untuk generate:env:release).
-#    - Group "android_keystore" (hanya untuk workflow android-release):
-#        KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
-#    - Group "github_publish" (hanya untuk upload ke GitHub Releases):
-#        GH_PAT (Personal Access Token: repo -> Contents Read & Write;
-#        repo privat: sekalian butuh Actions Read? tidak — cukup Contents)
-# 3. Pilih workflow android-debug / android-release lalu Start new build.
-#
-# Catatan: file ini harus bernama codemagic.yaml di root repo.
+# Setup sekali di dashboard Codemagic (App settings -> Environment variable groups):
+#   - sora_env: MYANIMELIST_CLIENT_ID, ANILIST_CLIENT_ID
+#   - android_keystore: KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+#   - github_publish: GH_PAT (token dengan akses Contents Read & Write ke repo ini)
 
 workflows:
-  android-debug:
-    name: Android Debug
-    max_build_duration: 120
-    instance_type: mac_mini_m2
-    cache:
-      cache_paths:
-        - ~/.gradle/caches
-        - ~/.gradle/wrapper
-        - ~/Library/pnpm/store
-    environment:
-      node: 22
-      java: 17
-      vars:
-        ROCK_HEADLESS: '1'
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    scripts:
-      - name: Enable pnpm via Corepack
-        script: |
-          corepack enable
-          corepack prepare --activate
-          pnpm --version
-      - name: Install dependencies
-        script: |
-          pnpm install --frozen-lockfile
-      - name: Run tests
-        script: |
-          pnpm jest
-        ignore_failure: false
-      - name: Generate debug env file
-        script: |
-          pnpm run generate:env:debug
-      - name: Ensure Android SDK components
-        script: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "cmake;3.22.1"
-          # NDK download is large and flaky: retry up to 3x, wiping partial installs
-          for i in 1 2 3; do
-            if "$SDKMANAGER" "ndk;27.1.12297006"; then
-              break
-            fi
-            echo "NDK install attempt $i failed, retrying..."
-            rm -rf "$ANDROID_HOME/ndk/27.1.12297006" "$ANDROID_HOME/.temp"
-            sleep 5
-            if [ "$i" = 3 ]; then
-              echo "NDK install failed after 3 attempts"
-              exit 1
-            fi
-          done
-      - name: Build debug APK with Rock
-        script: |
-          chmod +x android/gradlew
-          pnpm rock build:android --variant debug --extra-params "--build-cache"
-    artifacts:
-      - android/app/build/outputs/apk/**/*.apk
-    publishing:
-      scripts:
-        - name: List built APKs
-          script: |
-            find android/app/build/outputs/apk -name '*.apk'
-
   android-release:
     name: Android Release
     max_build_duration: 120
     instance_type: mac_mini_m2
-    cache:
-      cache_paths:
-        - ~/.gradle/caches
-        - ~/.gradle/wrapper
-        - ~/Library/pnpm/store
     environment:
       node: 22
       java: 17
@@ -102,21 +18,13 @@ workflows:
         - android_keystore
         - github_publish
       vars:
-        ROCK_HEADLESS: '1'
         KEYSTORE_FILE: release.keystore
     scripts:
-      - name: Enable pnpm via Corepack
+      - name: Install dependencies
         script: |
           corepack enable
           corepack prepare --activate
-          pnpm --version
-      - name: Install dependencies
-        script: |
           pnpm install --frozen-lockfile
-      - name: Run tests
-        script: |
-          pnpm jest
-        ignore_failure: false
       - name: Generate release env file
         script: |
           pnpm run generate:env:release \
@@ -124,7 +32,7 @@ workflows:
             --node-env "production" \
             --myanimelist-client-id "$MYANIMELIST_CLIENT_ID" \
             --anilist-client-id "$ANILIST_CLIENT_ID"
-      - name: Ensure Android SDK components
+      - name: Install Android SDK components
         script: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
@@ -133,7 +41,6 @@ workflows:
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "cmake;3.22.1"
-          # NDK download is large and flaky: retry up to 3x, wiping partial installs
           for i in 1 2 3; do
             if "$SDKMANAGER" "ndk;27.1.12297006"; then
               break
@@ -149,11 +56,10 @@ workflows:
       - name: Decode keystore
         script: |
           python3 -c "import base64, os; open('android/app/release.keystore', 'wb').write(base64.b64decode(os.environ['KEYSTORE_B64']))"
-      - name: Build release APK with Rock
+      - name: Build release APK
         script: |
           chmod +x android/gradlew
-          pnpm rock build:android --variant release --extra-params "--build-cache"
-          ls android/app/build/outputs/apk/release/
+          pnpm rock build:android --variant release
       - name: Publish to GitHub Releases
         script: |
           TAG="codemagic-${CM_COMMIT:0:7}-$(date +%Y%m%d%H%M)"
@@ -162,10 +68,6 @@ workflows:
           for f in "${FILES[@]}"; do
             [ -f "$f" ] && EXISTING+=("$f")
           done
-          if [ ${#EXISTING[@]} -eq 0 ]; then
-            echo "No APK/AAB found, skipping GitHub Release"
-            exit 1
-          fi
           GH_TOKEN="$GH_PAT" gh release create "$TAG" "${EXISTING[@]}" \
             --title "SoraReader $TAG" \
             --generate-notes
