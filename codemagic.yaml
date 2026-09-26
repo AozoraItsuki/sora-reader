@@ -59,8 +59,20 @@ workflows:
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
-            "cmake;3.22.1" \
-            "ndk;27.1.12297006"
+            "cmake;3.22.1"
+          # NDK download is large and flaky: retry up to 3x, wiping partial installs
+          for i in 1 2 3; do
+            if "$SDKMANAGER" "ndk;27.1.12297006"; then
+              break
+            fi
+            echo "NDK install attempt $i failed, retrying..."
+            rm -rf "$ANDROID_HOME/ndk/27.1.12297006" "$ANDROID_HOME/.temp"
+            sleep 5
+            if [ "$i" = 3 ]; then
+              echo "NDK install failed after 3 attempts"
+              exit 1
+            fi
+          done
       - name: Build debug APK with Rock
         script: |
           chmod +x android/gradlew
@@ -120,8 +132,20 @@ workflows:
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
-            "cmake;3.22.1" \
-            "ndk;27.1.12297006"
+            "cmake;3.22.1"
+          # NDK download is large and flaky: retry up to 3x, wiping partial installs
+          for i in 1 2 3; do
+            if "$SDKMANAGER" "ndk;27.1.12297006"; then
+              break
+            fi
+            echo "NDK install attempt $i failed, retrying..."
+            rm -rf "$ANDROID_HOME/ndk/27.1.12297006" "$ANDROID_HOME/.temp"
+            sleep 5
+            if [ "$i" = 3 ]; then
+              echo "NDK install failed after 3 attempts"
+              exit 1
+            fi
+          done
       - name: Decode keystore
         script: |
           python3 -c "import base64, os; open('android/app/release.keystore', 'wb').write(base64.b64decode(os.environ['KEYSTORE_B64']))"
