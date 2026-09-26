@@ -15,6 +15,16 @@ on:
         options:
           - debug
           - release
+      arch:
+        description: 'Target ABI (all = one APK per ABI, never universal)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - arm64-v8a
+          - armeabi-v7a
+          - x86_64
 
 permissions:
   contents: write
@@ -26,6 +36,7 @@ concurrency:
 
 env:
   VARIANT: ${{ inputs.variant || 'debug' }}
+  ARCH: ${{ inputs.arch || 'all' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NODE_ENV: production
   GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m"
@@ -121,7 +132,13 @@ jobs:
 
       - name: Build Debug APK
         if: env.VARIANT != 'release'
-        run: pnpm rock build:android --variant debug
+        run: |
+          if [[ "$ARCH" == "all" ]]; then
+            pnpm rock build:android --variant debug
+          else
+            pnpm rock build:android --variant debug \
+              --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
+          fi
 
       - name: Build Release APK
         if: env.VARIANT == 'release'
@@ -131,13 +148,18 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          pnpm rock build:android --variant release
+          if [[ "$ARCH" == "all" ]]; then
+            pnpm rock build:android --variant release
+          else
+            pnpm rock build:android --variant release \
+              --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
+          fi
           ls android/app/build/outputs/apk/release/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sora-reader-${{ env.VARIANT }}-${{ github.run_number }}
+          name: sora-reader-${{ env.VARIANT }}-${{ env.ARCH }}-${{ github.run_number }}
           path: |
             android/app/build/outputs/apk/**/*.apk
             android/app/build/outputs/bundle/**/*.aab

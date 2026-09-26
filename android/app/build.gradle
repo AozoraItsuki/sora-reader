@@ -78,6 +78,13 @@ ext {
     versionPatch = 4
 }
 
+// ABI selection: `-PtargetAbis=arm64-v8a` (single) or comma list, or "all".
+// Driven by CI arch input; defaults to all four ABIs, never a universal APK.
+def requestedAbis = ((project.findProperty("targetAbis") ?: System.getenv("TARGET_ABIS") ?: "all") == "all")
+    ? ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
+    : (project.findProperty("targetAbis") ?: System.getenv("TARGET_ABIS")).split(",").toList().findAll { it.trim() }
+def abiVersionCodes = ["armeabi-v7a": 1, "arm64-v8a": 2, "x86": 3, "x86_64": 4]
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -138,6 +145,24 @@ android {
     }
     kotlinOptions {
         jvmTarget = '17'
+    }
+    splits {
+        abi {
+            enable true
+            reset()
+            include (*requestedAbis)
+            // No universal/fat APK: one APK per ABI, each minimal.
+            universalApk false
+        }
+    }
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            def abi = output.getFilter("ABI")
+            if (abi != null) {
+                output.versionCodeOverride =
+                    defaultConfig.versionCode * 10 + (abiVersionCodes[abi] ?: 0)
+            }
+        }
     }
     externalNativeBuild {
         cmake {
