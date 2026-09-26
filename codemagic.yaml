@@ -19,6 +19,7 @@ workflows:
         - github_publish
       vars:
         KEYSTORE_FILE: release.keystore
+        NODE_ENV: production
     scripts:
       - name: Install dependencies
         script: |
@@ -56,6 +57,15 @@ workflows:
       - name: Decode keystore
         script: |
           python3 -c "import base64, os; open('android/app/release.keystore', 'wb').write(base64.b64decode(os.environ['KEYSTORE_B64']))"
+      - name: Verify keystore
+        script: |
+          if ! keytool -list -keystore android/app/release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
+            echo "Keystore check FAILED: KEYSTORE_B64 corrupt/truncated or KEYSTORE_PASSWORD/KEY_ALIAS wrong."
+            echo "Re-paste the full base64 and double-check passwords in Codemagic env groups."
+            exit 1
+          fi
+          echo "Keystore OK."
       - name: Build release APK
         script: |
           chmod +x android/gradlew
