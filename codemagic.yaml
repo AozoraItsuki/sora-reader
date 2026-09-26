@@ -1,22 +1,119 @@
+# Codemagic CI for SoraReader (React Native 0.83 + Rock, pnpm, Gradle 9)
+#
+# Setup (lakukan sekali di dashboard Codemagic):
+# 1. Add application -> pilih repo ini.
+# 2. Environment variable groups (Teams -> codemagic.yaml settings atau App settings):
+#    - Group "sora_env": MYANIMELIST_CLIENT_ID, ANILIST_CLIENT_ID (untuk generate:env:release).
+#    - Group "android_keystore" (hanya untuk workflow android-release):
+#        KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+# 3. Pilih workflow android-debug / android-release lalu Start new build.
+#
+# Catatan: file ini harus bernama codemagic.yaml di root repo.
+
 workflows:
+  android-debug:
+    name: Android Debug
+    max_build_duration: 120
+    instance_type: linux_x2
+    environment:
+      node: 22
+      java: 17
+      vars:
+        ROCK_HEADLESS: '1'
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Enable pnpm via Corepack
+        script: |
+          corepack enable
+          corepack prepare --activate
+          pnpm --version
+      - name: Install dependencies
+        script: |
+          pnpm install --frozen-lockfile
+      - name: Run tests
+        script: |
+          pnpm jest
+        ignore_failure: false
+      - name: Generate debug env file
+        script: |
+          pnpm run generate:env:debug
+      - name: Ensure Android SDK components
+        script: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.1.12297006"
+      - name: Build debug APK with Rock
+        script: |
+          chmod +x android/gradlew
+          pnpm rock build:android --variant debug
+    artifacts:
+      - android/app/build/outputs/apk/**/*.apk
+    publishing:
+      scripts:
+        - name: List built APKs
+          script: |
+            find android/app/build/outputs/apk -name '*.apk'
+
   android-release:
     name: Android Release
-
+    max_build_duration: 120
+    instance_type: linux_x4
     environment:
-      node: 20
-      java: 21
-
-    cache:
-      cache_paths:
-        - ~/.gradle/caches
-        - ~/.gradle/wrapper
-        - ~/.pnpm-store
-
+      node: 22
+      java: 17
+      groups:
+        - sora_env
+        - android_keystore
+      vars:
+        ROCK_HEADLESS: '1'
+        KEYSTORE_FILE: release.keystore
     scripts:
-      - pnpm --version
-      - pnpm install --frozen-lockfile
-      - pnpm run build:release:android
-
+      - name: Enable pnpm via Corepack
+        script: |
+          corepack enable
+          corepack prepare --activate
+          pnpm --version
+      - name: Install dependencies
+        script: |
+          pnpm install --frozen-lockfile
+      - name: Run tests
+        script: |
+          pnpm jest
+        ignore_failure: false
+      - name: Generate release env file
+        script: |
+          pnpm run generate:env:release \
+            --build-type "Release" \
+            --node-env "production" \
+            --myanimelist-client-id "$MYANIMELIST_CLIENT_ID" \
+            --anilist-client-id "$ANILIST_CLIENT_ID"
+      - name: Ensure Android SDK components
+        script: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.1.12297006"
+      - name: Decode keystore
+        script: |
+          echo "$KEYSTORE_B64" | base64 --decode > android/app/release.keystore
+      - name: Build release APK with Rock
+        script: |
+          chmod +x android/gradlew
+          pnpm rock build:android --variant release
+          ls android/app/build/outputs/apk/release/
     artifacts:
-      - android/app/build/outputs/**/*.apk
-      - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/apk/**/*.apk
+      - android/app/build/outputs/bundle/**/*.aab
