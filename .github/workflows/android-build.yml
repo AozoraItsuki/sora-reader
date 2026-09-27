@@ -66,6 +66,11 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
