@@ -39,7 +39,6 @@ env:
   ARCH: ${{ inputs.arch || 'all' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NODE_ENV: production
-  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m"
 
 jobs:
   build-android:
