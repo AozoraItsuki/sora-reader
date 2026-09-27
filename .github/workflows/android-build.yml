@@ -39,6 +39,7 @@ env:
   ARCH: ${{ inputs.arch || 'all' }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NODE_ENV: production
+  CI_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
   build-android:

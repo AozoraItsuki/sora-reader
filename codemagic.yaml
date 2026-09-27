@@ -25,6 +25,7 @@ workflows:
       vars:
         KEYSTORE_FILE: release.keystore
         NODE_ENV: production
+        CI_BUILD_NUMBER: $BUILD_NUMBER
     scripts:
       - name: Install dependencies
         script: |
