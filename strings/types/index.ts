@@ -331,6 +331,7 @@ export interface StringMap {
   'downloadSettingsScreen.migrateFiles': 'string';
   'downloadSettingsScreen.migrateFilesDesc': 'string';
   'downloadSettingsScreen.migrating': 'string';
+  'downloadSettingsScreen.migratingProgress': 'string';
   'downloadSettingsScreen.migrateDone': 'string';
   'downloadSettingsScreen.migrateNothingToMove': 'string';
   'downloadSettingsScreen.autoDownload': 'string';
@@ -720,6 +721,7 @@ export interface StringMap {
   'setupStorage.desc': 'string';
   'setupStorage.chooseFolder': 'string';
   'setupStorage.migrateFiles': 'string';
+  'setupStorage.migratingProgress': 'string';
   'setupStorage.skip': 'string';
   'tracking': 'string';
   'trackingScreen.logOutMessage': 'string';

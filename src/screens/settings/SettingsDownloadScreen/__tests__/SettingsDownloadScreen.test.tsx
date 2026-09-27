@@ -3,6 +3,7 @@ import type { DownloadSettingsScreenProps } from '@navigators/types';
 import NativeLocalServer from '@specs/NativeLocalServer';
 import { getString } from '@strings/translations';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -74,6 +75,29 @@ const TREE_URI =
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 0, left: 0, right: 0, bottom: 0 },
+};
+
+/**
+ * A migration that never settles on its own, so a test can observe the UI while
+ * the copy is still in flight.
+ */
+const deferredMigration = () => {
+  const handle: {
+    report?: (done: number, total: number, label: string) => void;
+    finish: () => void;
+    implementation: (
+      onProgress?: (done: number, total: number, label: string) => void,
+    ) => Promise<void>;
+  } = {
+    finish: () => undefined,
+    implementation: () => new Promise<void>(() => undefined),
+  };
+  handle.implementation = onProgress =>
+    new Promise<void>(resolve => {
+      handle.report = onProgress;
+      handle.finish = resolve;
+    });
+  return handle;
 };
 
 const renderScreen = () => {
@@ -149,5 +173,55 @@ describe('SettingsDownloadScreen migrate button', () => {
     expect(showToast).toHaveBeenCalledWith(
       getString('downloadSettingsScreen.migrateDone'),
     );
+  });
+
+  it('forces the migration so a done-marked run can be retried', async () => {
+    hasLegacyDownloads.mockReturnValue(true);
+    renderScreen();
+
+    fireEvent.press(
+      screen.getByText(getString('downloadSettingsScreen.migrateFiles')),
+    );
+
+    await waitFor(() =>
+      expect(runSafMigration).toHaveBeenCalledWith(expect.any(Function), true),
+    );
+  });
+
+  it('shows how far the migration has got while it runs', async () => {
+    hasLegacyDownloads.mockReturnValue(true);
+    const migration = deferredMigration();
+    runSafMigration.mockImplementation(migration.implementation);
+    renderScreen();
+
+    fireEvent.press(
+      screen.getByText(getString('downloadSettingsScreen.migrateFiles')),
+    );
+    await waitFor(() => expect(migration.report).toBeDefined());
+    expect(screen.queryByRole('progressbar')).toBeNull();
+
+    await act(async () => {
+      migration.report?.(2, 5, 'Novels/p1/1/5');
+    });
+
+    expect(
+      screen.getByText(
+        getString('downloadSettingsScreen.migratingProgress', {
+          done: 2,
+          total: 5,
+        }),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('progressbar')).toHaveAccessibilityValue({
+      min: 0,
+      max: 100,
+      now: 40,
+    });
+
+    await act(async () => {
+      migration.finish();
+    });
+
+    expect(screen.queryByRole('progressbar')).toBeNull();
   });
 });

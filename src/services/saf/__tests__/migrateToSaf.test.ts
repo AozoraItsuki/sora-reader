@@ -374,14 +374,175 @@ describe('runSafMigration', () => {
     ).toBe(true);
   });
 
-  it('does not migrate chapters whose novel has no DB row', async () => {
-    mockLegacyFiles.set(`${OLD_ROOT}/p1/1/5/index.html`, '<html></html>');
+  it('migrates a chapter whose novel row is gone, inferring the tree path from disk', async () => {
+    // A deleted novel leaves its chapters behind: the DB-driven pass cannot map
+    // them, so only a walk of the legacy tree can rescue them.
+    const dir = `${OLD_ROOT}/p1/1/5`;
+    mockLegacyFiles.set(
+      `${dir}/index.html`,
+      `<html><body><img src="file://${dir}/3.b64.png"></body></html>`,
+    );
+    mockLegacyFiles.set(`${dir}/3.b64.png`, 'PNGDATA');
     mockNovels = [];
     mockDownloadedChapters = [{ id: 5, novelId: 1 }];
 
     await runSafMigration();
 
+    expect(mockTree.get('Novels/p1/1/5/index.html')).toEqual({
+      data: '<html><body><img src="3.b64.png"></body></html>',
+      encoding: 'utf8',
+    });
+    expect(mockTree.get('Novels/p1/1/5/3.b64.png')).toEqual({
+      data: `base64(${dir}/3.b64.png)`,
+      encoding: 'base64',
+    });
+    expect(mockLegacyFiles.size).toBe(0);
+    expect(mockMigrationDone).toBe(true);
+  });
+
+  it('migrates a chapter into the current pluginId when the folder on disk is stale', async () => {
+    // The plugin was renamed: the chapter sits under the old folder, but the DB
+    // row knows the pluginId the reader will look under.
+    const dir = `${OLD_ROOT}/oldPlugin/1/5`;
+    mockLegacyFiles.set(`${dir}/index.html`, '<html><body></body></html>');
+    mockLegacyFiles.set(`${dir}/3.b64.png`, 'PNGDATA');
+    mockNovels = [{ id: 1, pluginId: 'newPlugin', cover: null }];
+    mockDownloadedChapters = [{ id: 5, novelId: 1 }];
+
+    await runSafMigration();
+
+    expect(mockTree.has('Novels/newPlugin/1/5/index.html')).toBe(true);
+    expect(mockTree.has('Novels/newPlugin/1/5/3.b64.png')).toBe(true);
+    expect(mockTree.has('Novels/oldPlugin/1/5/index.html')).toBe(false);
+    expect(mockLegacyFiles.size).toBe(0);
+  });
+
+  it('leaves a chapter directory that has no index.html for the next attempt', async () => {
+    // No index.html means the folder is not a chapter this app wrote, so the walk
+    // must not claim it — and the legacy root must survive so nothing is lost.
+    mockLegacyFiles.set(`${OLD_ROOT}/p1/1/5/3.b64.png`, 'PNGDATA');
+    mockNovels = [];
+    mockDownloadedChapters = [];
+
+    await runSafMigration();
+
     expect(mockTree.size).toBe(0);
+    expect(mockLegacyFiles.has(`${OLD_ROOT}/p1/1/5/3.b64.png`)).toBe(true);
     expect(mockMigrationDone).toBe(false);
+  });
+
+  it('leaves a chapter folder whose names are not row ids untouched', async () => {
+    mockLegacyFiles.set(`${OLD_ROOT}/p1/scratch/index.html`, '<html></html>');
+    mockNovels = [];
+    mockDownloadedChapters = [];
+
+    await runSafMigration();
+
+    expect(mockTree.size).toBe(0);
+    expect(mockLegacyFiles.has(`${OLD_ROOT}/p1/scratch/index.html`)).toBe(true);
+    expect(mockMigrationDone).toBe(false);
+  });
+});
+
+describe('runSafMigration force flag', () => {
+  it('runs a marked-done migration again when forced', async () => {
+    mockMigrationDone = true;
+    seedLegacyNovel(
+      { id: 1, pluginId: 'p1', cover: `file://${OLD_ROOT}/p1/1/cover.png` },
+      [{ id: 5, novelId: 1 }],
+    );
+
+    await runSafMigration(undefined, true);
+
+    expect(mockTree.has('Novels/p1/1/5/index.html')).toBe(true);
+    expect(mockLegacyFiles.size).toBe(0);
+  });
+
+  it('stays closed to a marked-done migration without the force flag', async () => {
+    mockMigrationDone = true;
+    seedLegacyNovel(
+      { id: 1, pluginId: 'p1', cover: `file://${OLD_ROOT}/p1/1/cover.png` },
+      [{ id: 5, novelId: 1 }],
+    );
+
+    await runSafMigration();
+
+    expect(mockTree.size).toBe(0);
+    expect(mockLegacyFiles.size).toBeGreaterThan(0);
+  });
+});
+
+describe('runSafMigration progress', () => {
+  const collectProgress = () => {
+    const calls: Array<{ done: number; total: number; label: string }> = [];
+    const onProgress = (done: number, total: number, label: string) => {
+      calls.push({ done, total, label });
+    };
+    return { calls, onProgress };
+  };
+
+  it('reports one step per discovered chapter and cover', async () => {
+    seedLegacyNovel(
+      { id: 1, pluginId: 'p1', cover: `file://${OLD_ROOT}/p1/1/cover.png` },
+      [
+        { id: 5, novelId: 1 },
+        { id: 6, novelId: 1 },
+      ],
+    );
+    const { calls, onProgress } = collectProgress();
+
+    await runSafMigration(onProgress);
+
+    expect(calls).toEqual([
+      { done: 1, total: 3, label: 'Novels/p1/1/5' },
+      { done: 2, total: 3, label: 'Novels/p1/1/6' },
+      { done: 3, total: 3, label: 'Novels/p1/1/cover.png' },
+    ]);
+  });
+
+  it('counts a disk-orphaned chapter towards the total', async () => {
+    // One chapter from the DB, one only reachable through the legacy tree.
+    const orphan = `${OLD_ROOT}/p1/1/9`;
+    mockLegacyFiles.set(`${orphan}/index.html`, '<html></html>');
+    seedLegacyNovel({ id: 1, pluginId: 'p1', cover: null }, [
+      { id: 5, novelId: 1 },
+    ]);
+    const { calls, onProgress } = collectProgress();
+
+    await runSafMigration(onProgress);
+
+    expect(calls.map(call => call.label)).toEqual([
+      'Novels/p1/1/5',
+      'Novels/p1/1/9',
+    ]);
+    expect(calls[calls.length - 1]).toEqual({
+      done: 2,
+      total: 2,
+      label: 'Novels/p1/1/9',
+    });
+  });
+
+  it('keeps counting a unit whose copy failed', async () => {
+    seedLegacyNovel({ id: 1, pluginId: 'p1', cover: null }, [
+      { id: 5, novelId: 1 },
+    ]);
+    mockFailWriteFor = rel => rel === 'Novels/p1/1/5/index.html';
+    const { calls, onProgress } = collectProgress();
+
+    await runSafMigration(onProgress);
+
+    expect(calls).toEqual([{ done: 1, total: 1, label: 'Novels/p1/1/5' }]);
+  });
+
+  it('reports no steps when the permission is missing', async () => {
+    mockPermissionGranted = false;
+    seedLegacyNovel({ id: 1, pluginId: 'p1', cover: null }, [
+      { id: 5, novelId: 1 },
+    ]);
+    const { calls, onProgress } = collectProgress();
+
+    await runSafMigration(onProgress);
+
+    expect(calls).toEqual([]);
   });
 });

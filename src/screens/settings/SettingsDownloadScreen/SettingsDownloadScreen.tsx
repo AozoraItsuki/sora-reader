@@ -18,7 +18,8 @@ import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { applyNativeProxy, clearNativeProxy } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ProgressBar } from 'react-native-paper';
 import { openDocumentTree } from 'react-native-saf-x';
 
 import SettingSwitch from '../components/SettingSwitch';
@@ -29,6 +30,9 @@ import RetryDelayModal from './modals/RetryDelayModal';
 
 /** Display name of the picked download folder (the tree URI has no label). */
 const DOWNLOAD_FOLDER_NAME_KEY = 'SAF_TREE_DISPLAY_NAME';
+
+/** How far the migration has got: files moved, files to move, current one. */
+type MigrationProgress = { done: number; total: number; label: string };
 
 const PROXY_MODE_LABELS: Record<ProxyMode, string> = {
   disabled: getString('downloadSettingsScreen.proxyDisabled'),
@@ -70,6 +74,7 @@ const SettingsDownloadScreen = ({
   );
   const [legacyDetected, setLegacyDetected] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [progress, setProgress] = useState<MigrationProgress | null>(null);
 
   useEffect(() => {
     setLegacyDetected(hasLegacyDownloads());
@@ -88,10 +93,16 @@ const SettingsDownloadScreen = ({
       // Make sure the tree the server walks into exists, then move whatever is
       // still in the old app-private location into it.
       await safMkdir(SAF_TREE_ROOT);
-      await runSafMigration();
+      setMigrating(true);
+      await runSafMigration((done, total, label) =>
+        setProgress({ done, total, label }),
+      );
       setLegacyDetected(hasLegacyDownloads());
     } catch (error: any) {
       showToast(error?.message || String(error));
+    } finally {
+      setMigrating(false);
+      setProgress(null);
     }
   }, []);
 
@@ -101,13 +112,19 @@ const SettingsDownloadScreen = ({
     }
     setMigrating(true);
     try {
-      await runSafMigration();
+      // Forced: a run that already finished and marked itself done is exactly
+      // the one the user is asking to re-run from this button.
+      await runSafMigration(
+        (done, total, label) => setProgress({ done, total, label }),
+        true,
+      );
       setLegacyDetected(hasLegacyDownloads());
       showToast(getString('downloadSettingsScreen.migrateDone'));
     } catch (error: any) {
       showToast(error?.message || String(error));
     } finally {
       setMigrating(false);
+      setProgress(null);
     }
   }, [migrating]);
 
@@ -169,6 +186,24 @@ const SettingsDownloadScreen = ({
             disabled={!legacyDetected || migrating}
             theme={theme}
           />
+          {progress !== null && (
+            <View style={styles.progress}>
+              <Text style={{ color: theme.onSurfaceVariant }}>
+                {getString(
+                  'downloadSettingsScreen.migratingProgress',
+                  progress,
+                )}
+              </Text>
+              <Text style={[styles.progressLabel, { color: theme.onSurface }]}>
+                {progress.label}
+              </Text>
+              <ProgressBar
+                progress={progress.done / progress.total}
+                color={theme.primary}
+                style={{ backgroundColor: theme.surface2 }}
+              />
+            </View>
+          )}
         </List.Section>
         <List.Section>
           <List.SubHeader theme={theme}>
@@ -306,4 +341,12 @@ export default SettingsDownloadScreen;
 
 const styles = StyleSheet.create({
   paddingBottom: { paddingBottom: 32 },
+  progress: {
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  progressLabel: {
+    fontSize: 12,
+  },
 });

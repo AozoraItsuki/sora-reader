@@ -372,6 +372,7 @@
     "migrateFiles": "Migrasi file lama",
     "migrateFilesDesc": "Pindahkan unduhan dari folder privat lama ke folder pilihan",
     "migrating": "Memigrasi…",
+    "migratingProgress": "Memindahkan %{done} dari %{total} berkas",
     "migrateDone": "Migrasi selesai",
     "migrateNothingToMove": "Tidak ada file lama untuk dimigrasi",
     "autoDownload": "Unduh otomatis",
@@ -839,6 +840,7 @@
     "desc": "Pilih folder untuk menyimpan bab yang diunduh. SoraReader membutuhkannya untuk menyimpan pustaka Anda di luar data aplikasi, dan Anda dapat mengubahnya nanti di Pengaturan.",
     "chooseFolder": "Pilih folder",
     "migrateFiles": "Pindahkan berkas",
+    "migratingProgress": "Memindahkan %{done} dari %{total} berkas",
     "skip": "Lewati sekarang"
   },
   "tracking": "Pelacakan",

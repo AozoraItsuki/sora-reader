@@ -9,7 +9,6 @@ import RespositorySettings from '@screens/settings/SettingsRepositoryScreen/Sett
 import SecuritySettings from '@screens/settings/SettingsSecurityScreen';
 import NovelReadingTimeStatsScreen from '@screens/StatsScreen/NovelReadingTimeStatsScreen';
 import ReadingTimeStatsScreen from '@screens/StatsScreen/ReadingTimeStatsScreen';
-// import LibrarySettings from '@screens/settings/SettingsLibraryScreen/SettingsLibraryScreen';
 import StatsScreen from '@screens/StatsScreen/StatsScreen';
 import React from 'react';
 
@@ -47,7 +46,6 @@ const SettingsStack = () => (
     <Stack.Screen name="AISettings" component={SettingsAIScreen} />
     <Stack.Screen name="AIPromptsSettings" component={TranslatePromptScreen} />
     <Stack.Screen name="DownloadSettings" component={SettingsDownloadScreen} />
-    {/* <Stack.Screen name="LibrarySettings" component={LibrarySettings} /> */}
   </Stack.Navigator>
 );
 

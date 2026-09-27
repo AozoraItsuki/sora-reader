@@ -1,6 +1,7 @@
 import { ThemeProvider } from '@hooks/persisted/useTheme';
 import { getString } from '@strings/translations';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -136,5 +137,76 @@ describe('SetupStorageScreen', () => {
     fireEvent.press(screen.getByText(getString('setupStorage.skip')));
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+});
+
+describe('SetupStorageScreen migration progress', () => {
+  /**
+   * A migration that never settles on its own, so the progress the screen shows
+   * can be observed while the copy is still in flight.
+   */
+  const deferredMigration = () => {
+    const handle: {
+      report?: (done: number, total: number, label: string) => void;
+      finish: () => void;
+      implementation: (
+        onProgress?: (done: number, total: number, label: string) => void,
+      ) => Promise<void>;
+    } = {
+      finish: () => undefined,
+      implementation: () => new Promise<void>(() => undefined),
+    };
+    handle.implementation = onProgress =>
+      new Promise<void>(resolve => {
+        handle.report = onProgress;
+        handle.finish = resolve;
+      });
+    return handle;
+  };
+
+  beforeEach(() => {
+    [hasLegacyDownloads, runSafMigration].forEach(mock => mock.mockClear());
+    hasLegacyDownloads.mockReturnValue(true);
+  });
+
+  it('shows how far the migration has got while it runs', async () => {
+    const migration = deferredMigration();
+    runSafMigration.mockImplementation(migration.implementation);
+    renderScreen(jest.fn());
+
+    fireEvent.press(screen.getByText(getString('setupStorage.migrateFiles')));
+    await waitFor(() => expect(migration.report).toBeDefined());
+    expect(screen.queryByRole('progressbar')).toBeNull();
+
+    await act(async () => {
+      migration.report?.(3, 8, 'Novels/p1/1/5');
+    });
+
+    expect(
+      screen.getByText(
+        getString('setupStorage.migratingProgress', { done: 3, total: 8 }),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('progressbar')).toHaveAccessibilityValue({
+      min: 0,
+      max: 100,
+      now: 38,
+    });
+
+    await act(async () => {
+      migration.finish();
+    });
+
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('forces the migration so a done-marked run can be retried', async () => {
+    renderScreen(jest.fn());
+
+    fireEvent.press(screen.getByText(getString('setupStorage.migrateFiles')));
+
+    await waitFor(() =>
+      expect(runSafMigration).toHaveBeenCalledWith(expect.any(Function), true),
+    );
   });
 });

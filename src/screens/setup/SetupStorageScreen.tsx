@@ -10,7 +10,8 @@ import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
 import React, { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ProgressBar } from 'react-native-paper';
 import { openDocumentTree } from 'react-native-saf-x';
 
 /** Set to '1' once the user picked a folder or explicitly skipped this screen. */
@@ -24,6 +25,9 @@ const DOWNLOAD_FOLDER_NAME_KEY = 'SAF_TREE_DISPLAY_NAME';
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+/** How far the migration has got: files moved, files to move, current one. */
+type MigrationProgress = { done: number; total: number; label: string };
 
 interface SetupStorageScreenProps {
   /** Called once a folder is configured or the user skipped setup. */
@@ -41,6 +45,8 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
   // A native directory listing on every render would be wasteful, and the
   // legacy folder cannot grow while this screen is up.
   const [hasLegacyFiles] = useState(hasLegacyDownloads);
+  const [migrating, setMigrating] = useState(false);
+  const [progress, setProgress] = useState<MigrationProgress | null>(null);
 
   const handleChooseFolder = useCallback(async () => {
     try {
@@ -62,14 +68,25 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
   }, [onDone]);
 
   const handleMigrateFiles = useCallback(async () => {
+    if (migrating) {
+      return;
+    }
+    setMigrating(true);
     try {
       // Choosing a folder already migrates; this retries a run that could not
-      // finish, which deliberately leaves the legacy tree in place.
-      await runSafMigration();
+      // finish, which deliberately leaves the legacy tree in place. It forces
+      // the run so a migration already marked done can be re-run by hand too.
+      await runSafMigration(
+        (done, total, label) => setProgress({ done, total, label }),
+        true,
+      );
     } catch (error) {
       showToast(errorMessage(error));
+    } finally {
+      setMigrating(false);
+      setProgress(null);
     }
-  }, []);
+  }, [migrating]);
 
   const handleSkip = useCallback(() => {
     MMKVStorage.set(SETUP_STORAGE_DISMISSED, '1');
@@ -93,8 +110,24 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
             <List.Item
               title={getString('setupStorage.migrateFiles')}
               onPress={handleMigrateFiles}
+              disabled={migrating}
               theme={theme}
             />
+          )}
+          {progress !== null && (
+            <View style={styles.progress}>
+              <Text style={{ color: theme.onSurfaceVariant }}>
+                {getString('setupStorage.migratingProgress', progress)}
+              </Text>
+              <Text style={[styles.progressLabel, { color: theme.onSurface }]}>
+                {progress.label}
+              </Text>
+              <ProgressBar
+                progress={progress.done / progress.total}
+                color={theme.primary}
+                style={{ backgroundColor: theme.surface2 }}
+              />
+            </View>
           )}
         </List.Section>
         <Button mode="text" onPress={handleSkip} style={styles.skip}>
@@ -110,6 +143,14 @@ export default SetupStorageScreen;
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
+  },
+  progress: {
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  progressLabel: {
+    fontSize: 12,
   },
   skip: {
     marginTop: 'auto',

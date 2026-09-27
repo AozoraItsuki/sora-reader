@@ -38,8 +38,9 @@ object PdfParser {
     private const val MAX_BITMAP_DIMENSION = 4096
 
     /**
-     * `PdfRenderer` gained a text layer in API 35; below that a page can only
-     * be rasterized, so there is nothing meaningful to import.
+     * `PdfRenderer` gained a text layer in API 35. Below that a page can only
+     * be rasterized, so the text layer is empty and the import is image-only
+     * (page renders are still produced, so the novel remains fully readable).
      *
      * NOTE: extracting the document info dictionary (real title/author) needs
      * a PDF parser the platform does not ship. If that metadata matters, add
@@ -47,17 +48,12 @@ object PdfParser {
      * to android/app/build.gradle and read PDDocumentInformation here. Until
      * then the JS side falls back to the picked filename for the novel name.
      */
-    private const val TEXT_REQUIRES_API =
-        "Extracting text from a PDF requires Android 15 (API 35) or newer."
 
     /**
      * Main entry point: rasterize a PDF and return a WritableMap compatible
      * with the React Native bridge.
      */
     fun parse(pdfFilePath: String, outputDirPath: String): WritableMap {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            throw RuntimeException(TEXT_REQUIRES_API)
-        }
         val metadata = parsePdf(pdfFilePath, outputDirPath)
         return metadataToWritableMap(metadata)
     }
@@ -119,6 +115,12 @@ object PdfParser {
      * read yields '' as well rather than failing the whole import.
      */
     private fun extractPageText(page: PdfRenderer.Page): String {
+        // getTextContents() exists only on API 35+; below that the import is
+        // image-only (guarded here rather than try/catch because the failure
+        // mode is NoSuchMethodError, which must not be swallowed).
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return ""
+        }
         return try {
             page.getTextContents()
                 .map { it.text }

@@ -372,6 +372,7 @@
     "migrateFiles": "Migrate old files",
     "migrateFilesDesc": "Move downloads from the previous app-private folder into the chosen folder",
     "migrating": "Migrating…",
+    "migratingProgress": "Moved %{done} of %{total} files",
     "migrateDone": "Migration finished",
     "migrateNothingToMove": "No old files to migrate",
     "autoDownload": "Auto-download",
@@ -839,6 +840,7 @@
     "desc": "Choose the folder downloaded chapters are saved to. SoraReader needs it to store your library outside the app data, and you can change it later in Settings.",
     "chooseFolder": "Choose folder",
     "migrateFiles": "Migrate files",
+    "migratingProgress": "Moved %{done} of %{total} files",
     "skip": "Skip for now"
   },
   "tracking": "Tracking",

@@ -33,7 +33,6 @@ import {
   safMkdir,
   safWriteFile,
 } from '@services/saf/safFile';
-import NativeFile from '@specs/NativeFile';
 import {
   chapterIndexRel,
   chapterRel,
@@ -44,6 +43,16 @@ import {
 import { NOVEL_STORAGE } from '@utils/Storages';
 import { eq } from 'drizzle-orm';
 import { EncodingType, readAsStringAsync } from 'expo-file-system/legacy';
+
+import {
+  asRowId,
+  collectLegacyChapterRefs,
+  type LegacyChapterRef,
+  nativeFileExists,
+  nativeFileReadDir,
+  nativeFileReadFile,
+  nativeFileUnlink,
+} from './legacyTreeScan';
 
 const BTAG = '[SafMigration]';
 
@@ -122,32 +131,47 @@ export const legacyAbsPath = (oldRoot: string, treeRel: string) =>
  * Best-effort and never throws — drives the manual Migrate button state.
  */
 export const hasLegacyDownloads = (): boolean => {
-  if (!NativeFileExists(NOVEL_STORAGE)) {
+  if (!nativeFileExists(NOVEL_STORAGE)) {
     return false;
   }
-  return NativeFileReadDir(NOVEL_STORAGE).length > 0;
+  return nativeFileReadDir(NOVEL_STORAGE).length > 0;
 };
 
-/** Copy one app-private file into the SAF tree, then drop the original. */
-const migrateFile = async (
-  oldRoot: string,
-  treeRel: string,
-  encoding: 'utf8' | 'base64',
-  transform?: (content: string) => string,
-): Promise<boolean> => {
-  const source = legacyAbsPath(oldRoot, treeRel);
-  if (!NativeFileExists(source)) {
+/** One app-private file to copy, and the tree-relative path to copy it to. */
+type FileCopy = {
+  /** Absolute app-private path of the file to read. */
+  source: string;
+  /** Tree-relative path to write it to. */
+  treeRel: string;
+  encoding: 'utf8' | 'base64';
+  transform?: (content: string) => string;
+};
+
+/**
+ * Copy one app-private file into the SAF tree, then drop the original.
+ *
+ * `source` and `treeRel` need not agree on the plugin folder: a chapter whose
+ * plugin was renamed is read from where it is and written to where the reader
+ * will look for it.
+ */
+const migrateFile = async ({
+  source,
+  treeRel,
+  encoding,
+  transform,
+}: FileCopy): Promise<boolean> => {
+  if (!nativeFileExists(source)) {
     return false;
   }
   if (await safExists(treeRel)) {
     // Already migrated by an earlier partial run — just drop the duplicate.
-    NativeFileUnlink(source);
+    nativeFileUnlink(source);
     return true;
   }
 
   await safMkdir(treeRel.slice(0, treeRel.lastIndexOf('/')));
   if (encoding === 'utf8') {
-    const raw = NativeFileReadFile(source) ?? '';
+    const raw = nativeFileReadFile(source) ?? '';
     await safWriteFile(treeRel, transform ? transform(raw) : raw, 'utf8');
   } else {
     const base64 = await readAsStringAsync(source, {
@@ -164,53 +188,18 @@ const isInsideTree = (absolutePath: string): boolean => {
   return !!treeRoot && absolutePath.startsWith(`${treeRoot}/`);
 };
 
-/**
- * Every native FS call is best-effort: a throw here must not abort the migration.
- */
-const NativeFileExists = (path: string): boolean => {
-  try {
-    return NativeFile.exists(path);
-  } catch {
-    return false;
-  }
-};
-
-const NativeFileReadFile = (path: string): string | null => {
-  try {
-    return NativeFile.readFile(path) ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const NativeFileReadDir = (dirPath: string) => {
-  try {
-    return NativeFile.readDir(dirPath) ?? [];
-  } catch {
-    return [];
-  }
-};
-
-const NativeFileUnlink = (path: string) => {
-  try {
-    NativeFile.unlink(path);
-  } catch {
-    // Best effort — the legacy root is removed wholesale at the end anyway.
-  }
-};
-
 type ChapterRow = { id: number; novelId: number };
 type NovelRow = { id: number; pluginId: string; cover: string | null };
 
+/** Copy one legacy chapter folder into the tree, then drop the original. */
 const migrateChapter = async (
-  row: ChapterRow,
-  pluginId: string,
+  ref: LegacyChapterRef,
   oldRoot: string,
 ): Promise<void> => {
-  const { id, novelId } = row;
-  const chapterDirRel = chapterRel(pluginId, novelId, id);
-  const legacyChapterDir = legacyAbsPath(oldRoot, chapterDirRel);
-  if (!NativeFileExists(legacyChapterDir)) {
+  const { fromPluginId, toPluginId, novelId, chapterId } = ref;
+  const chapterDirRel = chapterRel(toPluginId, novelId, chapterId);
+  const legacyChapterDir = `${oldRoot}/${fromPluginId}/${novelId}/${chapterId}`;
+  if (!nativeFileExists(legacyChapterDir)) {
     return;
   }
 
@@ -224,27 +213,26 @@ const migrateChapter = async (
   await safMkdir(chapterDirRel);
 
   // index.html: text, with absolute img srcs rewritten to bare filenames.
-  await migrateFile(
-    oldRoot,
-    chapterIndexRel(pluginId, novelId, id),
-    'utf8',
-    html => rewriteChapterHtml(html, oldRoot),
-  );
+  await migrateFile({
+    source: `${legacyChapterDir}/index.html`,
+    treeRel: chapterIndexRel(toPluginId, novelId, chapterId),
+    encoding: 'utf8',
+    transform: html => rewriteChapterHtml(html, oldRoot),
+  });
 
   // Everything else in the chapter folder is a binary payload.
-  for (const entry of NativeFileReadDir(legacyChapterDir)) {
+  for (const entry of nativeFileReadDir(legacyChapterDir)) {
     if (entry.isDirectory) {
       continue;
     }
-    const rel = `${chapterDirRel}/${entry.name}`;
-    await migrateFile(
-      oldRoot,
-      rel,
-      TEXT_ASSETS.has(entry.name) ? 'utf8' : 'base64',
-    );
+    await migrateFile({
+      source: `${legacyChapterDir}/${entry.name}`,
+      treeRel: `${chapterDirRel}/${entry.name}`,
+      encoding: TEXT_ASSETS.has(entry.name) ? 'utf8' : 'base64',
+    });
   }
 
-  NativeFileUnlink(legacyChapterDir);
+  nativeFileUnlink(legacyChapterDir);
 };
 
 const migrateNovelCover = async (
@@ -258,16 +246,16 @@ const migrateNovelCover = async (
   const relative = relativizeCoverPath(cover, oldRoot);
 
   await safMkdir(novelDirRel(pluginId, id));
-  const copied = await migrateFile(
-    oldRoot,
-    coverRel(pluginId, id),
-    'base64',
-  ).catch(() => false);
+  const copied = await migrateFile({
+    source: legacyAbsPath(oldRoot, coverRel(pluginId, id)),
+    treeRel: coverRel(pluginId, id),
+    encoding: 'base64',
+  }).catch(() => false);
   if (copied) {
     // Drop ONLY the cover we copied. The chapter folders live in the same
     // directory, so removing the novel directory here would destroy any
     // chapter that failed to migrate.
-    NativeFileUnlink(legacyAbsPath(oldRoot, coverRel(pluginId, id)));
+    nativeFileUnlink(legacyAbsPath(oldRoot, coverRel(pluginId, id)));
   }
 
   if (relative === cover) {
@@ -286,70 +274,112 @@ const migrateNovelCover = async (
 };
 
 /**
- * Remove the legacy NOVEL_STORAGE directory, but only once nothing we know how
- * to migrate is still inside it (a partially-migrated chapter, a novel without a
- * DB row). PLUGIN_STORAGE is a sibling of NOVEL_STORAGE and is never touched.
+ * The chapters this run will copy, in order.
+ *
+ * Two sources feed it. The downloaded rows come first because a row knows the
+ * pluginId the reader looks under today. The legacy tree comes second and covers
+ * what the DB cannot see at all: a chapter whose novel row is gone, or one left
+ * behind under a plugin folder that was renamed. Sources are de-duplicated by
+ * where their files actually sit, so a chapter both sources know is copied once
+ * and lands on the row's pluginId either way.
  */
-const removeLegacyStorageIfDrained = async (
-  oldRoot: string,
+const planChapterMigrations = (
+  rows: ChapterRow[],
   pluginIdByNovelId: Map<number, string>,
-): Promise<boolean> => {
-  const remainingChapters = await dbManager
-    .select({ id: chapterSchema.id, novelId: chapterSchema.novelId })
-    .from(chapterSchema)
-    .where(eq(chapterSchema.isDownloaded, true))
-    .all();
-
-  for (const chapter of remainingChapters) {
-    const pluginId = pluginIdByNovelId.get(chapter.novelId);
-    if (!pluginId) {
-      // The chapter was never migrated because its novel row is gone, so we
-      // cannot prove the legacy tree is safe to delete. Keep it.
-      return false;
-    }
-    if (
-      NativeFileExists(
-        legacyAbsPath(
-          oldRoot,
-          chapterRel(pluginId, chapter.novelId, chapter.id),
-        ),
-      )
-    ) {
-      return false;
+  oldRoot: string,
+): LegacyChapterRef[] => {
+  const pluginIdByChapter = new Map<string, string>();
+  for (const row of rows) {
+    const pluginId = pluginIdByNovelId.get(row.novelId);
+    if (pluginId) {
+      pluginIdByChapter.set(`${row.novelId}/${row.id}`, pluginId);
     }
   }
 
-  // Any leftover file that is not part of a known chapter folder means the
-  // legacy tree still holds data we would silently destroy.
-  for (const entry of NativeFileReadDir(oldRoot)) {
-    if (entry.isDirectory) {
-      const novelEntries = NativeFileReadDir(entry.path);
-      for (const novelEntry of novelEntries) {
-        if (novelEntry.isDirectory) {
-          const chapterEntries = NativeFileReadDir(novelEntry.path);
-          if (
-            chapterEntries.some(c => !c.isDirectory && !TEXT_ASSETS.has(c.name))
-          ) {
-            return false;
-          }
-        } else if (novelEntry.name !== 'cover.png') {
+  const planned = new Map<string, LegacyChapterRef>();
+  const plan = (ref: LegacyChapterRef) => {
+    const key = `${ref.fromPluginId}/${ref.novelId}/${ref.chapterId}`;
+    if (planned.has(key)) {
+      return;
+    }
+    planned.set(key, {
+      ...ref,
+      toPluginId:
+        pluginIdByChapter.get(`${ref.novelId}/${ref.chapterId}`) ??
+        ref.fromPluginId,
+    });
+  };
+
+  for (const row of rows) {
+    const pluginId = pluginIdByNovelId.get(row.novelId);
+    if (pluginId) {
+      plan({
+        fromPluginId: pluginId,
+        toPluginId: pluginId,
+        novelId: row.novelId,
+        chapterId: row.id,
+      });
+    }
+  }
+  for (const ref of collectLegacyChapterRefs(oldRoot)) {
+    plan(ref);
+  }
+
+  // A row whose chapter was migrated by an earlier run has nothing left to copy.
+  return Array.from(planned.values()).filter(ref =>
+    nativeFileExists(
+      legacyAbsPath(
+        oldRoot,
+        chapterRel(ref.fromPluginId, ref.novelId, ref.chapterId),
+      ),
+    ),
+  );
+};
+
+/**
+ * True when the legacy tree holds nothing this run could not identify.
+ *
+ * Only a novel folder's own `cover.png` may remain: a migrated chapter folder is
+ * removed outright, so any entry still inside one — payload or marker — is data
+ * nobody claimed, and so is a folder whose name is not a row id. Deleting the
+ * root then would destroy it.
+ */
+const legacyTreeIsDrained = (oldRoot: string): boolean => {
+  for (const pluginEntry of nativeFileReadDir(oldRoot)) {
+    if (!pluginEntry.isDirectory) {
+      return false;
+    }
+    for (const novelEntry of nativeFileReadDir(pluginEntry.path)) {
+      if (!novelEntry.isDirectory) {
+        if (novelEntry.name !== 'cover.png') {
           return false;
         }
+        continue;
+      }
+      if (
+        asRowId(novelEntry.name) === null ||
+        nativeFileReadDir(novelEntry.path).length > 0
+      ) {
+        return false;
       }
     }
   }
-
-  NativeFileUnlink(oldRoot);
   return true;
 };
 
 /**
  * Migrate legacy NOVEL_STORAGE downloads into the SAF tree exactly once.
  *
- * Requires a live SAF permission. Never throws.
+ * Requires a live SAF permission. Never throws. `force` re-runs a migration that
+ * is already marked done, which is what the manual Migrate button needs.
+ * `onProgress` is called once per migrated chapter and cover with the
+ * tree-relative path it was working on.
  */
-export const runSafMigration = async (): Promise<void> => {
-  if (isSafMigrationDone()) {
+export const runSafMigration = async (
+  onProgress?: (done: number, total: number, label: string) => void,
+  force = false,
+): Promise<void> => {
+  if (!force && isSafMigrationDone()) {
     return;
   }
 
@@ -364,7 +394,7 @@ export const runSafMigration = async (): Promise<void> => {
     }
 
     const oldRoot = NOVEL_STORAGE;
-    if (!NativeFileExists(oldRoot)) {
+    if (!nativeFileExists(oldRoot)) {
       log('log', `${BTAG} No legacy ${oldRoot}; marking done`);
       markSafMigrationDone();
       return;
@@ -386,36 +416,35 @@ export const runSafMigration = async (): Promise<void> => {
       .where(eq(chapterSchema.isDownloaded, true))
       .all();
 
+    const chapterRefs = planChapterMigrations(
+      downloadedChapters,
+      pluginIdByNovelId,
+      oldRoot,
+    );
+    const coverNovels = novels.filter(novel => novel.cover !== null);
+    const total = chapterRefs.length + coverNovels.length;
+    let done = 0;
     let migratedChapters = 0;
     let chapterFailures = 0;
-    let unmappedChapters = 0;
-    for (const chapter of downloadedChapters) {
-      const pluginId = pluginIdByNovelId.get(chapter.novelId);
-      if (!pluginId) {
-        // Without the owning novel's pluginId there is no tree path to copy
-        // into, so the chapter is left behind rather than guessed at.
-        unmappedChapters++;
-        log(
-          'warn',
-          `${BTAG} Chapter ${chapter.id} has no novel row; leaving it in legacy storage`,
-        );
-        continue;
-      }
+    for (const ref of chapterRefs) {
+      const label = chapterRel(ref.toPluginId, ref.novelId, ref.chapterId);
       try {
-        await migrateChapter(chapter, pluginId, oldRoot);
+        await migrateChapter(ref, oldRoot);
         migratedChapters++;
       } catch (e) {
         chapterFailures++;
         log(
           'error',
-          `${BTAG} Failed to migrate chapter ${chapter.id}: ${String(e)}`,
+          `${BTAG} Failed to migrate chapter ${ref.chapterId}: ${String(e)}`,
         );
       }
+      onProgress?.(++done, total, label);
     }
 
     let migratedCovers = 0;
     let coverFailures = 0;
-    for (const novel of novels) {
+    for (const novel of coverNovels) {
+      const label = coverRel(novel.pluginId, novel.id);
       try {
         if (await migrateNovelCover(novel, oldRoot)) {
           migratedCovers++;
@@ -427,40 +456,35 @@ export const runSafMigration = async (): Promise<void> => {
           `${BTAG} Failed to migrate cover for novel ${novel.id}: ${String(e)}`,
         );
       }
+      onProgress?.(++done, total, label);
     }
 
     // Novel dirs that only ever held a cover may still exist in the tree.
     for (const novel of novels) {
       const novelRel = novelDirRel(novel.pluginId, novel.id);
-      if (NativeFileExists(legacyAbsPath(oldRoot, novelRel))) {
+      if (nativeFileExists(legacyAbsPath(oldRoot, novelRel))) {
         await safMkdir(novelRel).catch(() => undefined);
       }
     }
 
-    const drained = await removeLegacyStorageIfDrained(
-      oldRoot,
-      pluginIdByNovelId,
-    );
-    if (!drained) {
+    if (!legacyTreeIsDrained(oldRoot)) {
       log(
         'warn',
         `${BTAG} Legacy ${oldRoot} not empty; keeping it for the next attempt`,
       );
       return;
     }
+    // The tree is drained, so it can go. PLUGIN_STORAGE is a sibling of
+    // NOVEL_STORAGE and is never touched.
+    nativeFileUnlink(oldRoot);
 
-    if (
-      chapterFailures === 0 &&
-      coverFailures === 0 &&
-      unmappedChapters === 0
-    ) {
+    if (chapterFailures === 0 && coverFailures === 0) {
       markSafMigrationDone();
     }
     log(
       'info',
       `${BTAG} Done: ${migratedChapters} chapters, ${migratedCovers} covers, ` +
-        `${chapterFailures + coverFailures} failures, ` +
-        `${unmappedChapters} unmapped chapters`,
+        `${chapterFailures + coverFailures} failures`,
     );
   } catch (e) {
     // Never throw — the app must always boot.
