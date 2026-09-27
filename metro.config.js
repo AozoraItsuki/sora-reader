@@ -25,6 +25,21 @@ const customConfig = {
   resolver: {
     unstable_enableSymlinks: true,
     sourceExts: [...defaultConfig.resolver.sourceExts, 'sql'],
+    // cheerio 1.2's default ESM entry imports `node:stream`, which Metro cannot
+    // resolve. Redirect bare `cheerio` imports to its published browser build
+    // (no node: imports, same `load` API used by this app).
+    resolveRequest: (context, moduleName, platform) => {
+      if (moduleName === 'cheerio') {
+        return {
+          filePath: path.join(
+            __dirname,
+            'node_modules/cheerio/dist/browser/index.js',
+          ),
+          type: 'sourceFile',
+        };
+      }
+      return context.resolveRequest(context, moduleName, platform);
+    },
   },
   server: {
     port: 8081,

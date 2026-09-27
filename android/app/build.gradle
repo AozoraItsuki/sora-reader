@@ -85,6 +85,13 @@ def requestedAbis = ((project.findProperty("targetAbis") ?: System.getenv("TARGE
     : (project.findProperty("targetAbis") ?: System.getenv("TARGET_ABIS")).split(",").toList().findAll { it.trim() }
 def abiVersionCodes = ["armeabi-v7a": 1, "arm64-v8a": 2, "x86": 3, "x86_64": 4]
 
+// CI auto-increment: `-PciBuildNumber=<n>` (or CI_BUILD_NUMBER env) makes every CI
+// build installable over the previous one. Local builds omit it and keep the static version.
+def ciBuildNumberRaw = (project.findProperty("ciBuildNumber") ?: System.getenv("CI_BUILD_NUMBER") ?: "0").toString().trim()
+def ciBuildOffset = (ciBuildNumberRaw ==~ /\d+/) ? ciBuildNumberRaw.toInteger() : 0
+def baseVersionCode = (((versionMajor << 10) | versionMinor) << 11) | versionPatch
+def fullVersionName = "$versionMajor.$versionMinor.$versionPatch" + (ciBuildOffset > 0 ? "-ci.$ciBuildNumberRaw" : "")
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -95,8 +102,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Generated version code. Supports versions up to 1024.1024.2048
-        versionCode ((((versionMajor << 10) | versionMinor) << 11) | versionPatch)
-        versionName "$versionMajor.$versionMinor.$versionPatch"
+        versionCode baseVersionCode + ciBuildOffset
+        versionName fullVersionName
     }
     signingConfigs {
         debug {
