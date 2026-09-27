@@ -185,6 +185,13 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         --reader-bottomInset: ${readerBottomInset}px;
       }
 
+      img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+      }
+
       #SoraReader-title-novel {
         display: block;
         font-size: 1.25em;
