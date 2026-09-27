@@ -40,8 +40,8 @@ env:
 jobs:
   build-android:
     name: Build Android (${{ inputs.variant || 'debug' }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
 
     steps:
       - name: Free Disk Space
@@ -51,7 +51,7 @@ jobs:
           android: false
           dotnet: true
           haskell: true
-          docker-images: true
+          docker-images: false
           swap-storage: true
 
       - name: Checkout Repository
