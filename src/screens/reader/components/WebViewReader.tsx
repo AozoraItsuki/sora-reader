@@ -4,7 +4,6 @@ import {
 } from '@database/queries/ChapterQueries';
 import { ChapterInfo } from '@database/types';
 import { useTheme } from '@hooks/persisted';
-import { getAllTermsForNovel, applyTermsToHtml } from '@utils/readerTerms';
 import {
   CHAPTER_GENERAL_SETTINGS,
   CHAPTER_READER_SETTINGS,
@@ -19,6 +18,7 @@ import { getPlugin } from '@plugins/pluginManager';
 import { getString } from '@strings/translations';
 import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { getMMKVObject, MMKVStorage } from '@utils/mmkv/mmkv';
+import { applyTermsToHtml, getAllTermsForNovel } from '@utils/readerTerms';
 import { showToast } from '@utils/showToast';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import {
@@ -45,6 +45,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 
 import { useChapterContext } from '../ChapterContext';
+import { absolutizeAssetRefs, chapterBaseUrl } from '../utils/chapterAssetUrls';
 import {
   generateAppendChapterHtml,
   generateReaderHtml,
@@ -139,7 +140,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   const nextChapterScreenVisible = useRef<boolean>(false);
   const pendingScrollPositionRef = useRef<'start' | 'end' | null>(null);
   const autoStartTTSRef = useRef<boolean>(false);
-  const prevChapterIdRef = useRef<number>(chapter.id);
   const [reloadKey, setReloadKey] = useState<number>(0);
   const sourceDataRef = useRef<{
     baseUrl?: string;
@@ -186,8 +186,16 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
       const terms = getAllTermsForNovel(novel.id ?? 0);
       const processedHtml =
         terms.length > 0 ? applyTermsToHtml(chapHtml, terms) : chapHtml;
+      // The appended document inherits the current chapter's base URL, so
+      // anchor the next chapter's relative asset refs to its own directory.
+      const chapBaseUrl = chapterBaseUrl({
+        novel,
+        chapter: chap,
+        pluginSite: plugin?.site,
+        serverUrl: getLocalServerUrl(),
+      });
       const blockHtml = generateAppendChapterHtml({
-        html: processedHtml,
+        html: absolutizeAssetRefs(processedHtml, chapBaseUrl),
         chapterId: chap.id,
         chapterName: chap.name,
       });
@@ -207,7 +215,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     } finally {
       isAppendingRef.current = false;
     }
-  }, [fetchChapterHtmlForInfiniteScroll, novel.id, webViewRef]);
+  }, [fetchChapterHtmlForInfiniteScroll, novel, plugin, webViewRef]);
 
   // --- Reading time tracking ---
   const readStartTimeRef = useRef<number | null>(null);
@@ -546,9 +554,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
 
   // Compute source data and trigger reload only when truly needed
   useEffect(() => {
-    const chapterChanged = prevChapterIdRef.current !== chapter.id;
-    prevChapterIdRef.current = chapter.id;
-
     const terms = getAllTermsForNovel(novel.id ?? 0);
     const processedHtml =
       terms.length > 0 ? applyTermsToHtml(html, terms) : html;
@@ -561,7 +566,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
       baseUrl: novel.isLocal
         ? `${getLocalServerUrl()}/local/${novel.id}/`
         : chapter.isDownloaded
-        ? `${getLocalServerUrl()}/Novels/${novel.pluginId}/${novel.id}/${chapter.id}/`
+        ? `${getLocalServerUrl()}/Novels/${novel.pluginId}/${novel.id}/${
+            chapter.id
+          }/`
         : plugin?.site,
       headers: plugin?.imageRequestInit?.headers,
       method: plugin?.imageRequestInit?.method,

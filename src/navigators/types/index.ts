@@ -30,6 +30,11 @@ export type RootStackParamList = {
     pluginId: string;
     isNovel?: boolean;
   };
+  PdfViewer: {
+    /** Absolute path, SAF `content://` uri or `http(s)://` url. */
+    source: string;
+    name?: string;
+  };
 };
 
 export type BottomNavigatorParamList = {
@@ -161,6 +166,10 @@ export type SourceNovelsScreenProps = StackScreenProps<
 export type WebviewScreenProps = StackScreenProps<
   RootStackParamList,
   'WebviewScreen'
+>;
+export type PdfViewerScreenProps = StackScreenProps<
+  RootStackParamList,
+  'PdfViewer'
 >;
 export type SettingsScreenProps = CompositeScreenProps<
   StackScreenProps<SettingsStackParamList, 'Settings'>,

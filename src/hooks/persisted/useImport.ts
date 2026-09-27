@@ -10,7 +10,9 @@ export default function useImport() {
     ServiceManager.manager.STORE_KEY,
   );
   const importQueue = useMemo(
-    () => queue?.filter(t => t.name === 'IMPORT_EPUB') || [],
+    () =>
+      queue?.filter(t => t.name === 'IMPORT_EPUB' || t.name === 'IMPORT_PDF') ||
+      [],
     [queue],
   );
 
@@ -30,16 +32,33 @@ export default function useImport() {
       })),
     );
   }, []);
+
+  const importPdfNovel = useCallback((pickedPdf: DocumentPickerResult) => {
+    if (pickedPdf.canceled) return;
+    ServiceManager.manager.addTask(
+      pickedPdf.assets.map(asset => ({
+        name: 'IMPORT_PDF',
+        data: {
+          filename: asset.name,
+          uri: asset.uri,
+        },
+      })),
+    );
+  }, []);
+
   const resumeImport = () => ServiceManager.manager.resume();
 
   const pauseImport = () => ServiceManager.manager.pause();
 
-  const cancelImport = () =>
+  const cancelImport = () => {
     ServiceManager.manager.removeTasksByName('IMPORT_EPUB');
+    ServiceManager.manager.removeTasksByName('IMPORT_PDF');
+  };
 
   return {
     importQueue,
     importNovel,
+    importPdfNovel,
     resumeImport,
     pauseImport,
     cancelImport,

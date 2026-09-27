@@ -1,48 +1,44 @@
-import { LogViewer, Modal } from '@components';
-import { BaseLogEntry } from '@components/LogViewer';
 import { getNovelDownloadedChapters } from '@database/queries/ChapterQueries';
 import { NovelInfo } from '@database/types';
 import { useTheme } from '@hooks/persisted';
-import EpubBuilder from '@modules/react-native-epub-creator';
+import { sanitizeChapterText } from '@screens/reader/utils/sanitizeChapterText';
 import {
   dropMissingChapterImages,
   readDownloadedChapterHtml,
 } from '@services/export/chapterAssets';
-import { resolveUrl } from '@services/plugin/fetch';
+import PdfBuilder from '@services/export/PdfBuilder';
 import { getString } from '@strings/translations';
-import { APP_NAME } from '@utils/constants/metadata';
-import { chapterIndexRel, resolveDownloadUrl } from '@utils/DownloadPaths';
+import { chapterIndexRel } from '@utils/DownloadPaths';
 import { showToast } from '@utils/showToast';
 import * as Notifications from 'expo-notifications';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import FileViewer from 'react-native-file-viewer';
 import { Portal } from 'react-native-paper';
+import { errorCodes, isErrorWithCode } from '@react-native-documents/picker';
+import { LogViewer, Modal } from '@components';
+import { BaseLogEntry } from '@components/LogViewer';
 
-import { version as appVersion } from '../../../../package.json';
-
-interface ExportEpubLogsModalProps {
+interface ExportPdfLogsModalProps {
   visible: boolean;
   onDismiss: () => void;
   novel: NovelInfo;
-  destinationUri: string;
   startChapter?: number;
   endChapter?: number;
-  epubStylesheet?: string;
-  epubJavaScript?: string;
-  epubUseCustomJS?: boolean;
+  pdfStylesheet?: string;
 }
 
-export default function ExportEpubLogsModal({
+/** How often the chapter loop hands control back to the UI thread. */
+const YIELD_EVERY = 10;
+
+export default function ExportPdfLogsModal({
   visible,
   onDismiss,
   novel,
-  destinationUri,
   startChapter,
   endChapter,
-  epubStylesheet,
-  epubJavaScript,
-  epubUseCustomJS,
-}: ExportEpubLogsModalProps) {
+  pdfStylesheet,
+}: ExportPdfLogsModalProps) {
   const theme = useTheme();
 
   const [isExporting, setIsExporting] = useState(false);
@@ -82,12 +78,12 @@ export default function ExportEpubLogsModal({
     setIsExporting(true);
     isCancelledRef.current = false;
     setLogs([]);
-    addLog(getString('novelScreen.exportEpubLogsModal.logStart'));
+    addLog(getString('novelScreen.exportPdfLogsModal.logStart'));
 
-    let epub: EpubBuilder | undefined;
+    let pdf: PdfBuilder | undefined;
 
     try {
-      addLog(getString('novelScreen.exportEpubLogsModal.logFetchChapters'));
+      addLog(getString('novelScreen.exportPdfLogsModal.logFetchChapters'));
       const chapters = await getNovelDownloadedChapters(
         novel.id,
         startChapter,
@@ -95,54 +91,30 @@ export default function ExportEpubLogsModal({
       );
 
       if (chapters.length === 0) {
-        addLog(getString('novelScreen.exportEpubLogsModal.logNoChapters'));
+        addLog(getString('novelScreen.exportPdfLogsModal.logNoChapters'));
         setIsExporting(false);
         return;
       }
 
-      addLog(getString('novelScreen.exportEpubLogsModal.logPreparing'));
-      epub = new EpubBuilder(
-        {
-          title: novel.name,
-          fileName: novel.name.replace(/[\\/:*?"<>|\s]/g, '') || 'novel',
-          language: 'en',
-          // The EPUB builder fetches non-internal sources over HTTP, so a
-          // tree-relative cover is served by the local server here.
-          cover: resolveDownloadUrl(novel.cover),
-          description: novel.summary ?? undefined,
-          author: novel.author ?? undefined,
-          bookId: novel.pluginId.toString(),
-          stylesheet: epubStylesheet || undefined,
-          js: epubUseCustomJS ? epubJavaScript : undefined,
-          genres: novel.genres
-            ? novel.genres
-                .split(',')
-                .map(g => g.trim())
-                .filter(Boolean)
-            : undefined,
-          publisher: novel.pluginId,
-          generator: `${APP_NAME} v${appVersion}`,
-          novelUrl: novel.pluginId
-            ? resolveUrl(novel.pluginId, novel.path, true)
-            : '',
-          novelStatus: novel.status ?? undefined,
-        },
-        destinationUri,
-      );
-
-      await epub.prepare();
+      addLog(getString('novelScreen.exportPdfLogsModal.logPreparing'));
+      pdf = await new PdfBuilder({
+        title: novel.name,
+        fileName: novel.name,
+        author: novel.author ?? undefined,
+        stylesheet: pdfStylesheet,
+      }).prepare();
 
       const yieldToMain = () => new Promise(requestAnimationFrame);
 
       let addedChapters = 0;
       for (let i = 0; i < chapters.length; i++) {
-        if (i % 10 === 0) {
+        if (i % YIELD_EVERY === 0) {
           await yieldToMain();
         }
 
         if (isCancelledRef.current) {
-          addLog(getString('novelScreen.exportEpubLogsModal.logCancelled'));
-          await epub.discardChanges();
+          addLog(getString('novelScreen.exportPdfLogsModal.logCancelled'));
+          await pdf.discardChanges();
           setIsExporting(false);
           return;
         }
@@ -150,7 +122,7 @@ export default function ExportEpubLogsModal({
         const chapter = chapters[i];
 
         addLog(
-          getString('novelScreen.exportEpubLogsModal.logAddingChapter', {
+          getString('novelScreen.exportPdfLogsModal.logAddingChapter', {
             chapterNumber: (i + 1).toString(),
             chapterName: chapter.name,
           }),
@@ -162,17 +134,21 @@ export default function ExportEpubLogsModal({
 
         if (chapterContent !== null) {
           const content = await dropMissingChapterImages(
-            chapterContent,
+            sanitizeChapterText(
+              novel.pluginId,
+              novel.name,
+              chapter.name,
+              chapterContent,
+            ),
             novel.pluginId,
             novel.id,
             chapter.id,
           );
 
-          epub.addChapter({
+          pdf.addChapter({
             title:
               chapter.name?.trim() || `Chapter ${chapter.chapterNumber || i}`,
-            fileName: `Chapter${i}`,
-            htmlBody: `<section epub:type="chapter" data-epub-chapter data-novel-id="${novel.pluginId}" data-chapter-id="${chapter.id}">${content}</section>`,
+            htmlBody: content,
           });
 
           addedChapters++;
@@ -180,69 +156,73 @@ export default function ExportEpubLogsModal({
       }
 
       if (addedChapters === 0) {
-        addLog(getString('novelScreen.exportEpubLogsModal.logNoChapters'));
-        await epub.discardChanges();
+        addLog(getString('novelScreen.exportPdfLogsModal.logNoChapters'));
+        await pdf.discardChanges();
         setIsExporting(false);
         return;
       }
 
-      addLog(getString('novelScreen.exportEpubLogsModal.logZipping'));
+      addLog(getString('novelScreen.exportPdfLogsModal.logRendering'));
       await yieldToMain();
 
-      const outputFile = await epub.save();
+      addLog(getString('novelScreen.exportPdfLogsModal.logSaving'));
+      const result = await pdf.save();
 
-      const successLog = getString(
-        'novelScreen.exportEpubLogsModal.logSuccess',
-        {
-          count: addedChapters,
-        },
-      );
+      const successLog = getString('novelScreen.exportPdfLogsModal.logSuccess', {
+        count: addedChapters,
+        pages: result.numberOfPages,
+      });
       addLog(successLog);
       addLog(
-        getString('novelScreen.exportEpubLogsModal.logFilePath', {
-          path: outputFile,
+        getString('novelScreen.exportPdfLogsModal.logFileName', {
+          path: result.fileName,
         }),
       );
       showToast(successLog);
+
+      // Open the rendered document, mirroring the error-log viewer in App.tsx.
+      try {
+        await FileViewer.open(result.uri.replace('file://', ''));
+      } catch {
+        // No PDF viewer installed — the file is already saved, so this is
+        // not worth a second error.
+      }
 
       // Send push notification
       try {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: getString(
-              'novelScreen.exportEpubLogsModal.notificationTitle',
-            ),
-            body: getString(
-              'novelScreen.exportEpubLogsModal.notificationBody',
-              { name: novel.name },
-            ),
+            title: getString('novelScreen.exportPdfLogsModal.notificationTitle'),
+            body: getString('novelScreen.exportPdfLogsModal.notificationBody', {
+              name: novel.name,
+            }),
           },
           trigger: null,
         });
       } catch {
         // Notification permission denied or unavailable — non-critical
       }
-    } catch (error: any) {
-      const errorMsg = error?.message || error;
-      const failedLog = getString('novelScreen.exportEpubLogsModal.logFailed', {
+    } catch (error: unknown) {
+      if (
+        isErrorWithCode(error) &&
+        error.code === errorCodes.OPERATION_CANCELED
+      ) {
+        addLog(getString('novelScreen.exportPdfLogsModal.logSaveCancelled'));
+        await pdf?.discardChanges();
+        return;
+      }
+
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const failedLog = getString('novelScreen.exportPdfLogsModal.logFailed', {
         error: errorMsg,
       });
       addLog(failedLog);
       showToast(failedLog);
-      await epub?.discardChanges();
+      await pdf?.discardChanges();
     } finally {
       setIsExporting(false);
     }
-  }, [
-    novel,
-    destinationUri,
-    startChapter,
-    endChapter,
-    epubStylesheet,
-    epubJavaScript,
-    epubUseCustomJS,
-    addLog,
-  ]);
+  }, [novel, startChapter, endChapter, pdfStylesheet, addLog]);
 
   useEffect(() => {
     if (visible && logs.length === 0 && !isExporting) {
@@ -259,7 +239,7 @@ export default function ExportEpubLogsModal({
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.onSurface }]}>
-            {getString('novelScreen.exportEpubLogsModal.title')}
+            {getString('novelScreen.exportPdfLogsModal.title')}
           </Text>
           {isExporting && (
             <Text style={[styles.runningText, { color: theme.primary }]}>
@@ -270,7 +250,7 @@ export default function ExportEpubLogsModal({
 
         <View>
           <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
-            {getString('novelScreen.exportEpubLogsModal.description')}
+            {getString('novelScreen.exportPdfLogsModal.description')}
           </Text>
 
           <LogViewer
@@ -282,27 +262,25 @@ export default function ExportEpubLogsModal({
         </View>
 
         <View style={styles.footer}>
-          <View style={styles.footerRight}>
-            <Pressable
+          <Pressable
+            style={[
+              styles.footerBtn,
+              { borderColor: isExporting ? theme.outline : theme.primary },
+              isExporting
+                ? styles.bgTransparent
+                : { backgroundColor: theme.primary },
+            ]}
+            onPress={handleDismiss}
+          >
+            <Text
               style={[
-                styles.footerBtn,
-                { borderColor: isExporting ? theme.outline : theme.primary },
-                isExporting
-                  ? styles.bgTransparent
-                  : { backgroundColor: theme.primary },
+                styles.footerBtnText,
+                { color: isExporting ? theme.onSurface : theme.onPrimary },
               ]}
-              onPress={handleDismiss}
             >
-              <Text
-                style={[
-                  styles.footerBtnText,
-                  { color: isExporting ? theme.onSurface : theme.onPrimary },
-                ]}
-              >
-                {getString(isExporting ? 'common.cancel' : 'common.ok')}
-              </Text>
-            </Pressable>
-          </View>
+              {getString(isExporting ? 'common.cancel' : 'common.ok')}
+            </Text>
+          </Pressable>
         </View>
       </Modal>
     </Portal>
@@ -352,8 +330,5 @@ const styles = StyleSheet.create({
   },
   bgTransparent: {
     backgroundColor: 'transparent',
-  },
-  footerRight: {
-    flexDirection: 'row',
   },
 });

@@ -18,6 +18,7 @@ import com.AozoraItsuki.NativeVolumeButtonListener.NativeVolumeButtonListenerPac
 import com.AozoraItsuki.NativeTTSMediaControl.NativeTTSMediaControlPackage
 import com.AozoraItsuki.NativeZipArchive.NativeZipArchivePackage
 import com.AozoraItsuki.NativeEpub.NativeEpubPackage
+import com.AozoraItsuki.NativePdf.NativePdfPackage
 import com.AozoraItsuki.LocalServer.LocalServerPackage
 import com.AozoraItsuki.TikTokTTS.TikTokTTSPackage
 import com.AozoraItsuki.NativeCDPProxy.CDPProxyPackage
@@ -40,6 +41,7 @@ class MainApplication : Application(), ReactApplication {
                     add(NativeZipArchivePackage())
                     add(FlagSecurePackage())
                     add(NativeEpubPackage())
+                    add(NativePdfPackage())
                     add(LocalServerPackage())
                     add(TikTokTTSPackage())
                     add(CDPProxyPackage())

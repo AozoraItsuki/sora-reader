@@ -1,164 +1,83 @@
-import { dbManager } from '@database/db';
-import {
-  updateNovelCategoryById,
-  updateNovelInfo,
-} from '@database/queries/NovelQueries';
-import { chapterSchema, novelSchema } from '@database/schema';
 import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import {
-  safMkdir,
-  safWriteFile,
-} from '@services/saf/safFile';
+  batchInsertChapters,
+  decodePath,
+  importAssetIntoTree,
+  insertLocalNovel,
+  pathBasename,
+} from '@services/local/importShared';
+import { safMkdir, safWriteFile } from '@services/saf/safFile';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import NativeEpub from '@specs/NativeEpub';
 import NativeFile from '@specs/NativeFile';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import { getString } from '@strings/translations';
-import {
-  chapterIndexRel,
-  chapterRel,
-  coverRel,
-  novelDirRel,
-} from '@utils/DownloadPaths';
-import { EncodingType, readAsStringAsync } from 'expo-file-system/legacy';
+import { chapterIndexRel, chapterRel } from '@utils/DownloadPaths';
 import dayjs from 'dayjs';
 
-const decodePath = (path: string) => {
-  try {
-    return decodeURI(path);
-  } catch {
-    return path;
-  }
-};
-
 /**
- * The extracted epub lives in app-private cache scratch space; assets are read
- * from there and re-written into the SAF tree.
- */
-const importAssetIntoTree = async (
-  sourcePath: string,
-  destinationRel: string,
-): Promise<boolean> => {
-  const decodedPath = decodePath(sourcePath);
-  if (!NativeFile.exists(decodedPath)) {
-    return false;
-  }
-  const base64 = await readAsStringAsync(decodedPath, {
-    encoding: EncodingType.Base64,
-  });
-  await safWriteFile(destinationRel, base64, 'base64');
-  return true;
-};
-
-/**
- * Basenames a rewritten chapter document points at.
+ * A `src`/`href` value or a `srcset`/`data-src` reference, quoted.
  *
- * The rewrite below reduces every `src`/`href` to its last path segment, so
- * these are the only names a chapter can reference.
+ * `srcset` and `data-src` are included because a chapter that only names an
+ * image lazily (`<img src="placeholder.gif" data-src="hero.png">`) or through
+ * a responsive candidate list still has to get that image next to its
+ * `index.html`, or the reader resolves it against a file that is not there.
  */
-const referencedAssets = (html: string): string[] => {
-  const names = new Set<string>();
-  for (const match of html.matchAll(/(?:href|src)=["']([^"']+)["']/g)) {
-    const name = match[1].split(/[/\\]/).pop();
-    if (name) {
-      names.add(name);
-    }
+const ASSET_REF = /(\s)(src|href|srcset|data-src)(\s*=\s*)(["'])([^]*?)\4/gi;
+
+/** `true` when a reference already addresses something on its own. */
+const hasScheme = (ref: string): boolean => /^[a-z][a-z0-9+.-]*:/i.test(ref);
+
+/**
+ * Filename an asset reference points at, or null when it must be left as it is.
+ *
+ * A reference that already carries a scheme is somebody else's file (a remote
+ * image, an inlined `data:` payload) and never lives in the EPUB, so it is kept
+ * verbatim instead of being pointed at a copy that does not exist. A comma means
+ * the reference is a payload rather than a path, which keeps the `srcset`
+ * candidate split from mangling `data:` images.
+ */
+const localAssetName = (ref: string): string | null => {
+  // A query or fragment is not part of the name the asset is copied under.
+  const path = ref.split(/[?#]/)[0];
+  if (!path || hasScheme(path) || path.includes(',')) {
+    return null;
   }
-  return Array.from(names);
-};
-
-/** Last path segment of an extracted-epub asset path. */
-const assetName = (filePath: string): string =>
-  filePath.split(/[/\\]/).pop() || filePath;
-
-const insertLocalNovel = async (
-  name: string,
-  path: string,
-  cover?: string,
-  author?: string,
-  artist?: string,
-  summary?: string,
-) => {
-  const { insertId } = await dbManager.write(async tx => {
-    return tx
-      .insert(novelSchema)
-      .values({
-        name,
-        path,
-        pluginId: LOCAL_PLUGIN_ID,
-        inLibrary: true,
-        isLocal: true,
-      })
-      .run();
-  });
-
-  if (insertId !== undefined && insertId >= 0) {
-    await updateNovelCategoryById(insertId, [2]);
-    const novelRelDir = novelDirRel(LOCAL_PLUGIN_ID, insertId);
-    await safMkdir(novelRelDir);
-    let newCoverPath = '';
-
-    if (cover) {
-      // DB stores a TREE-RELATIVE cover path (no file:// prefix).
-      newCoverPath = coverRel(LOCAL_PLUGIN_ID, insertId);
-      await importAssetIntoTree(cover, newCoverPath);
-    }
-    await updateNovelInfo({
-      id: insertId,
-      pluginId: LOCAL_PLUGIN_ID,
-      author: author,
-      artist: artist,
-      summary: summary,
-      path: novelRelDir,
-      cover: newCoverPath,
-      name: name,
-      inLibrary: true,
-      isLocal: true,
-      totalPages: 0,
-    });
-    return insertId;
-  }
-  throw new Error(getString('advancedSettingsScreen.novelInsertFailed'));
+  return path.split(/[/\\]/).pop() || null;
 };
 
 /**
- * Phase 1: Batch insert all chapters in a single transaction.
- * Returns an array of { insertId, fakeId, sourcePath } for Phase 2 file I/O.
+ * Reduce every asset reference of a chapter document to the bare filename it
+ * points at, and report the filenames that is.
+ *
+ * Both come out of one walk, so a rewritten chapter can only reference names
+ * that are also copied next to its `index.html`.
  */
-const batchInsertChapters = async (
-  novelId: number,
-  chapters: { name: string; path: string }[],
-  releaseTime: string,
-): Promise<{ insertId: number; fakeId: number; sourcePath: string }[]> => {
-  return await dbManager.write(async tx => {
-    const results: { insertId: number; fakeId: number; sourcePath: string }[] =
-      [];
-
-    for (let i = 0; i < chapters.length; i++) {
-      const chapter = chapters[i];
-      const { insertId } = await tx
-        .insert(chapterSchema)
-        .values({
-          novelId,
-          name: chapter.name,
-          path: chapterRel(LOCAL_PLUGIN_ID, novelId, i),
-          releaseTime,
-          position: i,
-          isDownloaded: true,
-        })
-        .run();
-
-      if (insertId !== undefined && insertId >= 0) {
-        results.push({
-          insertId,
-          fakeId: i,
-          sourcePath: chapter.path,
-        });
+const rewriteAssetRefs = (html: string): { html: string; names: string[] } => {
+  const names = new Set<string>();
+  const rewriteValue = (value: string, attribute: string): string => {
+    // `srcset` holds a comma-separated candidate list of `url descriptor`.
+    const candidates = attribute === 'srcset' ? value.split(',') : [value];
+    const rewritten = candidates.map(candidate => {
+      const url = candidate.trimStart().split(/\s/)[0] ?? '';
+      const name = localAssetName(url);
+      if (!name) {
+        return candidate;
       }
-    }
+      names.add(name);
+      return candidate.replace(url, () => name);
+    });
+    return rewritten.join(',');
+  };
 
-    return results;
-  });
+  return {
+    html: html.replace(
+      ASSET_REF,
+      (_, lead: string, attribute: string, eq: string, quote: string, value: string) =>
+        `${lead}${attribute}${eq}${quote}${rewriteValue(value, attribute.toLowerCase())}${quote}`,
+    ),
+    names: Array.from(names),
+  };
 };
 
 export const importEpub = async (
@@ -199,14 +118,15 @@ export const importEpub = async (
   if (!novel.name) {
     novel.name = filename.replace('.epub', '') || 'Untitled';
   }
-  const novelId = await insertLocalNovel(
-    novel.name,
-    epubDirPath + novel.name, // temporary
-    novel.cover || '',
-    novel.author || '',
-    novel.artist || '',
-    novel.summary || '',
-  );
+  const novelId = await insertLocalNovel({
+    name: novel.name,
+    // temporary
+    path: epubDirPath + novel.name,
+    cover: novel.cover || '',
+    author: novel.author || '',
+    artist: novel.artist || '',
+    summary: novel.summary || '',
+  });
   const now = dayjs().toISOString();
   if (novel.chapters) {
     // Normalize chapter names before insert
@@ -237,10 +157,10 @@ export const importEpub = async (
     // novel root, which is where the pre-SAF absolute `file://` refs pointed.
     const assetSources = new Map<string, string>();
     for (const filePath of [...novel.imagePaths, ...novel.cssPaths]) {
-      assetSources.set(assetName(filePath), filePath);
+      assetSources.set(pathBasename(filePath), filePath);
     }
     if (novel.cover) {
-      assetSources.set(assetName(novel.cover), novel.cover);
+      assetSources.set(pathBasename(novel.cover), novel.cover);
     }
 
     for (let i = 0; i < chapterResults.length; i++) {
@@ -257,21 +177,21 @@ export const importEpub = async (
 
       // RELATIVE srcs (bare filenames): the reader resolves them against the
       // local-server baseUrl, so the assets must sit next to index.html.
-      chapterText = chapterText.replace(
-        /[=](?<= href=| src=)(["'])([^]*?)\1/g,
-        (_, __, $2: string) => {
-          return `="${$2.split(/[/\\]/).pop()}"`;
-        },
-      );
+      const rewritten = rewriteAssetRefs(chapterText);
+      chapterText = rewritten.html;
 
-      const chapterRelDir = chapterRel(LOCAL_PLUGIN_ID, novelId, result.insertId);
+      const chapterRelDir = chapterRel(
+        LOCAL_PLUGIN_ID,
+        novelId,
+        result.insertId,
+      );
       await safMkdir(chapterRelDir);
       await safWriteFile(
         chapterIndexRel(LOCAL_PLUGIN_ID, novelId, result.insertId),
         chapterText,
       );
 
-      for (const name of referencedAssets(chapterText)) {
+      for (const name of rewritten.names) {
         const source = assetSources.get(name);
         if (source) {
           await importAssetIntoTree(source, `${chapterRelDir}/${name}`);

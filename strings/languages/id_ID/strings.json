@@ -499,6 +499,7 @@
     "empty": "Perpustakaan Anda kosong. Tambahkan seri ke perpustakaan dari Jelajahi.",
     "extraMenu": {
       "importEpub": "Impor Epub",
+      "importPdf": "Impor PDF",
       "openRandom": "Buka Entri Acak",
       "updateCategory": "Perbarui Kategori",
       "updateLibrary": "Perbarui Perpustakaan"
@@ -562,6 +563,31 @@
       "logFilePath": "File disimpan di: %{path}",
       "logZipping": "Mengompres file...",
       "notificationTitle": "Ekspor EPUB Selesai",
+      "notificationBody": "Berhasil mengekspor \"%{name}\"."
+    },
+    "exportPdfModal": {
+      "title": "Ekspor Novel sebagai PDF",
+      "exportAll": "Ekspor Semua Bab",
+      "applyReaderTheme": "Terapkan tema pembaca ke PDF",
+      "includeCustomCSS": "Sertakan CSS Kustom",
+      "downloadedChaptersOnly": "Hanya bab yang diunduh yang akan disertakan dalam file PDF"
+    },
+    "exportPdfLogsModal": {
+      "title": "Mengekspor PDF",
+      "description": "Harap tunggu sementara file PDF sedang dibuat. Jangan tutup aplikasi.",
+      "logStart": "Memulai ekspor PDF...",
+      "logPreparing": "Mempersiapkan file PDF...",
+      "logFetchChapters": "Mengambil bab yang diunduh...",
+      "logAddingChapter": "Menambahkan bab %{chapterNumber}: %{chapterName}...",
+      "logNoChapters": "Tidak ada bab yang diunduh ditemukan.",
+      "logCancelled": "Ekspor dibatalkan oleh pengguna.",
+      "logRendering": "Merender PDF...",
+      "logSaving": "Menunggu lokasi penyimpanan...",
+      "logSuccess": "Berhasil mengekspor %{count} bab sebagai %{pages} halaman.",
+      "logFailed": "Ekspor gagal: %{error}",
+      "logFileName": "Nama file: %{path}",
+      "logSaveCancelled": "Lokasi penyimpanan tidak dipilih. Ekspor dibatalkan.",
+      "notificationTitle": "Ekspor PDF Selesai",
       "notificationBody": "Berhasil mengekspor \"%{name}\"."
     },
     "epub": {
@@ -835,6 +861,7 @@
   },
   "notifications": {
     "IMPORT_EPUB": "Mengimpor EPUB",
+    "IMPORT_PDF": "Mengimpor PDF",
     "UPDATE_LIBRARY": "Memperbarui Perpustakaan",
     "DRIVE_BACKUP": "Cadangan Google Drive",
     "DRIVE_RESTORE": "Pemulihan Google Drive",

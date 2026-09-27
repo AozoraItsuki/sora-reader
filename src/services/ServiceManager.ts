@@ -21,10 +21,12 @@ import {
 import { downloadChapter } from './download/downloadChapter';
 import { importEpub } from './epub/import';
 import { migrateNovel, MigrateNovelData } from './migrate/migrateNovel';
+import { importPdf } from './pdf/import';
 import { updateLibrary } from './updates';
 
 type taskNames =
   | 'IMPORT_EPUB'
+  | 'IMPORT_PDF'
   | 'UPDATE_LIBRARY'
   | 'DRIVE_BACKUP'
   | 'DRIVE_RESTORE'
@@ -38,6 +40,13 @@ type taskNames =
 export type BackgroundTask =
   | {
       name: 'IMPORT_EPUB';
+      data: {
+        filename: string;
+        uri: string;
+      };
+    }
+  | {
+      name: 'IMPORT_PDF';
       data: {
         filename: string;
         uri: string;
@@ -115,9 +124,12 @@ export default class ServiceManager {
       return false;
     }
     return (
-      ['DOWNLOAD_CHAPTER', 'IMPORT_EPUB', 'MIGRATE_NOVEL'] as Array<
-        BackgroundTask['name']
-      >
+      [
+        'DOWNLOAD_CHAPTER',
+        'IMPORT_EPUB',
+        'IMPORT_PDF',
+        'MIGRATE_NOVEL',
+      ] as Array<BackgroundTask['name']>
     ).includes(task.name);
   }
 
@@ -259,6 +271,8 @@ export default class ServiceManager {
       switch (task.task.name) {
         case 'IMPORT_EPUB':
           return await importEpub(task.task.data, this.setMeta.bind(this));
+        case 'IMPORT_PDF':
+          return await importPdf(task.task.data, this.setMeta.bind(this));
         case 'UPDATE_LIBRARY':
           return await updateLibrary(
             task.task.data || {},
@@ -341,6 +355,7 @@ export default class ServiceManager {
     const { manager } = ServiceManager;
     const doneTasks: Record<BackgroundTask['name'], number> = {
       'IMPORT_EPUB': 0,
+      'IMPORT_PDF': 0,
       'UPDATE_LIBRARY': 0,
       'DRIVE_BACKUP': 0,
       'DRIVE_RESTORE': 0,
@@ -530,6 +545,10 @@ export default class ServiceManager {
         }`;
       case 'IMPORT_EPUB':
         return `${getString('notifications.IMPORT_EPUB')}: ${
+          task.data?.filename || ''
+        }`;
+      case 'IMPORT_PDF':
+        return `${getString('notifications.IMPORT_PDF')}: ${
           task.data?.filename || ''
         }`;
       case 'MIGRATE_NOVEL':

@@ -89,6 +89,13 @@ jest.mock('react-native-background-actions', () => ({
   isRunning: jest.fn(() => false),
 }));
 
+// Imports NativeEventEmitter with the native module at module scope, so it
+// cannot be loaded without a stub.
+jest.mock('react-native-file-viewer', () => ({
+  __esModule: true,
+  default: { open: jest.fn(() => Promise.resolve()) },
+}));
+
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {
     configure: jest.fn(),
@@ -177,6 +184,20 @@ jest.mock('@specs/NativeEpub', () => ({
   },
 }));
 
+jest.mock('@specs/NativePdf', () => ({
+  __esModule: true,
+  default: {
+    // The real spec returns a Promise; resolve here so a consumer that chains
+    // off parse() is not silently handed a bare object.
+    parse: jest.fn(async () => ({
+      title: '',
+      author: '',
+      cover: null,
+      pages: [],
+    })),
+  },
+}));
+
 jest.mock('@specs/NativeTTSMediaControl', () => ({
   __esModule: true,
   default: {
@@ -215,3 +236,26 @@ jest.mock('@specs/NativeZipArchive', () => ({
     zipEpub: jest.fn().mockResolvedValue(),
   },
 }));
+
+// The real module is a Fabric host component, so tests drive the screen through
+// a plain view. `virtual` keeps this mock in place before the dependency is
+// installed, without pinning the test to the package's own jest mock.
+jest.mock(
+  'react-native-pdf-renderer',
+  () => {
+    const React = require('react');
+    const { View } = require('react-native');
+    return {
+      __esModule: true,
+      default: ({ source, onPageChange, onError, testID, ...rest }) =>
+        React.createElement(View, {
+          ...rest,
+          testID: testID ?? 'pdf-renderer',
+          source,
+          onPageChange,
+          onError,
+        }),
+    };
+  },
+  { virtual: true },
+);

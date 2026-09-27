@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import ExportNovelAsEpubButton from './ExportNovelAsEpubButton';
+import ExportNovelAsPdfButton from './ExportNovelAsPdfButton';
 
 const AnimatedAppbarAction = Animated.createAnimatedComponent(Appbar.Action);
 
@@ -213,6 +214,7 @@ const NovelAppbar = ({
 
         <View style={styles.row}>
           <ExportNovelAsEpubButton novel={novel} iconComponent={AppbarAction} />
+          <ExportNovelAsPdfButton novel={novel} iconComponent={AppbarAction} />
           <AppbarAction icon="share-variant" onPress={shareNovel} />
           <AppbarAction
             icon="text-box-search-outline"

@@ -1,4 +1,4 @@
-import { Element, load } from 'cheerio';
+import { load } from 'cheerio';
 
 import { EpubChapter, EpubSettings, File, Parameter } from '../../types';
 import { isValid, parseJSon, sleep } from '../methods/helper';
@@ -23,7 +23,6 @@ export async function EpubSettingsLoader(
       file.find(x => x.path.indexOf('.opf') !== -1)?.content ?? '';
     const style =
       file.find(x => x.path.indexOf('styles.css') !== -1)?.content ?? '';
-    let chapters = [] as Element[];
 
     epubSettings.stylesheet = style;
     const $page = load(pageContent, { xmlMode: true });
@@ -45,7 +44,7 @@ export async function EpubSettingsLoader(
     epubSettings.language = $page('.language').text();
     epubSettings.bookId = $page('.identifier').html() ?? '';
     epubSettings.source = $page('.source').text();
-    chapters = $page('itemref').toArray();
+    const chapters = $page('itemref').toArray();
 
     if (!epubSettings.chapters) {
       epubSettings.chapters = [] as EpubChapter[];

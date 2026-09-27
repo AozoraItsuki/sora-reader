@@ -4,6 +4,14 @@ const PLUGIN = 'local';
 const NOVEL_ID = 1;
 const CHAPTER_ONE = 2;
 const CHAPTER_TWO = 3;
+const CHAPTER_THREE = 4;
+const CHAPTER_FOUR = 5;
+const CHAPTER_THREE_REWRITTEN =
+  '<html><body><img src="hero.png" srcset="hero.png 1x, hero@2x.png 2x">' +
+  '<img src="placeholder.gif" data-src="lazy.png"></body></html>';
+const CHAPTER_FOUR_HTML =
+  '<html><body><img src="data:image/png;base64,AA">' +
+  '<img src="https://cdn.example.com/remote.png?v=2"></body></html>';
 
 type TreeEntry = { data: string; encoding: string };
 
@@ -29,6 +37,9 @@ const resetFakes = () => {
       '/epub/OEBPS/images/a.png',
       '/epub/OEBPS/images/b.png',
       '/epub/OEBPS/images/cover.jpg',
+      '/epub/OEBPS/images/hero.png',
+      '/epub/OEBPS/images/hero@2x.png',
+      '/epub/OEBPS/images/lazy.png',
     ],
     chapters: [
       {
@@ -40,6 +51,16 @@ const resetFakes = () => {
         name: 'Two',
         path: '/epub/OEBPS/two.xhtml',
         html: '<html><body><img src="../images/b.png"></body></html>',
+      },
+      {
+        name: 'Three',
+        path: '/epub/OEBPS/three.xhtml',
+        html: '<html><body><img src="../images/hero.png" srcset="../images/hero.png 1x, ../images/hero@2x.png 2x"><img src="placeholder.gif" data-src="../images/lazy.png"></body></html>',
+      },
+      {
+        name: 'Four',
+        path: '/epub/OEBPS/four.xhtml',
+        html: '<html><body><img src="data:image/png;base64,AA"><img src="https://cdn.example.com/remote.png?v=2"></body></html>',
       },
     ],
   };
@@ -203,6 +224,65 @@ describe('importEpub asset placement', () => {
 
     expect(
       mockTree.has(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_TWO}/main.css`),
+    ).toBe(false);
+  });
+});
+
+describe('importEpub responsive and lazy references', () => {
+  it('rewrites every srcset candidate and data-src to a bare filename', async () => {
+    await runImport();
+
+    expect(
+      mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_THREE}/index.html`)
+        ?.data,
+    ).toBe(CHAPTER_THREE_REWRITTEN);
+  });
+
+  it('copies an asset only a srcset or data-src points at', async () => {
+    await runImport();
+
+    // `hero@2x.png` is named by nothing but the srcset, and `lazy.png` by
+    // nothing but the data-src: both still have to land next to index.html or
+    // the reader 404s on them.
+    expect(
+      mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_THREE}/hero@2x.png`),
+    ).toEqual({
+      data: 'base64(/epub/OEBPS/images/hero@2x.png)',
+      encoding: 'base64',
+    });
+    expect(
+      mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_THREE}/lazy.png`),
+    ).toEqual({
+      data: 'base64(/epub/OEBPS/images/lazy.png)',
+      encoding: 'base64',
+    });
+    expect(
+      mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_THREE}/hero.png`),
+    ).toEqual({
+      data: 'base64(/epub/OEBPS/images/hero.png)',
+      encoding: 'base64',
+    });
+  });
+});
+
+describe('importEpub references that already carry a scheme', () => {
+  it('leaves a data: and a remote src untouched', async () => {
+    await runImport();
+
+    // Neither is a file in the EPUB: an inlined image and a CDN image are
+    // already addressable, and rewriting them to a bare filename would point
+    // the chapter at a file that was never copied.
+    expect(
+      mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_FOUR}/index.html`)
+        ?.data,
+    ).toBe(CHAPTER_FOUR_HTML);
+  });
+
+  it('does not invent a chapter asset for a remote src', async () => {
+    await runImport();
+
+    expect(
+      mockTree.has(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_FOUR}/remote.png?v=2`),
     ).toBe(false);
   });
 });

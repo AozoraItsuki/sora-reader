@@ -6,6 +6,7 @@ import { discordRPC } from '@modules/discord/DiscordRPC';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import OnboardingScreen from '@screens/onboarding/OnboardingScreen';
+import PdfViewerScreen from '@screens/pdf/PdfViewerScreen';
 import WebviewScreen from '@screens/WebviewScreen/WebviewScreen';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
@@ -135,6 +136,7 @@ const MainNavigator = () => {
             <Stack.Screen name="SourceNovels" component={SourceNovels} />
             <Stack.Screen name="MigrateNovel" component={MigrateNovel} />
             <Stack.Screen name="WebviewScreen" component={WebviewScreen} />
+            <Stack.Screen name="PdfViewer" component={PdfViewerScreen} />
           </Stack.Navigator>
         </UpdateContextProvider>
       </LibraryContextProvider>

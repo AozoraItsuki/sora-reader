@@ -1,5 +1,6 @@
 import type { AIProvider } from '@hooks/persisted/useAIProviders';
 import * as cheerio from 'cheerio';
+import type { AnyNode } from 'domhandler';
 import { isAlphanumeric } from 'unicode-segmenter/general';
 
 import { AIManager } from '../ai/AIManager';
@@ -69,7 +70,7 @@ export class TranslateManager {
       'p, div, span, h1, h2, h3, h4, h5, h6, li, td, th',
     );
     const textsToTranslate: string[] = [];
-    const elementRefs: cheerio.Cheerio<cheerio.AnyNode>[] = [];
+    const elementRefs: cheerio.Cheerio<AnyNode>[] = [];
     const elementTypes: ('html' | 'text')[] = [];
 
     const blockSelectors = [

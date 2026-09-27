@@ -65,7 +65,9 @@ export const sanitizeChapterText = (
       link: ['rel', 'type', 'href', 'media'],
       meta: ['charset', 'name', 'content', 'http-equiv'],
     },
-    allowedSchemes: ['data', 'http', 'https', 'file'],
+    // `content` is what SAF hands out (`safDocumentUri`), so a chapter read out
+    // of the download tree keeps its illustrations once it is sanitized.
+    allowedSchemes: ['data', 'http', 'https', 'file', 'content'],
   });
 
   return (

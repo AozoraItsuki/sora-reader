@@ -94,7 +94,7 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
     settings: { showNumberOfNovels, downloadedOnlyMode, incognitoMode },
   } = useLibraryContext();
 
-  const { importNovel } = useImport();
+  const { importNovel, importPdfNovel } = useImport();
   const { useLibraryFAB = false } = useAppSettings();
 
   const { isLoading: isHistoryLoading, history, error } = useHistory();
@@ -190,6 +190,14 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
       multiple: true,
     }).then(importNovel);
   }, [importNovel]);
+
+  const pickAndImportPdf = useCallback(() => {
+    DocumentPicker.getDocumentAsync({
+      type: 'application/pdf',
+      copyToCacheDirectory: true,
+      multiple: true,
+    }).then(importPdfNovel);
+  }, [importPdfNovel]);
 
   const searchLower = useMemo(() => searchText.toLowerCase(), [searchText]);
 
@@ -401,11 +409,15 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
         onPress: pickAndImport,
       },
       {
+        title: getString('libraryScreen.extraMenu.importPdf'),
+        onPress: pickAndImportPdf,
+      },
+      {
         title: getString('libraryScreen.extraMenu.openRandom'),
         onPress: openRandom,
       },
     ],
-    [categories, index, pickAndImport, openRandom],
+    [categories, index, pickAndImport, pickAndImportPdf, openRandom],
   );
 
   const handleFABPress = useCallback(() => {
