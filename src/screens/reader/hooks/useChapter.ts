@@ -34,7 +34,12 @@ import {
 import NativeFile from '@specs/NativeFile';
 import NativeSPenRemote from '@specs/NativeSPenRemote';
 import NativeVolumeButtonListener from '@specs/NativeVolumeButtonListener';
+import { isSafReady, safReadFile } from '@services/saf/safFile';
 import { getString } from '@strings/translations';
+import {
+  chapterIndexRel,
+  legacyDownloadPath,
+} from '@utils/DownloadPaths';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { parseChapterNumber } from '@utils/parseChapterNumber';
 import { showToast } from '@utils/showToast';
@@ -71,6 +76,30 @@ const emmiter = new NativeEventEmitter(NativeVolumeButtonListener);
 const sPenEmitter = NativeSPenRemote
   ? new NativeEventEmitter(NativeSPenRemote)
   : null;
+
+/**
+ * Read a downloaded chapter from its tree-relative path.
+ *
+ * SAF is the source of truth as soon as a download folder is picked; the legacy
+ * app-private path stays as a fallback so installs that have not migrated yet
+ * keep resolving their downloads. Returns `null` when the chapter is not
+ * downloaded at all, so the caller can fall back to the source.
+ */
+const readDownloadedChapter = async (
+  relativePath: string,
+): Promise<string | null> => {
+  if (isSafReady()) {
+    try {
+      return await safReadFile(relativePath);
+    } catch {
+      // Permission can be revoked while the app is running; the legacy path
+      // below is the last resort.
+    }
+  }
+
+  const legacyPath = legacyDownloadPath(relativePath);
+  return NativeFile.exists(legacyPath) ? NativeFile.readFile(legacyPath) : null;
+};
 
 export default function useChapter(
   webViewRef: RefObject<WebView | null>,
@@ -223,10 +252,18 @@ export default function useChapter(
         const chapterDir = `${NOVEL_STORAGE}/local/${chapter.novelId}/${id}`;
         text = await fetchChapter(novel.pluginId, chapterDir);
       } else {
-        // Online novels: check downloaded file first, then fetch from source
-        const filePath = `${NOVEL_STORAGE}/${novel.pluginId}/${chapter.novelId}/${id}/index.html`;
-        if (NativeFile.exists(filePath)) {
-          text = NativeFile.readFile(filePath);
+        // Online novels: check the downloaded chapter first, then fetch from
+        // the source. Downloads now live in the SAF tree, so the relative path
+        // is read through SAF and only falls back to the legacy app-private
+        // location when no download folder has been picked yet.
+        const relativePath = chapterIndexRel(
+          novel.pluginId,
+          chapter.novelId,
+          id,
+        );
+        const downloaded = await readDownloadedChapter(relativePath);
+        if (downloaded !== null) {
+          text = downloaded;
         } else {
           text = await fetchChapter(novel.pluginId, path);
         }

@@ -1,4 +1,5 @@
 import { APP_SETTINGS } from '@hooks/persisted/useSettings';
+import { ensureSafPermission, getSafTreeUri } from '@services/saf/safFile';
 import NativeLocalServer from '@specs/NativeLocalServer';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 
@@ -26,6 +27,24 @@ export const initLocalServer = async (): Promise<void> => {
       } catch {}
     }
     NativeLocalServer.setAllowProxyAPI(allowProxyAPI);
+
+    // The download tree has to reach the native module before the server
+    // starts, otherwise it would keep serving the legacy app-private
+    // directory. A revoked permission falls back to that directory.
+    const treeUri = getSafTreeUri();
+    if (treeUri) {
+      if (await ensureSafPermission()) {
+        NativeLocalServer.setSafTreeUri(treeUri);
+        console.info('[LocalServer] Serving SAF tree', treeUri);
+      } else {
+        NativeLocalServer.setSafTreeUri('');
+        console.warn(
+          '[LocalServer] SAF tree permission not granted, using fallback',
+        );
+      }
+    } else {
+      NativeLocalServer.setSafTreeUri('');
+    }
 
     console.info('[LocalServer] Starting server...');
     const port = await NativeLocalServer.startServer();

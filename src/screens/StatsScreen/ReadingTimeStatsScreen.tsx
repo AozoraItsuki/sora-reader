@@ -12,6 +12,7 @@ import { LegendList } from '@legendapp/list';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getString } from '@strings/translations';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Appbar as PaperAppbar } from 'react-native-paper';
@@ -109,7 +110,10 @@ const ReadingTimeStatsScreen: React.FC<Props> = ({ navigation }) => {
       }
     >
       {item.coverUrl ? (
-        <Image source={{ uri: item.coverUrl }} style={styles.cover} />
+        <Image
+          source={{ uri: resolveDownloadUrl(item.coverUrl) }}
+          style={styles.cover}
+        />
       ) : (
         <View
           style={[styles.cover, { backgroundColor: theme.surfaceVariant }]}

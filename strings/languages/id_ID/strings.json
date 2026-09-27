@@ -148,8 +148,6 @@
     "backupSections": "Isi cadangan",
     "includeNovels": "Novel dan bab",
     "includeNovelsDesc": "Cadangkan novel perpustakaan Anda beserta daftar babnya",
-    "includeDownloadedFiles": "File yang telah diunduh",
-    "includeDownloadedFilesDesc": "Cadangkan file bab yang telah diunduh. Biasanya ini bagian cadangan yang paling lambat",
     "includeCategories": "Kategori",
     "includeCategoriesDesc": "Cadangkan kategori novel Anda",
     "includeRepositories": "Repositori",
@@ -167,7 +165,6 @@
     "createBackupDesc": "Dapat digunakan untuk memulihkan perpustakaan saat ini",
     "createBackupWarning": "Buat cadangan mungkin tidak berfungsi di perangkat dengan Android 9 atau lebih rendah.",
     "downloadingData": "Mengunduh Data",
-    "downloadingDownloadedFiles": "Mengunduh File yang Telah Diunduh",
     "failed": "Cadangan gagal",
     "novelsRestored": "Berhasil memulihkan %{count} novel",
     "novelsRestoredWithErrors": "Berhasil memulihkan %{count} novel (%{failedCount} gagal)",
@@ -218,8 +215,7 @@
     "restoringData": "Memulihkan Data",
     "selfHost": "Self-Host",
     "selfHostDesc": "Cadangkan ke server Anda",
-    "uploadingData": "Mengunggah Data",
-    "uploadingDownloadedFiles": "Mengunggah File yang Telah Diunduh"
+    "uploadingData": "Mengunggah Data"
   },
   "browse": "Jelajahi",
   "browseScreen": {
@@ -367,6 +363,12 @@
   "downloadSettings": "Pengaturan Unduhan",
   "downloadSettingsScreen": {
     "title": "Pengaturan Unduhan",
+    "downloadLocation": "Lokasi unduhan",
+    "downloadLocationDesc": "Berkas bab disimpan di luar cadangan data aplikasi",
+    "downloadFolder": "Folder unduhan",
+    "downloadFolderDesc": "Pilih folder untuk menyimpan bab yang diunduh",
+    "downloadFolderNotSet": "Belum diatur",
+    "downloadFolderMigrationNote": "Unduhan yang ada dipindahkan otomatis ke folder baru",
     "autoDownload": "Unduh otomatis",
     "downloadNewChapters": "Unduh bab baru",
     "parallelDownload": "Unduhan Paralel",

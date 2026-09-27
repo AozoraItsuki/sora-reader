@@ -46,6 +46,7 @@ import ReadButton from './ReadButton';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { ChapterFilterKey } from '@database/constants';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { useNovelAction } from '@screens/novel/NovelContext';
 
 interface NovelInfoHeaderProps {
@@ -223,7 +224,7 @@ const NovelInfoHeader = ({
   );
 
   const coverSource = useMemo(
-    () => ({ uri: novel.cover ?? undefined }),
+    () => ({ uri: resolveDownloadUrl(novel.cover) }),
     [novel.cover],
   );
 

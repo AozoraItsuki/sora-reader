@@ -148,8 +148,6 @@
     "backupSections": "Backup contents",
     "includeNovels": "Novels and chapters",
     "includeNovelsDesc": "Back up your library novels and their chapter lists",
-    "includeDownloadedFiles": "Downloaded files",
-    "includeDownloadedFilesDesc": "Back up downloaded chapter files. This is usually the slowest part of a backup",
     "includeCategories": "Categories",
     "includeCategoriesDesc": "Back up your novel categories",
     "includeRepositories": "Repositories",
@@ -167,7 +165,6 @@
     "createBackupDesc": "Can be used to restore current library",
     "createBackupWarning": "Create backup may not work on devices with Android 9 or lower.",
     "downloadingData": "Downloading Data",
-    "downloadingDownloadedFiles": "Downloading Downloaded Files",
     "failed": "Backup failed",
     "novelsRestored": "Restored %{count} novels",
     "novelsRestoredWithErrors": "Restored %{count} novels (%{failedCount} failed)",
@@ -218,8 +215,7 @@
     "restoringData": "Restoring Data",
     "selfHost": "Self Host",
     "selfHostDesc": "Backup to your server",
-    "uploadingData": "Uploading Data",
-    "uploadingDownloadedFiles": "Uploading Downloaded Files"
+    "uploadingData": "Uploading Data"
   },
   "browse": "Browse",
   "browseScreen": {
@@ -367,6 +363,12 @@
   "downloadSettings": "Download Settings",
   "downloadSettingsScreen": {
     "title": "Download Settings",
+    "downloadLocation": "Download location",
+    "downloadLocationDesc": "Chapter files are stored outside the app data backup",
+    "downloadFolder": "Download folder",
+    "downloadFolderDesc": "Choose the folder downloaded chapters are saved to",
+    "downloadFolderNotSet": "Not set",
+    "downloadFolderMigrationNote": "Existing downloads are moved into the new folder automatically",
     "autoDownload": "Auto-download",
     "downloadNewChapters": "Download new chapters",
     "parallelDownload": "Parallel Downloads",

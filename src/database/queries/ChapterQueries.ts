@@ -7,10 +7,10 @@ import {
 } from '@database/schema';
 import { chapterFilterToSQL, chapterOrderToSQL } from '@database/utils/parser';
 import { ChapterItem } from '@plugins/types';
-import NativeFile from '@specs/NativeFile';
+import { isSafReady, safUnlink } from '@services/saf/safFile';
 import { getString } from '@strings/translations';
+import { chapterRel } from '@utils/DownloadPaths';
 import { showToast } from '@utils/showToast';
-import { NOVEL_STORAGE } from '@utils/Storages';
 import {
   and,
   asc,
@@ -161,16 +161,18 @@ export const markAllChaptersUnread = async (novelId: number): Promise<void> => {
   });
 };
 
-const deleteDownloadedFiles = (
+const deleteDownloadedFiles = async (
   pluginId: string,
   novelId: number,
   chapterId: number,
 ) => {
+  // Nothing was ever written to the tree, so there is nothing to remove. Keeps
+  // DB updates working on installs that have not picked a download folder yet.
+  if (!isSafReady()) {
+    return;
+  }
   try {
-    const chapterFolder = `${NOVEL_STORAGE}/${pluginId}/${novelId}/${chapterId}`;
-    if (NativeFile.exists(chapterFolder)) {
-      NativeFile.unlink(chapterFolder);
-    }
+    await safUnlink(chapterRel(pluginId, novelId, chapterId));
   } catch {
     throw new Error(getString('novelScreen.deleteChapterError'));
   }
@@ -182,7 +184,7 @@ export const deleteChapter = async (
   novelId: number,
   chapterId: number,
 ): Promise<void> => {
-  deleteDownloadedFiles(pluginId, novelId, chapterId);
+  await deleteDownloadedFiles(pluginId, novelId, chapterId);
   await dbManager.write(async tx => {
     await tx
       .update(chapterSchema)
@@ -202,8 +204,10 @@ export const deleteChapters = async (
   }
   const chapterIds = chapters.map(chapter => chapter.id);
 
-  chapters.forEach(chapter =>
-    deleteDownloadedFiles(pluginId, novelId, chapter.id),
+  await Promise.all(
+    chapters.map(chapter =>
+      deleteDownloadedFiles(pluginId, novelId, chapter.id).catch(() => undefined),
+    ),
   );
 
   await dbManager.write(async tx => {
@@ -225,9 +229,13 @@ export const deleteDownloads = async (
   if (!chapters?.length) {
     return;
   }
-  chapters.forEach(chapter => {
-    deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
-  });
+  await Promise.all(
+    chapters.map(chapter =>
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id).catch(
+        () => undefined,
+      ),
+    ),
+  );
   await dbManager.write(async tx => {
     await tx.update(chapterSchema).set({ isDownloaded: false }).run();
   });
@@ -235,9 +243,13 @@ export const deleteDownloads = async (
 
 export const deleteReadChaptersFromDb = async (): Promise<void> => {
   const chapters = await getReadDownloadedChapters();
-  chapters?.forEach(chapter => {
-    deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
-  });
+  await Promise.all(
+    (chapters ?? []).map(chapter =>
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id).catch(
+        () => undefined,
+      ),
+    ),
+  );
   const chapterIds = chapters?.map(chapter => chapter.id);
   if (chapterIds?.length) {
     await dbManager.write(async tx => {

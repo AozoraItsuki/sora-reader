@@ -8,7 +8,7 @@ export function getMMKVObject<T>(key: string) {
     try {
       return JSON.parse(data) as T;
     } catch {
-      MMKVStorage.delete(key);
+      MMKVStorage.remove(key);
       return undefined;
     }
   }

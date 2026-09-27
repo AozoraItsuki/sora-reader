@@ -137,8 +137,6 @@ export interface StringMap {
   'backupScreen.backupSections': 'string';
   'backupScreen.includeNovels': 'string';
   'backupScreen.includeNovelsDesc': 'string';
-  'backupScreen.includeDownloadedFiles': 'string';
-  'backupScreen.includeDownloadedFilesDesc': 'string';
   'backupScreen.includeCategories': 'string';
   'backupScreen.includeCategoriesDesc': 'string';
   'backupScreen.includeRepositories': 'string';
@@ -156,7 +154,6 @@ export interface StringMap {
   'backupScreen.createBackupDesc': 'string';
   'backupScreen.createBackupWarning': 'string';
   'backupScreen.downloadingData': 'string';
-  'backupScreen.downloadingDownloadedFiles': 'string';
   'backupScreen.failed': 'string';
   'backupScreen.novelsRestored': 'string';
   'backupScreen.novelsRestoredWithErrors': 'string';
@@ -204,7 +201,6 @@ export interface StringMap {
   'backupScreen.selfHost': 'string';
   'backupScreen.selfHostDesc': 'string';
   'backupScreen.uploadingData': 'string';
-  'backupScreen.uploadingDownloadedFiles': 'string';
   'browse': 'string';
   'browseScreen.addedToLibrary': 'string';
   'browseScreen.available': 'string';
@@ -326,6 +322,12 @@ export interface StringMap {
   'downloadScreen.removeDownloadsWarning': 'string';
   'downloadSettings': 'string';
   'downloadSettingsScreen.title': 'string';
+  'downloadSettingsScreen.downloadLocation': 'string';
+  'downloadSettingsScreen.downloadLocationDesc': 'string';
+  'downloadSettingsScreen.downloadFolder': 'string';
+  'downloadSettingsScreen.downloadFolderDesc': 'string';
+  'downloadSettingsScreen.downloadFolderNotSet': 'string';
+  'downloadSettingsScreen.downloadFolderMigrationNote': 'string';
   'downloadSettingsScreen.autoDownload': 'string';
   'downloadSettingsScreen.downloadNewChapters': 'string';
   'downloadSettingsScreen.parallelDownload': 'string';

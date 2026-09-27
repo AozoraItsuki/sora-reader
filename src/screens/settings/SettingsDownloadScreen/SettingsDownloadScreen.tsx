@@ -7,15 +7,25 @@ import {
 } from '@hooks/persisted';
 import { defaultProxyConfig, ProxyMode } from '@hooks/persisted/useSettings';
 import { DownloadSettingsScreenProps } from '@navigators/types';
+import { runSafMigration } from '@services/saf/migrateToSaf';
+import { SAF_TREE_ROOT, safMkdir, setSafTreeUri } from '@services/saf/safFile';
+import { syncSafTreeUriToServer } from '@services/saf/useSafLocation';
 import { getString } from '@strings/translations';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { applyNativeProxy, clearNativeProxy } from '@utils/nativeProxy';
-import React from 'react';
+import { showToast } from '@utils/showToast';
+import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { openDocumentTree } from 'react-native-saf-x';
+
 import SettingSwitch from '../components/SettingSwitch';
+import ChapterDelayModal from './modals/ChapterDelayModal';
 import ParallelChaptersCountModal from './modals/ParallelChaptersCountModal';
 import ProxySettingsModal from './modals/ProxySettingsModal';
-import ChapterDelayModal from './modals/ChapterDelayModal';
 import RetryDelayModal from './modals/RetryDelayModal';
+
+/** Display name of the picked download folder (the tree URI has no label). */
+const DOWNLOAD_FOLDER_NAME_KEY = 'SAF_TREE_DISPLAY_NAME';
 
 const PROXY_MODE_LABELS: Record<ProxyMode, string> = {
   disabled: getString('downloadSettingsScreen.proxyDisabled'),
@@ -24,7 +34,9 @@ const PROXY_MODE_LABELS: Record<ProxyMode, string> = {
   tor: 'Tor',
 };
 
-const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => {
+const SettingsDownloadScreen = ({
+  navigation,
+}: DownloadSettingsScreenProps) => {
   const theme = useTheme();
 
   const { downloadNewChapters, setAppSettings } = useAppSettings();
@@ -46,8 +58,35 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
   const retryDelayModal = useBoolean();
   const chapterDelayModal = useBoolean();
 
+  // A tree URI carries no readable label, so the picked folder's display name is
+  // kept next to it for this row.
+  const [downloadFolderName, setDownloadFolderName] = useState(
+    () => MMKVStorage.getString(DOWNLOAD_FOLDER_NAME_KEY) || '',
+  );
+
+  const handlePickDownloadFolder = useCallback(async () => {
+    try {
+      const picked = await openDocumentTree(true);
+      if (!picked) {
+        return;
+      }
+      setSafTreeUri(picked.uri);
+      syncSafTreeUriToServer();
+      MMKVStorage.set(DOWNLOAD_FOLDER_NAME_KEY, picked.name);
+      setDownloadFolderName(picked.name);
+      // Make sure the tree the server walks into exists, then move whatever is
+      // still in the old app-private location into it.
+      await safMkdir(SAF_TREE_ROOT);
+      await runSafMigration();
+    } catch (error: any) {
+      showToast(error?.message || String(error));
+    }
+  }, []);
+
   const mergedProxy = { ...defaultProxyConfig, ...proxy };
-  const proxyModeLabel = PROXY_MODE_LABELS[mergedProxy.mode] ?? getString('downloadSettingsScreen.proxyDisabled');
+  const proxyModeLabel =
+    PROXY_MODE_LABELS[mergedProxy.mode] ??
+    getString('downloadSettingsScreen.proxyDisabled');
 
   const handleToggleProxy = () => {
     const next = !proxyEnabled;
@@ -69,6 +108,29 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
       <ScrollView contentContainerStyle={styles.paddingBottom}>
         <List.Section>
           <List.SubHeader theme={theme}>
+            {getString('downloadSettingsScreen.downloadLocation')}
+          </List.SubHeader>
+          <List.Item
+            title={getString('downloadSettingsScreen.downloadFolder')}
+            description={
+              downloadFolderName
+                ? `${getString(
+                    'downloadSettingsScreen.downloadFolderDesc',
+                  )}\n${downloadFolderName}`
+                : getString('downloadSettingsScreen.downloadFolderNotSet')
+            }
+            onPress={handlePickDownloadFolder}
+            theme={theme}
+          />
+          <List.InfoItem
+            title={getString(
+              'downloadSettingsScreen.downloadFolderMigrationNote',
+            )}
+            theme={theme}
+          />
+        </List.Section>
+        <List.Section>
+          <List.SubHeader theme={theme}>
             {getString('downloadSettingsScreen.autoDownload')}
           </List.SubHeader>
           <SettingSwitch
@@ -85,7 +147,9 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
           </List.SubHeader>
           <SettingSwitch
             label={getString('downloadSettingsScreen.parallelChapters')}
-            description={getString('downloadSettingsScreen.parallelChaptersDesc')}
+            description={getString(
+              'downloadSettingsScreen.parallelChaptersDesc',
+            )}
             value={parallelChaptersEnabled}
             onPress={() =>
               setDownloadSettings({
@@ -133,9 +197,7 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
             label={getString('downloadSettingsScreen.retryOnError')}
             description={getString('downloadSettingsScreen.retryOnErrorDesc')}
             value={retryOnError}
-            onPress={() =>
-              setDownloadSettings({ retryOnError: !retryOnError })
-            }
+            onPress={() => setDownloadSettings({ retryOnError: !retryOnError })}
             theme={theme}
           />
           {retryOnError && (
@@ -162,7 +224,11 @@ const SettingsDownloadScreen = ({ navigation }: DownloadSettingsScreenProps) => 
           />
           <List.Item
             title={getString('downloadSettingsScreen.proxySettings')}
-            description={proxyEnabled ? proxyModeLabel : getString('downloadSettingsScreen.proxyDisabled')}
+            description={
+              proxyEnabled
+                ? proxyModeLabel
+                : getString('downloadSettingsScreen.proxyDisabled')
+            }
             onPress={proxySettingsModal.setTrue}
             theme={theme}
           />

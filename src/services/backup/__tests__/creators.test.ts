@@ -1,15 +1,9 @@
 import { uploadMedia } from '@api/drive/request';
 import { DriveFile } from '@api/drive/types';
 import { upload } from '@api/remote';
-import {
-  BACKUP_OPTIONS,
-  BackupOptions,
-  initialBackupOptions,
-} from '@hooks/persisted/useBackupOptions';
 import { saveDocuments } from '@react-native-documents/picker';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import NativeZipArchive from '@specs/NativeZipArchive';
-import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { ROOT_STORAGE } from '@utils/Storages';
 
@@ -27,12 +21,10 @@ jest.mock('../utils', () => ({
 jest.mock('@api/drive/request', () => ({
   uploadMedia: jest.fn(async () => ({ id: 'file-id', parents: ['parent-id'] })),
   updateMetadata: jest.fn(async () => undefined),
-  download: jest.fn(async () => undefined),
 }));
 
 jest.mock('@api/remote', () => ({
   upload: jest.fn(async () => undefined),
-  download: jest.fn(async () => undefined),
 }));
 
 jest.mock('@utils/showToast', () => ({
@@ -40,13 +32,6 @@ jest.mock('@utils/showToast', () => ({
 }));
 
 const backupFolder = { id: 'folder-id' } as DriveFile;
-
-const setOptions = (overrides: Partial<BackupOptions>) => {
-  MMKVStorage.set(
-    BACKUP_OPTIONS,
-    JSON.stringify({ ...initialBackupOptions, ...overrides }),
-  );
-};
 
 const createMetaRecorder = () => {
   const states: BackgroundTaskMetadata[] = [];
@@ -70,6 +55,15 @@ const createMetaRecorder = () => {
 const progresses = (states: BackgroundTaskMetadata[]) =>
   states.map(state => state.progress ?? 0);
 
+const expectMonotonicProgress = (states: BackgroundTaskMetadata[]) => {
+  const values = progresses(states);
+  const wentBackwards = values.some(
+    (value, index) => index > 0 && value < values[index - 1],
+  );
+  expect(wentBackwards).toBe(false);
+  expect(values[values.length - 1]).toBe(1);
+};
+
 describe('createBackup (local)', () => {
   beforeEach(() => {
     MMKVStorage.clearAll();
@@ -77,22 +71,22 @@ describe('createBackup (local)', () => {
     (saveDocuments as jest.Mock).mockClear();
   });
 
-  it('zips the downloaded files by default', async () => {
+  it('zips the app data and saves it', async () => {
     const { states, setMeta } = createMetaRecorder();
 
     await createBackup(setMeta);
 
     expect(NativeZipArchive.zip).toHaveBeenCalledWith(
-      ROOT_STORAGE,
-      `${CACHE_DIR_PATH}/download.zip`,
+      CACHE_DIR_PATH,
+      `${CACHE_DIR_PATH}.zip`,
     );
+    expect(saveDocuments).toHaveBeenCalled();
     expect(states[states.length - 1]).toEqual(
-      expect.objectContaining({ isRunning: false, progress: 4 / 4 }),
+      expect.objectContaining({ isRunning: false, progress: 3 / 3 }),
     );
   });
 
-  it('skips the downloaded files archive when it is disabled', async () => {
-    setOptions({ backupDownloadedFiles: false });
+  it('never zips the download storage', async () => {
     const { setMeta } = createMetaRecorder();
 
     await createBackup(setMeta);
@@ -101,27 +95,14 @@ describe('createBackup (local)', () => {
       ROOT_STORAGE,
       expect.anything(),
     );
-    // The final archive is still produced and saved
-    expect(NativeZipArchive.zip).toHaveBeenCalledWith(
-      CACHE_DIR_PATH,
-      `${CACHE_DIR_PATH}.zip`,
-    );
-    expect(saveDocuments).toHaveBeenCalled();
   });
 
-  it('keeps progress monotonic and finishes at 4/4 when a step is skipped', async () => {
-    setOptions({ backupDownloadedFiles: false });
+  it('keeps progress monotonic', async () => {
     const { states, setMeta } = createMetaRecorder();
 
     await createBackup(setMeta);
 
-    const values = progresses(states);
-    const wentBackwards = values.some(
-      (value, index) => index > 0 && value < values[index - 1],
-    );
-
-    expect(wentBackwards).toBe(false);
-    expect(values[values.length - 1]).toBe(1);
+    expectMonotonicProgress(states);
   });
 });
 
@@ -131,20 +112,7 @@ describe('createDriveBackup', () => {
     (uploadMedia as jest.Mock).mockClear();
   });
 
-  it('uploads the downloaded files by default', async () => {
-    const { states, setMeta } = createMetaRecorder();
-
-    await createDriveBackup(backupFolder, setMeta);
-
-    expect(uploadMedia).toHaveBeenCalledTimes(2);
-    expect(uploadMedia).toHaveBeenLastCalledWith(ROOT_STORAGE);
-    expect(states[states.length - 1]).toEqual(
-      expect.objectContaining({ isRunning: false, progress: 3 / 3 }),
-    );
-  });
-
-  it('skips the downloaded files upload when it is disabled', async () => {
-    setOptions({ backupDownloadedFiles: false });
+  it('uploads only the app data archive', async () => {
     const { states, setMeta } = createMetaRecorder();
 
     await createDriveBackup(backupFolder, setMeta);
@@ -152,20 +120,24 @@ describe('createDriveBackup', () => {
     expect(uploadMedia).toHaveBeenCalledTimes(1);
     expect(uploadMedia).toHaveBeenCalledWith(CACHE_DIR_PATH);
     expect(states[states.length - 1]).toEqual(
-      expect.objectContaining({ isRunning: false, progress: 3 / 3 }),
+      expect.objectContaining({ isRunning: false, progress: 2 / 2 }),
     );
   });
 
-  it('never reports the skipped uploaded-files step', async () => {
-    setOptions({ backupDownloadedFiles: false });
+  it('never uploads the download storage', async () => {
+    const { setMeta } = createMetaRecorder();
+
+    await createDriveBackup(backupFolder, setMeta);
+
+    expect(uploadMedia).not.toHaveBeenCalledWith(ROOT_STORAGE);
+  });
+
+  it('keeps progress monotonic', async () => {
     const { states, setMeta } = createMetaRecorder();
 
     await createDriveBackup(backupFolder, setMeta);
 
-    const texts = states.map(state => state.progressText);
-    expect(texts).not.toContain(
-      getString('backupScreen.uploadingDownloadedFiles'),
-    );
+    expectMonotonicProgress(states);
   });
 });
 
@@ -175,28 +147,7 @@ describe('createSelfHostBackup', () => {
     (upload as jest.Mock).mockClear();
   });
 
-  it('uploads the downloaded files by default', async () => {
-    const { states, setMeta } = createMetaRecorder();
-
-    await createSelfHostBackup(
-      { host: 'https://example.com', backupFolder: 'backup' },
-      setMeta,
-    );
-
-    expect(upload).toHaveBeenCalledTimes(2);
-    expect(upload).toHaveBeenLastCalledWith(
-      'https://example.com',
-      'backup',
-      'download.zip',
-      ROOT_STORAGE,
-    );
-    expect(states[states.length - 1]).toEqual(
-      expect.objectContaining({ isRunning: false, progress: 3 / 3 }),
-    );
-  });
-
-  it('skips the downloaded files upload when it is disabled', async () => {
-    setOptions({ backupDownloadedFiles: false });
+  it('uploads only the app data archive', async () => {
     const { states, setMeta } = createMetaRecorder();
 
     await createSelfHostBackup(
@@ -212,7 +163,34 @@ describe('createSelfHostBackup', () => {
       CACHE_DIR_PATH,
     );
     expect(states[states.length - 1]).toEqual(
-      expect.objectContaining({ isRunning: false, progress: 3 / 3 }),
+      expect.objectContaining({ isRunning: false, progress: 2 / 2 }),
     );
+  });
+
+  it('never uploads a downloads archive', async () => {
+    const { setMeta } = createMetaRecorder();
+
+    await createSelfHostBackup(
+      { host: 'https://example.com', backupFolder: 'backup' },
+      setMeta,
+    );
+
+    expect(upload).not.toHaveBeenCalledWith(
+      'https://example.com',
+      'backup',
+      'download.zip',
+      ROOT_STORAGE,
+    );
+  });
+
+  it('keeps progress monotonic', async () => {
+    const { states, setMeta } = createMetaRecorder();
+
+    await createSelfHostBackup(
+      { host: 'https://example.com', backupFolder: 'backup' },
+      setMeta,
+    );
+
+    expectMonotonicProgress(states);
   });
 });

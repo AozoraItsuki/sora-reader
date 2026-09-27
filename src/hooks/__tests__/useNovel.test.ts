@@ -10,9 +10,12 @@ import {
   novelPersistence,
 } from '@hooks/persisted/useNovel/store-helper/contracts';
 import { TRACKED_NOVEL_PREFIX } from '@hooks/persisted/useTrackedNovel';
-import NativeFile from '@specs/NativeFile';
+import { safUnlink } from '@services/saf/safFile';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { NOVEL_STORAGE } from '@utils/Storages';
+
+jest.mock('@services/saf/safFile', () => ({
+  safUnlink: jest.fn().mockResolvedValue(true),
+}));
 
 describe('useNovel (legacy retirement)', () => {
   it('throws with guidance to use store selectors', () => {
@@ -32,7 +35,7 @@ describe('deleteCachedNovels', () => {
     jest.clearAllMocks();
     MMKVStorage.clearAll();
     (_getCachedNovels as jest.Mock).mockResolvedValue(cachedNovels);
-    (NativeFile.exists as jest.Mock).mockReturnValue(false);
+    (safUnlink as jest.Mock).mockResolvedValue(true);
   });
 
   it('clears tracked novel and legacy persistence keys for each cached novel', async () => {
@@ -94,23 +97,21 @@ describe('deleteCachedNovels', () => {
     }
   });
 
-  it('unlinks novel directory when it exists on disk', async () => {
-    (NativeFile.exists as jest.Mock).mockReturnValue(true);
-
+  it('unlinks the novel directory in the SAF download tree', async () => {
     await deleteCachedNovels();
 
     for (const novel of cachedNovels) {
-      const dir = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}`;
-      expect(NativeFile.unlink).toHaveBeenCalledWith(dir);
+      expect(safUnlink).toHaveBeenCalledWith(
+        `Novels/${novel.pluginId}/${novel.id}`,
+      );
     }
   });
 
-  it('does not call unlink when directory does not exist', async () => {
-    (NativeFile.exists as jest.Mock).mockReturnValue(false);
+  it('still clears the database when the tree delete fails', async () => {
+    (safUnlink as jest.Mock).mockRejectedValue(new Error('no tree'));
 
-    await deleteCachedNovels();
-
-    expect(NativeFile.unlink).not.toHaveBeenCalled();
+    await expect(deleteCachedNovels()).resolves.toBeUndefined();
+    expect(_deleteCachedNovels).toHaveBeenCalledTimes(1);
   });
 
   it('calls database cached-novel delete after cleanup', async () => {

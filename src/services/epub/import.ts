@@ -5,12 +5,22 @@ import {
 } from '@database/queries/NovelQueries';
 import { chapterSchema, novelSchema } from '@database/schema';
 import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
+import {
+  safMkdir,
+  safWriteFile,
+} from '@services/saf/safFile';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import NativeEpub from '@specs/NativeEpub';
 import NativeFile from '@specs/NativeFile';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import { getString } from '@strings/translations';
-import { NOVEL_STORAGE } from '@utils/Storages';
+import {
+  chapterIndexRel,
+  chapterRel,
+  coverRel,
+  novelDirRel,
+} from '@utils/DownloadPaths';
+import { EncodingType, readAsStringAsync } from 'expo-file-system/legacy';
 import dayjs from 'dayjs';
 
 const decodePath = (path: string) => {
@@ -20,6 +30,46 @@ const decodePath = (path: string) => {
     return path;
   }
 };
+
+/**
+ * The extracted epub lives in app-private cache scratch space; assets are read
+ * from there and re-written into the SAF tree.
+ */
+const importAssetIntoTree = async (
+  sourcePath: string,
+  destinationRel: string,
+): Promise<boolean> => {
+  const decodedPath = decodePath(sourcePath);
+  if (!NativeFile.exists(decodedPath)) {
+    return false;
+  }
+  const base64 = await readAsStringAsync(decodedPath, {
+    encoding: EncodingType.Base64,
+  });
+  await safWriteFile(destinationRel, base64, 'base64');
+  return true;
+};
+
+/**
+ * Basenames a rewritten chapter document points at.
+ *
+ * The rewrite below reduces every `src`/`href` to its last path segment, so
+ * these are the only names a chapter can reference.
+ */
+const referencedAssets = (html: string): string[] => {
+  const names = new Set<string>();
+  for (const match of html.matchAll(/(?:href|src)=["']([^"']+)["']/g)) {
+    const name = match[1].split(/[/\\]/).pop();
+    if (name) {
+      names.add(name);
+    }
+  }
+  return Array.from(names);
+};
+
+/** Last path segment of an extracted-epub asset path. */
+const assetName = (filePath: string): string =>
+  filePath.split(/[/\\]/).pop() || filePath;
 
 const insertLocalNovel = async (
   name: string,
@@ -44,16 +94,14 @@ const insertLocalNovel = async (
 
   if (insertId !== undefined && insertId >= 0) {
     await updateNovelCategoryById(insertId, [2]);
-    const novelDir = NOVEL_STORAGE + '/local/' + insertId;
-    NativeFile.mkdir(novelDir);
+    const novelRelDir = novelDirRel(LOCAL_PLUGIN_ID, insertId);
+    await safMkdir(novelRelDir);
     let newCoverPath = '';
 
     if (cover) {
-      newCoverPath = `file://${novelDir}/${cover.split(/[/\\]/).pop()}`;
-      const decodedPath = decodePath(cover);
-      if (NativeFile.exists(decodedPath)) {
-        NativeFile.moveFile(decodedPath, newCoverPath);
-      }
+      // DB stores a TREE-RELATIVE cover path (no file:// prefix).
+      newCoverPath = coverRel(LOCAL_PLUGIN_ID, insertId);
+      await importAssetIntoTree(cover, newCoverPath);
     }
     await updateNovelInfo({
       id: insertId,
@@ -61,7 +109,7 @@ const insertLocalNovel = async (
       author: author,
       artist: artist,
       summary: summary,
-      path: NOVEL_STORAGE + '/local/' + insertId,
+      path: novelRelDir,
       cover: newCoverPath,
       name: name,
       inLibrary: true,
@@ -93,7 +141,7 @@ const batchInsertChapters = async (
         .values({
           novelId,
           name: chapter.name,
-          path: NOVEL_STORAGE + '/local/' + novelId + '/' + i,
+          path: chapterRel(LOCAL_PLUGIN_ID, novelId, i),
           releaseTime,
           position: i,
           isDownloaded: true,
@@ -181,7 +229,20 @@ export const importEpub = async (
     );
 
     // Phase 2: File I/O outside the transaction
-    const novelDir = `${NOVEL_STORAGE}/local/${novelId}`;
+    //
+    // Chapter documents reference their assets by bare filename, and
+    // `LocalPlugin.resolveUrl` anchors those names to the chapter's own
+    // directory on the local server. So every referenced asset has to be copied
+    // into that chapter's folder next to index.html -- NOT hoisted into the
+    // novel root, which is where the pre-SAF absolute `file://` refs pointed.
+    const assetSources = new Map<string, string>();
+    for (const filePath of [...novel.imagePaths, ...novel.cssPaths]) {
+      assetSources.set(assetName(filePath), filePath);
+    }
+    if (novel.cover) {
+      assetSources.set(assetName(novel.cover), novel.cover);
+    }
+
     for (let i = 0; i < chapterResults.length; i++) {
       const result = chapterResults[i];
 
@@ -194,45 +255,28 @@ export const importEpub = async (
       let chapterText = NativeFile.readFile(decodePath(result.sourcePath));
       if (!chapterText) continue;
 
+      // RELATIVE srcs (bare filenames): the reader resolves them against the
+      // local-server baseUrl, so the assets must sit next to index.html.
       chapterText = chapterText.replace(
         /[=](?<= href=| src=)(["'])([^]*?)\1/g,
         (_, __, $2: string) => {
-          return `="file://${novelDir}/${$2.split(/[/\\]/).pop()}"`;
+          return `="${$2.split(/[/\\]/).pop()}"`;
         },
       );
 
-      NativeFile.mkdir(novelDir + '/' + result.insertId);
-      NativeFile.writeFile(
-        `${novelDir}/${result.insertId}/index.html`,
+      const chapterRelDir = chapterRel(LOCAL_PLUGIN_ID, novelId, result.insertId);
+      await safMkdir(chapterRelDir);
+      await safWriteFile(
+        chapterIndexRel(LOCAL_PLUGIN_ID, novelId, result.insertId),
         chapterText,
       );
-    }
-  }
-  const novelDir = NOVEL_STORAGE + '/local/' + novelId;
 
-  setMeta(meta => ({
-    ...meta,
-    progressText: getString('advancedSettingsScreen.importStaticFiles'),
-  }));
-
-  for (const filePath of novel.imagePaths) {
-    const decodedPath = decodePath(filePath);
-
-    if (NativeFile.exists(decodedPath)) {
-      NativeFile.moveFile(
-        decodedPath,
-        novelDir + '/' + filePath.split(/[/\\]/).pop(),
-      );
-    }
-  }
-
-  for (const filePath of novel.cssPaths) {
-    const decodedPath = decodePath(filePath);
-    if (NativeFile.exists(decodedPath)) {
-      NativeFile.moveFile(
-        decodedPath,
-        novelDir + '/' + filePath.split(/[/\\]/).pop(),
-      );
+      for (const name of referencedAssets(chapterText)) {
+        const source = assetSources.get(name);
+        if (source) {
+          await importAssetIntoTree(source, `${chapterRelDir}/${name}`);
+        }
+      }
     }
   }
 

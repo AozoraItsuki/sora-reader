@@ -6,19 +6,28 @@ import {
   novelCategorySchema,
   novelSchema,
 } from '@database/schema';
-import { downloadFile } from '@plugins/helpers/fetch';
 import { getPlugin, LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { SourceNovel } from '@plugins/types';
 import { fetchNovel } from '@services/plugin/fetch';
-import NativeFile from '@specs/NativeFile';
+import {
+  safDownloadFile,
+  safMkdir,
+  safUnlink,
+  safWriteFile,
+} from '@services/saf/safFile';
 import { getString } from '@strings/translations';
+import { coverRel, novelDirRel } from '@utils/DownloadPaths';
 import { showToast } from '@utils/showToast';
-import { NOVEL_STORAGE } from '@utils/Storages';
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import * as DocumentPicker from 'expo-document-picker';
+import { EncodingType, readAsStringAsync } from 'expo-file-system/legacy';
 
 import { BackupNovel, ChapterInfo, DBNovelInfo, NovelInfo } from '../types';
 import { insertChapters } from './ChapterQueries';
+
+/** Read a picked content:// image as base64 so it can be written into the SAF tree. */
+const readPickedImageAsBase64 = (uri: string): Promise<string> =>
+  readAsStringAsync(uri, { encoding: EncodingType.Base64 });
 
 /**
  * Inserts a novel and its chapters into the database using Drizzle ORM.
@@ -53,21 +62,20 @@ export const insertNovelAndChapters = async (
 
   if (novelId) {
     if (sourceNovel.cover) {
-      const novelDir = NOVEL_STORAGE + '/' + pluginId + '/' + novelId;
-      NativeFile.mkdir(novelDir);
-      const novelCoverPath = novelDir + '/cover.png';
-      const novelCoverUri = 'file://' + novelCoverPath;
+      // DB stores a TREE-RELATIVE cover path (no file:// prefix).
+      const novelCoverRel = coverRel(pluginId, novelId);
 
       try {
-        await downloadFile(
+        await safMkdir(novelDirRel(pluginId, novelId));
+        await safDownloadFile(
           sourceNovel.cover,
-          novelCoverPath,
+          novelCoverRel,
           getPlugin(pluginId)?.imageRequestInit,
         );
         await dbManager.write(async tx => {
           await tx
             .update(novelSchema)
-            .set({ cover: novelCoverUri })
+            .set({ cover: novelCoverRel })
             .where(eq(novelSchema.id, novelId))
             .run();
         });
@@ -187,10 +195,7 @@ export const switchNovelToLibraryQuery = async (
         });
 
         try {
-          const novelDir = `${NOVEL_STORAGE}/local/${novel.id}`;
-          if (NativeFile.exists(novelDir)) {
-            NativeFile.unlink(novelDir);
-          }
+          await safUnlink(novelDirRel(LOCAL_PLUGIN_ID, novel.id));
         } catch (e: any) {
           console.error('[LocalNovel] Failed to delete files:', e.message);
         }
@@ -293,10 +298,7 @@ export const removeNovelsFromLibrary = async (novelIds: Array<number>) => {
 
       try {
         for (const id of orphanedIds) {
-          const novelDir = `${NOVEL_STORAGE}/local/${id}`;
-          if (NativeFile.exists(novelDir)) {
-            NativeFile.unlink(novelDir);
-          }
+          await safUnlink(novelDirRel(LOCAL_PLUGIN_ID, id));
         }
       } catch (e) {
         console.error('[LocalNovel] Failed to delete files:', e);
@@ -319,9 +321,10 @@ export const deleteCachedNovels = async () => {
   const cachedNovels = await getCachedNovels();
 
   for (const novel of cachedNovels) {
-    const novelDir = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}`;
-    if (NativeFile.exists(novelDir)) {
-      NativeFile.unlink(novelDir);
+    try {
+      await safUnlink(novelDirRel(novel.pluginId, novel.id));
+    } catch (e) {
+      console.error('[deleteCachedNovels] Failed to delete files:', e);
     }
   }
 
@@ -427,13 +430,13 @@ export const updateNovelInfo = async (info: NovelInfo) => {
 export const pickCustomNovelCover = async (novel: NovelInfo) => {
   const image = await DocumentPicker.getDocumentAsync({ type: 'image/*' });
   if (image.assets && image.assets[0]) {
-    const novelDir = NOVEL_STORAGE + '/' + novel.pluginId + '/' + novel.id;
-    let novelCoverUri = 'file://' + novelDir + '/cover.png';
-    if (!NativeFile.exists(novelDir)) {
-      NativeFile.mkdir(novelDir);
-    }
-    NativeFile.copyFile(image.assets[0].uri, novelCoverUri);
-    novelCoverUri += '?' + Date.now();
+    // DB stores a TREE-RELATIVE cover path (no file:// prefix); the cache-buster
+    // query param is preserved so the image component re-fetches.
+    const novelCoverRel = coverRel(novel.pluginId, novel.id);
+    const base64 = await readPickedImageAsBase64(image.assets[0].uri);
+    await safMkdir(novelDirRel(novel.pluginId, novel.id));
+    await safWriteFile(novelCoverRel, base64, 'base64');
+    const novelCoverUri = `${novelCoverRel}?${Date.now()}`;
     await dbManager.write(async tx => {
       await tx
         .update(novelSchema)

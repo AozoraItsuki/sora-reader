@@ -5,13 +5,16 @@ import {
   novelSchema,
 } from '@database/schema';
 import { LAST_READ_PREFIX } from '@hooks/persisted/useNovel';
-import { downloadFile } from '@plugins/helpers/fetch';
 import { getPlugin } from '@plugins/pluginManager';
 import { ChapterItem } from '@plugins/types';
-import NativeFile from '@specs/NativeFile';
+import {
+  safDownloadFile,
+  safMkdir,
+  safUnlink,
+} from '@services/saf/safFile';
 import { getString } from '@strings/translations';
+import { chapterRel, coverRel, novelDirRel } from '@utils/DownloadPaths';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { NOVEL_STORAGE } from '@utils/Storages';
 import { eq, inArray } from 'drizzle-orm';
 
 import { fetchNovel, fetchPage } from '../plugin/fetch';
@@ -51,22 +54,19 @@ export const forceResetNovel = async (
     const { name, summary, author, artist, genres, status, totalPages } =
       sourceNovel;
     let { cover } = sourceNovel;
-    const novelDir = `${NOVEL_STORAGE}/${pluginId}/${novelId}`;
 
-    if (!NativeFile.exists(novelDir)) {
-      NativeFile.mkdir(novelDir);
-    }
+    await safMkdir(novelDirRel(pluginId, novelId));
 
     if (cover) {
-      const novelCoverPath = `${novelDir}/cover.png`;
-      const novelCoverUri = `file://${novelCoverPath}`;
+      // DB stores a TREE-RELATIVE cover path (no file:// prefix).
+      const novelCoverRel = coverRel(pluginId, novelId);
       try {
-        await downloadFile(
+        await safDownloadFile(
           cover,
-          novelCoverPath,
+          novelCoverRel,
           getPlugin(pluginId)?.imageRequestInit,
         );
-        cover = `${novelCoverUri}?${Date.now()}`;
+        cover = `${novelCoverRel}?${Date.now()}`;
       } catch {
         cover = undefined;
       }
@@ -229,10 +229,7 @@ export const forceResetNovel = async (
             log(getString('novelScreen.forceResetModal.logDeleteDownloads'));
             hasDeletedAny = true;
           }
-          const chapterDir = `${NOVEL_STORAGE}/${pluginId}/${novelId}/${chapter.id}`;
-          if (NativeFile.exists(chapterDir)) {
-            NativeFile.unlink(chapterDir);
-          }
+          await safUnlink(chapterRel(pluginId, novelId, chapter.id));
         }
       }
     }

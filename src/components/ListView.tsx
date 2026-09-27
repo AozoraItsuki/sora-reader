@@ -1,6 +1,7 @@
 import { NovelInfo } from '@database/types';
 import { NovelItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import color from 'color';
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -43,7 +44,7 @@ const ListView = ({
     >
       <Image
         source={{
-          uri: item.cover ?? undefined,
+          uri: resolveDownloadUrl(item.cover),
         }}
         style={[styles.extensionIcon, fadedImage]}
       />

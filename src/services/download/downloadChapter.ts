@@ -15,19 +15,27 @@ import {
   TRANSLATE_SETTINGS,
   TranslateSettings,
 } from '@hooks/persisted/useSettings';
-import { downloadFile } from '@plugins/helpers/fetch';
 import { getPlugin } from '@plugins/pluginManager';
 import { Plugin } from '@plugins/types';
+import {
+  safDownloadFile,
+  safMkdir,
+  safWriteFile,
+} from '@services/saf/safFile';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import {
   TranslateConfig,
   TranslateManager,
 } from '@services/translate/TranslateManager';
-import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
+import {
+  chapterImageRel,
+  chapterIndexRel,
+  chapterRel,
+  nomediaRel,
+} from '@utils/DownloadPaths';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
-import { NOVEL_STORAGE } from '@utils/Storages';
 import * as cheerio from 'cheerio';
 import { eq } from 'drizzle-orm';
 import {
@@ -35,19 +43,17 @@ import {
   torNewIdentity,
 } from './torControl';
 
-const createChapterFolder = async (
-  path: string,
-  data: {
-    pluginId: string;
-    novelId: number;
-    chapterId: number;
-  },
-): Promise<string> => {
-  const { pluginId, novelId, chapterId } = data;
-  const chapterFolder = `${path}/${pluginId}/${novelId}/${chapterId}`;
-  NativeFile.mkdir(chapterFolder);
-  const nomediaPath = chapterFolder + '/.nomedia';
-  NativeFile.writeFile(nomediaPath, ',');
+/** `3.b64.png` — the bare filename the reader resolves against its baseUrl. */
+const imageFileName = (index: number) => `${index}.b64.png`;
+
+const createChapterFolder = async (data: {
+  pluginId: string;
+  novelId: number;
+  chapterId: number;
+}): Promise<string> => {
+  const chapterFolder = chapterRel(data.pluginId, data.novelId, data.chapterId);
+  await safMkdir(chapterFolder);
+  await safWriteFile(nomediaRel(data.pluginId, data.novelId, data.chapterId), ',');
   return chapterFolder;
 };
 
@@ -57,11 +63,8 @@ const downloadFiles = async (
   novelId: number,
   chapterId: number,
 ): Promise<void> => {
-  const folder = await createChapterFolder(NOVEL_STORAGE, {
-    pluginId: plugin.id,
-    novelId,
-    chapterId,
-  });
+  const pluginId = plugin.id;
+  await createChapterFolder({ pluginId, novelId, chapterId });
   const loadedCheerio = cheerio.load(html);
   const imgs = loadedCheerio('img').toArray();
 
@@ -71,18 +74,24 @@ const downloadFiles = async (
     if (!url) {
       return Promise.resolve();
     }
-    const fileurl = `${folder}/${i}.b64.png`;
-    elem.attr('src', 'file://' + fileurl);
+    const fileName = imageFileName(i);
+    // RELATIVE src: the reader resolves it against the local-server baseUrl.
+    elem.attr('src', fileName);
     const absoluteURL = new URL(url, plugin.site).href;
-    return downloadFile(absoluteURL, fileurl, plugin.imageRequestInit).catch(
-      e => {
-        elem.attr('alt', String(e));
-      },
-    );
+    return safDownloadFile(
+      absoluteURL,
+      chapterImageRel(pluginId, novelId, chapterId, i),
+      plugin.imageRequestInit,
+    ).catch(e => {
+      elem.attr('alt', String(e));
+    });
   });
 
   await Promise.all(downloadTasks);
-  NativeFile.writeFile(folder + '/index.html', loadedCheerio.html());
+  await safWriteFile(
+    chapterIndexRel(pluginId, novelId, chapterId),
+    loadedCheerio.html(),
+  );
 };
 
 async function fetchChapterWithProxyRetry(

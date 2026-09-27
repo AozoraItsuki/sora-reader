@@ -8,14 +8,26 @@ import {
   SourcePage,
 } from '@plugins/types';
 import NativeFile from '@specs/NativeFile';
+import { isAbsoluteUri } from '@utils/DownloadPaths';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import { load } from 'cheerio';
 
-import { getLocalServerUrl } from './localServerManager';
+import { getLocalFileUrl, getLocalServerUrl } from './localServerManager';
 
 export const LOCAL_PLUGIN_ID = 'local';
 
 const storage = new Storage(LOCAL_PLUGIN_ID);
+
+/** `file://` URIs of an imported EPUB chapter's assets, any absolute root. */
+const FILE_LOCAL_CHAPTER_SRC =
+  /file:\/\/[^\s"']*\/Novels\/local\/\d+\/([^\s"']+)/g;
+
+/** Local-server URLs that carry the `Novels` prefix. */
+const SERVER_CHAPTER_SRC =
+  /https?:\/\/[^/\s"']+\/Novels\/local\/\d+\/([^\s"']+)/g;
+
+/** Local-server URLs rooted straight at the `local` plugin. */
+const SERVER_LOCAL_SRC = /https?:\/\/[^/\s"']+\/local\/\d+\/([^\s"']+)/g;
 
 /**
  * A built-in plugin that handles locally imported novels (EPUBs).
@@ -78,14 +90,19 @@ class LocalPlugin implements Plugin {
 
     let html = NativeFile.readFile(filePath);
 
-    // Strip absolute file:// paths down to just the filename.
-    // e.g. file:///storage/.../Novels/local/124/image.png → image.png
-    // The WebView's baseUrl points to the local server, so relative paths
-    // will resolve automatically like a real web page.
-    html = html.replace(
-      /file:\/\/[^\s"']*\/Novels\/local\/\d+\/([^\s"']+)/g,
-      '$1',
-    );
+    // Strip absolute image paths down to just the filename so they resolve
+    // against the WebView's baseUrl (the local server) like a real web page.
+    // Three shapes have to be handled:
+    //   a) the old app-private prefix
+    //      file:///storage/.../files/Novels/local/124/0.b64.png → 0.b64.png
+    //   b) the local server serving the SAF tree
+    //      http://127.0.0.1:1234/Novels/local/124/0.b64.png → 0.b64.png
+    //   c) a server URL without the Novels prefix (older base URLs)
+    //      http://127.0.0.1:1234/local/124/0.b64.png → 0.b64.png
+    html = html
+      .replace(FILE_LOCAL_CHAPTER_SRC, '$1')
+      .replace(SERVER_CHAPTER_SRC, '$1')
+      .replace(SERVER_LOCAL_SRC, '$1');
 
     const $ = load(html);
 
@@ -105,8 +122,19 @@ class LocalPlugin implements Plugin {
 
   resolveUrl(path: string): string {
     const serverUrl = getLocalServerUrl();
-    if (serverUrl && path.startsWith(NOVEL_STORAGE)) {
-      return path.replace(NOVEL_STORAGE, serverUrl);
+    if (!serverUrl) {
+      return path;
+    }
+
+    // A bare or relative name is an asset inside a chapter directory, so it has
+    // to be anchored to that chapter on the local server instead of being
+    // handed back unresolved.
+    if (path && !isAbsoluteUri(path)) {
+      return getLocalFileUrl(path);
+    }
+
+    if (path.startsWith(NOVEL_STORAGE)) {
+      return path.replace(NOVEL_STORAGE, `${serverUrl}/Novels`);
     }
     return path;
   }

@@ -40,7 +40,6 @@ jest.mock('@components/Appbar/Appbar', () => () => null);
 
 const SECTION_LABEL_KEYS = [
   'backupScreen.includeNovels',
-  'backupScreen.includeDownloadedFiles',
   'backupScreen.includeCategories',
   'backupScreen.includeRepositories',
   'backupScreen.includeSettings',
@@ -91,6 +90,19 @@ describe('SettingsBackupScreen backup sections', () => {
     });
   });
 
+  it('no longer offers a downloaded-files section', () => {
+    renderScreen();
+
+    // The string key was removed with the row, so assert on the row list
+    // instead of on a `getString` lookup that can no longer type-check.
+    expect(SECTION_LABEL_KEYS).not.toContain(
+      'backupScreen.includeDownloadedFiles',
+    );
+    SECTION_LABEL_KEYS.forEach(key => {
+      expect(screen.queryByText(getString(key))).toBeTruthy();
+    });
+  });
+
   it('keeps the existing backup actions intact', () => {
     renderScreen();
 
@@ -105,16 +117,15 @@ describe('SettingsBackupScreen backup sections', () => {
     const { result } = renderHook(() => useBackupOptions());
     renderScreen();
 
-    expect(result.current.backupDownloadedFiles).toBe(true);
+    expect(result.current.backupRepositories).toBe(true);
 
     fireEvent.press(
-      screen.getByText(getString('backupScreen.includeDownloadedFiles')),
+      screen.getByText(getString('backupScreen.includeRepositories')),
     );
 
-    expect(result.current.backupDownloadedFiles).toBe(false);
+    expect(result.current.backupRepositories).toBe(false);
     expect(result.current.backupNovels).toBe(true);
     expect(result.current.backupCategories).toBe(true);
-    expect(result.current.backupRepositories).toBe(true);
     expect(result.current.backupSettings).toBe(true);
   });
 });

@@ -1,4 +1,3 @@
-import { getBackupOptions } from '@hooks/persisted/useBackupOptions';
 import {
   keepLocalCopy,
   pick,
@@ -12,10 +11,8 @@ import NativeZipArchive from '@specs/NativeZipArchive';
 import { getString } from '@strings/translations';
 import { showToast } from '@utils/showToast';
 import { sleep } from '@utils/sleep';
-import { ROOT_STORAGE } from '@utils/Storages';
 import dayjs from 'dayjs';
 
-import { ZipBackupName } from '../types';
 import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
 
 const BTAG = '[Backup]';
@@ -40,7 +37,7 @@ export const createBackup = async (
     setMeta?.(meta => ({
       ...meta,
       isRunning: true,
-      progress: 0 / 4,
+      progress: 0 / 3,
       progressText: getString('backupScreen.preparingData'),
     }));
 
@@ -52,35 +49,9 @@ export const createBackup = async (
 
     checkAborted(signal);
 
-    if (getBackupOptions().backupDownloadedFiles) {
-      setMeta?.(meta => ({
-        ...meta,
-        progress: 1 / 4,
-        progressText: getString('backupScreen.uploadingDownloadedFiles'),
-      }));
-
-      await sleep(200);
-
-      checkAborted(signal);
-
-      DebugLogService.addEntry('log', `${BTAG} Zipping downloaded files...`);
-      await NativeZipArchive.zip(
-        ROOT_STORAGE,
-        CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD,
-      );
-      DebugLogService.addEntry('log', `${BTAG} Downloaded files zipped`);
-    } else {
-      DebugLogService.addEntry(
-        'log',
-        `${BTAG} Skipping downloaded files (disabled in backup settings)`,
-      );
-    }
-
-    checkAborted(signal);
-
     setMeta?.(meta => ({
       ...meta,
-      progress: 2 / 4,
+      progress: 1 / 3,
       progressText: getString('backupScreen.uploadingData'),
     }));
 
@@ -96,7 +67,7 @@ export const createBackup = async (
 
     setMeta?.(meta => ({
       ...meta,
-      progress: 3 / 4,
+      progress: 2 / 3,
       progressText: getString('backupScreen.savingBackup'),
     }));
 
@@ -115,7 +86,7 @@ export const createBackup = async (
 
     setMeta?.(meta => ({
       ...meta,
-      progress: 4 / 4,
+      progress: 3 / 3,
       isRunning: false,
     }));
 
@@ -151,7 +122,7 @@ export const restoreBackup = async (
     setMeta?.(meta => ({
       ...meta,
       isRunning: true,
-      progress: 0 / 4,
+      progress: 0 / 3,
       progressText: getString('backupScreen.downloadingData'),
     }));
 
@@ -186,7 +157,7 @@ export const restoreBackup = async (
 
     setMeta?.(meta => ({
       ...meta,
-      progress: 1 / 4,
+      progress: 1 / 3,
       progressText: getString('backupScreen.restoringData'),
     }));
 
@@ -198,7 +169,7 @@ export const restoreBackup = async (
 
     setMeta?.(meta => ({
       ...meta,
-      progress: 2 / 4,
+      progress: 2 / 3,
       progressText: getString('backupScreen.restoringData'),
     }));
 
@@ -210,23 +181,7 @@ export const restoreBackup = async (
 
     setMeta?.(meta => ({
       ...meta,
-      progress: 3 / 4,
-      progressText: getString('backupScreen.downloadingDownloadedFiles'),
-    }));
-
-    await sleep(200);
-
-    DebugLogService.addEntry('log', `${BTAG} Restoring downloaded files...`);
-    // TODO: unlink here too?
-    await NativeZipArchive.unzip(
-      CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD,
-      ROOT_STORAGE,
-    );
-    DebugLogService.addEntry('log', `${BTAG} Downloaded files restored`);
-
-    setMeta?.(meta => ({
-      ...meta,
-      progress: 4 / 4,
+      progress: 3 / 3,
       isRunning: false,
     }));
 

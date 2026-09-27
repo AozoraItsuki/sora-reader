@@ -10,10 +10,6 @@ export interface BackupOptions {
    */
   backupNovels: boolean;
   /**
-   * Downloaded chapter files (ROOT_STORAGE archive)
-   */
-  backupDownloadedFiles: boolean;
-  /**
    * Novel categories (Category.json)
    */
   backupCategories: boolean;
@@ -35,7 +31,6 @@ export interface BackupOptions {
  */
 export const initialBackupOptions: BackupOptions = {
   backupNovels: true,
-  backupDownloadedFiles: true,
   backupCategories: true,
   backupRepositories: true,
   backupSettings: true,

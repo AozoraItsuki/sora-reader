@@ -10,7 +10,7 @@ import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
 
-import { BackupEntryName, ZipBackupName } from '../types';
+import { BackupEntryName } from '../types';
 import { prepareBackupData, restoreData } from '../utils';
 
 jest.mock('@hooks/persisted', () => ({
@@ -221,7 +221,6 @@ describe('prepareBackupData', () => {
   it('drops entries left over by a previous backup', async () => {
     setOptions({
       backupNovels: false,
-      backupDownloadedFiles: false,
       backupCategories: false,
       backupRepositories: false,
       backupSettings: false,
@@ -233,7 +232,6 @@ describe('prepareBackupData', () => {
 
     expect(clearedPaths()).toEqual([
       `${CACHE_DIR}/${BackupEntryName.NOVEL_AND_CHAPTERS}`,
-      `${CACHE_DIR}/${ZipBackupName.DOWNLOAD}`,
       `${CACHE_DIR}/${BackupEntryName.CATEGORY}`,
       `${CACHE_DIR}/${BackupEntryName.REPOSITORY}`,
       `${CACHE_DIR}/${BackupEntryName.SETTING}`,

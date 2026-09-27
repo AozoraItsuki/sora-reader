@@ -1,13 +1,16 @@
 import { dbManager } from '@database/db';
 import { chapterSchema, novelSchema } from '@database/schema';
 import { NOVEL_UPDATE_RANDOM_KEY } from '@hooks/persisted/useUpdates';
-import { downloadFile } from '@plugins/helpers/fetch';
 import { getPlugin, LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { ChapterItem, SourceNovel } from '@plugins/types';
+import {
+  safDownloadFile,
+  safMkdir,
+  safUnlink,
+} from '@services/saf/safFile';
 import ServiceManager from '@services/ServiceManager';
-import NativeFile from '@specs/NativeFile';
+import { chapterRel, coverRel, novelDirRel } from '@utils/DownloadPaths';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { NOVEL_STORAGE } from '@utils/Storages';
 import { and, eq, inArray, ne } from 'drizzle-orm';
 
 import { fetchNovel, fetchPage } from '../plugin/fetch';
@@ -22,22 +25,19 @@ const updateNovelMetadata = async (
 ) => {
   const { name, summary, author, artist, genres, tags, status, totalPages } = novel;
   let { cover } = novel;
-  const novelDir = `${NOVEL_STORAGE}/${pluginId}/${novelId}`;
 
-  if (!NativeFile.exists(novelDir)) {
-    NativeFile.mkdir(novelDir);
-  }
+  await safMkdir(novelDirRel(pluginId, novelId));
 
   if (cover) {
-    const novelCoverPath = `${novelDir}/cover.png`;
-    const novelCoverUri = `file://${novelCoverPath}`;
+    // DB stores a TREE-RELATIVE cover path (no file:// prefix).
+    const novelCoverRel = coverRel(pluginId, novelId);
     try {
-      await downloadFile(
+      await safDownloadFile(
         cover,
-        novelCoverPath,
+        novelCoverRel,
         getPlugin(pluginId)?.imageRequestInit,
       );
-      cover = `${novelCoverUri}?${Date.now()}`;
+      cover = `${novelCoverRel}?${Date.now()}`;
     } catch {
       // If download fails, we fallback to what was there or null
       cover = undefined;
@@ -182,10 +182,7 @@ const updateNovelChapters = async (
   // 5. Execute Deletions
   if (toDelete.length > 0) {
     for (const chapterId of toDelete) {
-      const chapterDir = `${NOVEL_STORAGE}/${pluginId}/${novelId}/${chapterId}`;
-      if (NativeFile.exists(chapterDir)) {
-        NativeFile.unlink(chapterDir);
-      }
+      await safUnlink(chapterRel(pluginId, novelId, chapterId));
     }
     const CHUNK_SIZE = 500;
     for (let i = 0; i < toDelete.length; i += CHUNK_SIZE) {
@@ -235,6 +232,7 @@ const updateNovelChapters = async (
           name: 'DOWNLOAD_CHAPTER',
           data: {
             chapterId: chap.id,
+            novelId,
             novelName,
             chapterName: chapterNameByPath.get(chap.path) || chap.name,
           },

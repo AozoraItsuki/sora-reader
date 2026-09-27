@@ -17,7 +17,6 @@ describe('useBackupOptions', () => {
     const { result } = renderHook(() => useBackupOptions());
 
     expect(result.current.backupNovels).toBe(true);
-    expect(result.current.backupDownloadedFiles).toBe(true);
     expect(result.current.backupCategories).toBe(true);
     expect(result.current.backupRepositories).toBe(true);
     expect(result.current.backupSettings).toBe(true);
@@ -27,14 +26,20 @@ describe('useBackupOptions', () => {
     const { result } = renderHook(() => useBackupOptions());
 
     act(() => {
-      result.current.setBackupOptions({ backupDownloadedFiles: false });
+      result.current.setBackupOptions({ backupRepositories: false });
     });
 
-    expect(result.current.backupDownloadedFiles).toBe(false);
+    expect(result.current.backupRepositories).toBe(false);
     expect(result.current.backupNovels).toBe(true);
     expect(result.current.backupCategories).toBe(true);
-    expect(result.current.backupRepositories).toBe(true);
     expect(result.current.backupSettings).toBe(true);
+  });
+
+  it('no longer exposes a downloaded-files section', () => {
+    const { result } = renderHook(() => useBackupOptions());
+
+    expect(result.current).not.toHaveProperty('backupDownloadedFiles');
+    expect(initialBackupOptions).not.toHaveProperty('backupDownloadedFiles');
   });
 
   it('exposes the persisted value to a fresh consumer', () => {

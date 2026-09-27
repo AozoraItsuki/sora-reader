@@ -6,6 +6,7 @@ import { defaultCover } from '@plugins/helpers/constants';
 import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { useNavigation } from '@react-navigation/native';
 import { coverPlaceholderColor } from '@theme/colors';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import Color from 'color';
 import dayjs from 'dayjs';
 import React from 'react';
@@ -64,7 +65,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
     >
       <Pressable onPress={navigateToNovel} style={styles.coverWrapper}>
         <Image
-          source={{ uri: history.novelCover || defaultCover }}
+          source={{ uri: resolveDownloadUrl(history.novelCover) || defaultCover }}
           style={styles.cover}
         />
         {progress > 0 && (

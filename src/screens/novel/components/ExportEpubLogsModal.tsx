@@ -5,17 +5,109 @@ import { NovelInfo } from '@database/types';
 import { useTheme } from '@hooks/persisted';
 import EpubBuilder from '@modules/react-native-epub-creator';
 import { resolveUrl } from '@services/plugin/fetch';
+import { isSafReady, safExists, safReadFile } from '@services/saf/safFile';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { APP_NAME } from '@utils/constants/metadata';
+import {
+  chapterIndexRel,
+  chapterRel,
+  isAbsoluteUri,
+  legacyDownloadPath,
+  resolveDownloadUrl,
+} from '@utils/DownloadPaths';
 import { showToast } from '@utils/showToast';
-import { NOVEL_STORAGE } from '@utils/Storages';
 import * as Notifications from 'expo-notifications';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Portal } from 'react-native-paper';
 
 import { version as appVersion } from '../../../../package.json';
+
+/** Only image-looking assets are worth resolving and dropping. */
+const IMAGE_EXT_REGEX = /\.(?:png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+
+const IMG_TAG_REGEX = /<img\b[^>]*>/gi;
+const SRC_ATTR_REGEX = /\bsrc\s*=\s*["']([^"']*)["']/i;
+
+/** Every `src` referenced by an `<img>` tag, in document order. */
+const collectImageSources = (html: string): string[] => {
+  const sources: string[] = [];
+  for (const tag of html.matchAll(IMG_TAG_REGEX)) {
+    const src = SRC_ATTR_REGEX.exec(tag[0])?.[1];
+    if (src) {
+      sources.push(src);
+    }
+  }
+  return sources;
+};
+
+/**
+ * Tree-relative location of an image referenced by a chapter, or `null` when
+ * the reference is not a chapter-local asset (remote URL, data URI, or an
+ * absolute path outside this chapter) and must therefore be left alone.
+ */
+const chapterImageRel = (
+  src: string,
+  pluginId: string,
+  novelId: number,
+  chapterId: number,
+): string | null => {
+  const bare = src.split(/[?#]/)[0];
+  if (!bare) {
+    return null;
+  }
+
+  const chapterDir = chapterRel(pluginId, novelId, chapterId);
+
+  if (isAbsoluteUri(bare)) {
+    // Legacy `file://.../<chapterDir>/<name>` form: keep only what lives inside
+    // this chapter, everything else is handled elsewhere.
+    const legacyDir = `${legacyDownloadPath(chapterDir)}/`;
+    const at = bare.lastIndexOf(legacyDir);
+    if (at < 0) {
+      return null;
+    }
+    const name = bare.slice(at + legacyDir.length);
+    return name && IMAGE_EXT_REGEX.test(name)
+      ? `${chapterDir}/${name}`
+      : null;
+  }
+
+  if (!IMAGE_EXT_REGEX.test(bare)) {
+    return null;
+  }
+  return bare.startsWith('Novels/') ? bare : `${chapterDir}/${bare}`;
+};
+
+/** `true` when a tree-relative download asset is present in the SAF tree. */
+const chapterAssetExists = async (relativePath: string): Promise<boolean> => {
+  if (isSafReady()) {
+    try {
+      if (await safExists(relativePath)) {
+        return true;
+      }
+    } catch {
+      // Fall through to the legacy location.
+    }
+  }
+  return NativeFile.exists(legacyDownloadPath(relativePath));
+};
+
+/** Read a downloaded chapter's `index.html`, or `null` when not downloaded. */
+const readDownloadedChapterHtml = async (
+  relativePath: string,
+): Promise<string | null> => {
+  if (isSafReady()) {
+    try {
+      return await safReadFile(relativePath);
+    } catch {
+      // Fall through to the legacy location.
+    }
+  }
+  const legacyPath = legacyDownloadPath(relativePath);
+  return NativeFile.exists(legacyPath) ? NativeFile.readFile(legacyPath) : null;
+};
 
 interface ExportEpubLogsModalProps {
   visible: boolean;
@@ -103,7 +195,9 @@ export default function ExportEpubLogsModal({
           title: novel.name,
           fileName: novel.name.replace(/[\\/:*?"<>|\s]/g, '') || 'novel',
           language: 'en',
-          cover: novel.cover ?? undefined,
+          // The EPUB builder fetches non-internal sources over HTTP, so a
+          // tree-relative cover is served by the local server here.
+          cover: resolveDownloadUrl(novel.cover),
           description: novel.summary ?? undefined,
           author: novel.author ?? undefined,
           bookId: novel.pluginId.toString(),
@@ -151,46 +245,46 @@ export default function ExportEpubLogsModal({
           }),
         );
 
-        const chapterFilePath = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}/${chapter.id}/index.html`;
+        const chapterContent = await readDownloadedChapterHtml(
+          chapterIndexRel(novel.pluginId, novel.id, chapter.id),
+        );
 
-        if (NativeFile.exists(chapterFilePath)) {
-          let chapterContent = NativeFile.readFile(chapterFilePath);
+        if (chapterContent !== null) {
+          let content = chapterContent;
 
-          const chapterDir = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}/${chapter.id}`;
-          const escapedDir = chapterDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const imagePathRegex = new RegExp(
-            `file://(${escapedDir}/[^"'\\s]+)`,
-            'g',
-          );
-
-          for (const match of chapterContent.matchAll(imagePathRegex)) {
-            const imagePath = match[1];
-            if (imagePath && !NativeFile.exists(imagePath)) {
-              const escapedPath = imagePath.replace(
-                /[.*+?^${}()|[\]\\]/g,
-                '\\$&',
-              );
-              const figureRegex = new RegExp(
-                `<figure[^>]*>.*?${escapedPath}.*?</figure>`,
-                'gs',
-              );
-
-              chapterContent = chapterContent.replace(figureRegex, '');
-
-              const imgRegex = new RegExp(
-                `<img[^>]*${escapedPath}[^>]*\\/?>`,
-                'g',
-              );
-
-              chapterContent = chapterContent.replace(imgRegex, '');
+          // Images are rewritten to bare names when a chapter is downloaded, so
+          // they have to be resolved against the chapter directory before we can
+          // tell whether the export can actually embed them.
+          for (const src of collectImageSources(content)) {
+            const assetRel = chapterImageRel(
+              src,
+              novel.pluginId,
+              novel.id,
+              chapter.id,
+            );
+            if (!assetRel || (await chapterAssetExists(assetRel))) {
+              continue;
             }
+
+            const escapedSrc = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            content = content.replace(
+              new RegExp(
+                `<figure[^>]*>[\\s\\S]*?${escapedSrc}[\\s\\S]*?</figure>`,
+                'g',
+              ),
+              '',
+            );
+            content = content.replace(
+              new RegExp(`<img\\b[^>]*${escapedSrc}[^>]*\\/?>`, 'g'),
+              '',
+            );
           }
 
           epub.addChapter({
             title:
               chapter.name?.trim() || `Chapter ${chapter.chapterNumber || i}`,
             fileName: `Chapter${i}`,
-            htmlBody: `<section epub:type="chapter" data-epub-chapter data-novel-id="${novel.pluginId}" data-chapter-id="${chapter.id}">${chapterContent}</section>`,
+            htmlBody: `<section epub:type="chapter" data-epub-chapter data-novel-id="${novel.pluginId}" data-chapter-id="${chapter.id}">${content}</section>`,
           });
 
           addedChapters++;

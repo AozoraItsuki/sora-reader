@@ -7,6 +7,7 @@ import { ImageRequestInit, NovelItem } from '@plugins/types';
 import SourceScreenSkeletonLoading from '@screens/browse/loadingAnimation/SourceScreenSkeletonLoading';
 import { DisplayModes } from '@screens/library/constants/constants';
 import { getString } from '@strings/translations';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { ThemeColors } from '@theme/types';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useMemo } from 'react';
@@ -168,7 +169,7 @@ function NovelCover<
 
   const selectNovel = () => onLongPress(item);
 
-  const uri = item.cover || defaultCover;
+  const uri = resolveDownloadUrl(item.cover) || defaultCover;
   const requestInit = useMemo(() => {
     const init = imageRequestInit || ({} as ImageRequestInit);
     if (init.headers) {

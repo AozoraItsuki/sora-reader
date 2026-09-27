@@ -68,8 +68,100 @@ jest.mock('@strings/translations', () => ({
 }));
 
 jest.mock('@utils/Storages', () => ({
+  ROOT_STORAGE: '/mock/storage',
+  PLUGIN_STORAGE: '/mock/storage/Plugins',
   NOVEL_STORAGE: '/mock/novel/storage',
 }));
+
+// Mock the SAF layer's native + RN dependencies: this project runs in a plain
+// node environment where TurboModuleRegistry is unavailable.
+jest.mock('@specs/NativeSaf', () => ({
+  __esModule: true,
+  default: {
+    takePersistablePermission: jest.fn().mockResolvedValue(true),
+    releaseTreeUri: jest.fn().mockResolvedValue(true),
+    hasTreeAccess: jest.fn().mockResolvedValue(true),
+    mkdir: jest.fn().mockResolvedValue(true),
+    exists: jest.fn().mockResolvedValue(false),
+    isDirectory: jest.fn().mockResolvedValue(false),
+    writeFile: jest.fn().mockResolvedValue(true),
+    readFile: jest.fn().mockResolvedValue(''),
+    unlink: jest.fn().mockResolvedValue(true),
+    readDir: jest.fn().mockResolvedValue([]),
+    move: jest.fn().mockResolvedValue(true),
+    getFileSize: jest.fn().mockResolvedValue(0),
+    downloadFile: jest.fn().mockResolvedValue(true),
+  },
+}));
+
+jest.mock('@react-native-documents/picker', () => ({
+  pickDirectory: jest.fn().mockResolvedValue([]),
+  keepLocalCopy: jest.fn().mockResolvedValue([]),
+  pick: jest.fn().mockResolvedValue([]),
+  saveDocuments: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock('react-native-saf-x', () => ({
+  __esModule: true,
+  hasPermission: jest.fn().mockResolvedValue(false),
+  exists: jest.fn().mockResolvedValue(false),
+  mkdir: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(true),
+  stat: jest.fn().mockResolvedValue({ type: 'file' }),
+  listFiles: jest.fn().mockResolvedValue([]),
+  readFile: jest.fn().mockResolvedValue(''),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+  copyFile: jest.fn().mockResolvedValue(undefined),
+  moveFile: jest.fn().mockResolvedValue(undefined),
+  default: {},
+}));
+
+jest.mock('expo-file-system/legacy', () => ({
+  EncodingType: { UTF8: 'utf8', Base64: 'base64' },
+  readAsStringAsync: jest.fn().mockResolvedValue(''),
+  StorageAccessFramework: {
+    requestDirectoryPermissionsAsync: jest
+      .fn()
+      .mockResolvedValue({ granted: false }),
+    readDirectoryAsync: jest.fn().mockResolvedValue([]),
+    createFileAsync: jest.fn().mockResolvedValue(''),
+    moveAsync: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock('@plugins/local/localServerManager', () => ({
+  getLocalServerUrl: jest.fn(() => 'http://127.0.0.1:8080/'),
+}));
+
+// In-memory MMKV so the SAF layer's MMKV-backed flags work in the node project.
+jest.mock('react-native-mmkv', () => {
+  const store = new Map<string, string | number | boolean>();
+  return {
+    createMMKV: () => ({
+      set: (key: string, value: string | number | boolean) => {
+        store.set(key, value);
+      },
+      getString: (key: string) => {
+        const value = store.get(key);
+        return typeof value === 'string' ? value : undefined;
+      },
+      getNumber: (key: string) => {
+        const value = store.get(key);
+        return typeof value === 'number' ? value : undefined;
+      },
+      getBoolean: (key: string) => {
+        const value = store.get(key);
+        return typeof value === 'boolean' ? value : undefined;
+      },
+      contains: (key: string) => store.has(key),
+      remove: (key: string) => {
+        store.delete(key);
+      },
+      clearAll: () => store.clear(),
+      getAllKeys: () => Array.from(store.keys()),
+    }),
+  };
+});
 
 // Mock NativeFile
 jest.mock('@specs/NativeFile', () => ({

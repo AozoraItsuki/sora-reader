@@ -104,6 +104,32 @@ jest.mock('@react-native-documents/picker', () => ({
   pick: jest.fn(() => Promise.resolve([])),
   keepLocalCopy: jest.fn(() => Promise.resolve([])),
   saveDocuments: jest.fn(() => Promise.resolve([])),
+  pickDirectory: jest.fn(() => Promise.resolve({ uri: 'content://mock/tree' })),
+  isErrorWithCode: jest.fn(() => false),
+  errorCodes: {
+    OPERATION_CANCELED: 'OPERATION_CANCELED',
+    IN_PROGRESS: 'IN_PROGRESS',
+    UNABLE_TO_OPEN_FILE_TYPE: 'UNABLE_TO_OPEN_FILE_TYPE',
+  },
+}));
+
+jest.mock('@specs/NativeSaf', () => ({
+  __esModule: true,
+  default: {
+    takePersistablePermission: jest.fn().mockResolvedValue(true),
+    releaseTreeUri: jest.fn().mockResolvedValue(true),
+    hasTreeAccess: jest.fn().mockResolvedValue(true),
+    mkdir: jest.fn().mockResolvedValue(true),
+    exists: jest.fn().mockResolvedValue(false),
+    isDirectory: jest.fn().mockResolvedValue(false),
+    writeFile: jest.fn().mockResolvedValue(true),
+    readFile: jest.fn().mockResolvedValue(''),
+    unlink: jest.fn().mockResolvedValue(true),
+    readDir: jest.fn().mockResolvedValue([]),
+    move: jest.fn().mockResolvedValue(true),
+    getFileSize: jest.fn().mockResolvedValue(0),
+    downloadFile: jest.fn().mockResolvedValue(true),
+  },
 }));
 
 jest.mock('@specs/NativeLocalServer', () => ({
@@ -111,6 +137,27 @@ jest.mock('@specs/NativeLocalServer', () => ({
   default: {
     start: jest.fn().mockResolvedValue(true),
     stop: jest.fn().mockResolvedValue(true),
+    startServer: jest.fn().mockResolvedValue(8080),
+    stopServer: jest.fn().mockResolvedValue(undefined),
+    getServerUrl: jest.fn(() => 'http://127.0.0.1:8080'),
+    setAllowProxyAPI: jest.fn(),
+    setSafTreeUri: jest.fn(),
+  },
+}));
+
+jest.mock('react-native-saf-x', () => ({
+  __esModule: true,
+  default: {
+    hasPermission: jest.fn(async () => false),
+    exists: jest.fn(async () => false),
+    mkdir: jest.fn(async () => undefined),
+    unlink: jest.fn(async () => undefined),
+    stat: jest.fn(async () => ({ type: 'file', size: 0 })),
+    listFiles: jest.fn(async () => []),
+    readFile: jest.fn(async () => ''),
+    writeFile: jest.fn(async () => undefined),
+    copyFile: jest.fn(async () => undefined),
+    moveFile: jest.fn(async () => undefined),
   },
 }));
 

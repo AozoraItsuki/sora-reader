@@ -12,6 +12,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import com.AozoraItsuki.NativeFile.NativePackage
+import com.AozoraItsuki.NativeSaf.NativeSafPackage
 import com.AozoraItsuki.NativeSPenRemote.NativeSPenRemotePackage
 import com.AozoraItsuki.NativeVolumeButtonListener.NativeVolumeButtonListenerPackage
 import com.AozoraItsuki.NativeTTSMediaControl.NativeTTSMediaControlPackage
@@ -32,6 +33,7 @@ class MainApplication : Application(), ReactApplication {
             packageList =
                 PackageList(this).packages.apply {
                     add(NativePackage())
+                    add(NativeSafPackage())
                     add(NativeSPenRemotePackage())
                     add(NativeTTSMediaControlPackage())
                     add(NativeVolumeButtonListenerPackage())

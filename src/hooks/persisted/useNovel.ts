@@ -2,9 +2,9 @@ import {
   deleteCachedNovels as deleteCachedNovelsFromDb,
   getCachedNovels,
 } from '@database/queries/NovelQueries';
-import NativeFile from '@specs/NativeFile';
+import { safUnlink } from '@services/saf/safFile';
+import { novelDirRel } from '@utils/DownloadPaths';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { NOVEL_STORAGE } from '@utils/Storages';
 
 import {
   defaultNovelSettings,
@@ -52,9 +52,10 @@ export const deleteCachedNovels = async () => {
       novelPath: novel.path,
     });
 
-    const novelDir = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}`;
-    if (NativeFile.exists(novelDir)) {
-      NativeFile.unlink(novelDir);
+    try {
+      await safUnlink(novelDirRel(novel.pluginId, novel.id));
+    } catch (e) {
+      console.error('[deleteCachedNovels] Failed to delete files:', e);
     }
   }
 

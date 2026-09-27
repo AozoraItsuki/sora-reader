@@ -1,6 +1,8 @@
 import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
+import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { APP_GITHUB, APP_NAME } from '@utils/constants/metadata';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import * as FileSystem from 'expo-file-system/legacy';
 import { AppState, AppStateStatus, InteractionManager } from 'react-native';
@@ -264,19 +266,43 @@ export class DiscordRPCManager {
     return activity;
   }
 
+  /**
+   * Copy a tree-relative download path into the cache so it can be uploaded
+   * from a real file. Returns `null` when the local server cannot serve it.
+   */
+  private async stageDownloadedCover(
+    relativePath: string,
+  ): Promise<string | null> {
+    const url = resolveDownloadUrl(relativePath);
+    if (!url || !/^https?:\/\//i.test(url)) return null;
+    const target = `${NativeFile.getConstants().ExternalCachesDirectoryPath}/discord-cover-${relativePath.replace(
+      /[^a-z0-9]+/gi,
+      '_',
+    )}`;
+    const result = await FileSystem.downloadAsync(url, target);
+    return result?.uri ?? null;
+  }
+
   private async resolveCoverForRPC(
     cover?: string | null,
   ): Promise<string | null> {
     if (!cover) return null;
     let uploadUrl = cover;
-    if (cover.startsWith('file://')) {
+    // Anything that is not already a public URL has to be uploaded. That covers
+    // the legacy `file://` cover as well as a tree-relative download path, which
+    // is only reachable through the local HTTP server.
+    if (!/^https?:\/\//i.test(cover)) {
       if (this.uploadedImages.has(cover)) {
         uploadUrl = this.uploadedImages.get(cover)!;
       } else {
         try {
+          const localUri = cover.startsWith('file://')
+            ? cover
+            : await this.stageDownloadedCover(cover);
+          if (!localUri) return null;
           const res = await FileSystem.uploadAsync(
             'https://tmpfiles.org/api/v1/upload',
-            cover,
+            localUri,
             {
               fieldName: 'file',
               httpMethod: 'POST',

@@ -41,11 +41,18 @@ import { showToast } from '@utils/showToast';
 import { ROOT_STORAGE } from '@utils/Storages';
 
 import { version } from '../../../package.json';
-import { BackupEntryName, ZipBackupName } from './types';
+import { BackupEntryName } from './types';
 
 const BTAG = '[Backup]';
 
 const APP_STORAGE_URI = 'file://' + ROOT_STORAGE;
+
+/**
+ * Novel covers are stored in the DB as SAF-tree-relative paths
+ * (`Novels/{pluginId}/{novelId}/cover.png`), with an optional `?cacheBuster`
+ * query param. Backups keep them verbatim.
+ */
+const stripCoverCacheBuster = (cover: string) => cover.split('?')[0];
 
 export const CACHE_DIR_PATH =
   NativeFile.getConstants().ExternalCachesDirectoryPath + '/BackupData';
@@ -104,7 +111,6 @@ export const prepareBackupData = async (cacheDirPath: string) => {
   // previous backup (including a previous downloaded-files archive) must be
   // dropped, otherwise a disabled section would still end up in the archive.
   removeIfExists(novelDirPath);
-  removeIfExists(cacheDirPath + '/' + ZipBackupName.DOWNLOAD);
   removeIfExists(cacheDirPath + '/' + BackupEntryName.CATEGORY);
   removeIfExists(cacheDirPath + '/' + BackupEntryName.REPOSITORY);
   removeIfExists(cacheDirPath + '/' + BackupEntryName.SETTING);
@@ -171,7 +177,10 @@ export const prepareBackupData = async (cacheDirPath: string) => {
             JSON.stringify({
               chapters: backupChapters,
               ...novel,
-              cover: novel.cover?.replace(APP_STORAGE_URI, ''),
+              // Covers are SAF-tree-relative; drop only the cache-buster.
+              cover: novel.cover
+                ? stripCoverCacheBuster(novel.cover)
+                : novel.cover,
             }),
           );
         } catch (error: any) {
@@ -337,8 +346,17 @@ export const restoreData = async (cacheDirPath: string) => {
                 } (${backupNovel.chapters.length} chapters)`,
               );
 
-              if (!backupNovel.cover?.startsWith('http')) {
-                backupNovel.cover = APP_STORAGE_URI + backupNovel.cover;
+              if (
+                backupNovel.cover &&
+                !backupNovel.cover.startsWith('http') &&
+                !backupNovel.cover.startsWith('Novels/')
+              ) {
+                // Legacy absolute app-storage cover: normalize to a tree-relative
+                // path. Already-relative covers are kept as-is.
+                backupNovel.cover = backupNovel.cover.replace(
+                  APP_STORAGE_URI + '/Novels/',
+                  'Novels/',
+                );
               }
 
               await _restoreNovelAndChapters(backupNovel);

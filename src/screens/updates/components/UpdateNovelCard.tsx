@@ -13,6 +13,7 @@ import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import ChapterItem from '@screens/novel/components/ChapterItem';
 import { ThemeColors } from '@theme/types';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
@@ -142,7 +143,7 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const coverElement = useMemo(() => {
-    const uri = chapterListInfo.novelCover || defaultCover;
+    const uri = resolveDownloadUrl(chapterListInfo.novelCover) || defaultCover;
     return (
       <View style={styles.novelCover}>
         <Pressable onPress={navigateToNovel} style={styles.alignSelf}>
@@ -159,7 +160,7 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   ]);
 
   const renderLeft = useCallback(() => {
-    const uri = chapterListInfo.novelCover || defaultCover;
+    const uri = resolveDownloadUrl(chapterListInfo.novelCover) || defaultCover;
     return (
       <Pressable onPress={navigateToNovel} style={styles.alignSelf}>
         <Image source={{ uri }} style={styles.cover} />

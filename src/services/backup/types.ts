@@ -1,6 +1,5 @@
 export enum ZipBackupName {
   DATA = 'data.zip',
-  DOWNLOAD = 'download.zip',
 }
 
 export enum BackupEntryName {

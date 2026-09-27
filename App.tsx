@@ -14,6 +14,7 @@ import { CloudflareSolverOverlay } from '@plugins/helpers/CloudflareSolverOverla
 import { initLocalServer } from '@plugins/local/localServerManager';
 import AppLockOverlay, { useAppLock } from '@screens/more/AppLockScreen';
 import ServiceManager from '@services/ServiceManager';
+import { runSafMigration } from '@services/saf/migrateToSaf';
 import { getString } from '@strings/translations';
 import { restoreNativeProxyFromStorage } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
@@ -148,7 +149,12 @@ const App = () => {
 
   useEffect(() => {
     if (state.success) {
-      initLocalServer();
+      // The server has to know the download tree before the existing downloads
+      // can be moved into it, so migration runs after the server is up.
+      void (async () => {
+        await initLocalServer();
+        await runSafMigration();
+      })();
     }
   }, [state.success]);
 

@@ -29,7 +29,6 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
 
   const {
     backupNovels,
-    backupDownloadedFiles,
     backupCategories,
     backupRepositories,
     backupSettings,
@@ -53,17 +52,6 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
             description={getString('backupScreen.includeNovelsDesc')}
             value={backupNovels}
             onPress={() => setBackupOptions({ backupNovels: !backupNovels })}
-            theme={theme}
-          />
-          <SwitchItem
-            label={getString('backupScreen.includeDownloadedFiles')}
-            description={getString('backupScreen.includeDownloadedFilesDesc')}
-            value={backupDownloadedFiles}
-            onPress={() =>
-              setBackupOptions({
-                backupDownloadedFiles: !backupDownloadedFiles,
-              })
-            }
             theme={theme}
           />
           <SwitchItem

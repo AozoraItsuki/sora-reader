@@ -34,6 +34,7 @@ import TextSizeSlider from './ReaderBottomSheet/TextSizeSlider';
 import TTSTab from './ReaderBottomSheet/TTSTab';
 import TranslateTab from './ReaderBottomSheet/TranslateTab';
 import { getString } from '@strings/translations';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { StringMap } from '@strings/types';
 
 const SCREEN_HEIGHT = Dimensions.get('screen').height;
@@ -251,7 +252,11 @@ const ChapterFooter = ({
                 activeOpacity={0.75}
               >
                 {novel.cover ? (
-                  <Image source={{ uri: novel.cover }} style={styles.novelCover} resizeMode="cover" />
+                  <Image
+                    source={{ uri: resolveDownloadUrl(novel.cover) }}
+                    style={styles.novelCover}
+                    resizeMode="cover"
+                  />
                 ) : null}
                 <View style={styles.novelTextWrap}>
                   <Text style={[styles.novelSuperLabel, { color: theme.onSurfaceVariant }]}>NOVEL</Text>
