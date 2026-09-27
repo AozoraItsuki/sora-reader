@@ -1,5 +1,6 @@
 import {
   _legacyAbsPath,
+  hasLegacyDownloads,
   relativizeCoverPath,
   rewriteChapterHtml,
   runSafMigration,
@@ -214,9 +215,9 @@ describe('relativizeCoverPath', () => {
   });
 
   it('tolerates being handed ROOT_STORAGE instead of NOVEL_STORAGE', () => {
-    expect(relativizeCoverPath('file:///root/Novels/p1/1/cover.png', '/root')).toBe(
-      'Novels/p1/1/cover.png',
-    );
+    expect(
+      relativizeCoverPath('file:///root/Novels/p1/1/cover.png', '/root'),
+    ).toBe('Novels/p1/1/cover.png');
   });
 
   it('drops the cache-buster from a legacy cover', () => {
@@ -242,6 +243,31 @@ describe('_legacyAbsPath', () => {
     expect(_legacyAbsPath(OLD_ROOT, 'Novels/p1/1/cover.png')).toBe(
       `${OLD_ROOT}/p1/1/cover.png`,
     );
+  });
+});
+
+describe('hasLegacyDownloads', () => {
+  it('returns false when the legacy root is absent', () => {
+    expect(hasLegacyDownloads()).toBe(false);
+  });
+
+  it('returns true when a legacy file exists under the root', () => {
+    mockLegacyFiles.set('/root/Novels/en/1/cover.png', 'png');
+    expect(hasLegacyDownloads()).toBe(true);
+  });
+
+  it('returns false when NativeFile throws', () => {
+    mockLegacyFiles.set('/root/Novels/en/1/cover.png', 'png');
+    const spy = jest
+      .spyOn(require('@specs/NativeFile').default, 'exists')
+      .mockImplementationOnce(() => {
+        throw new Error('boom');
+      });
+    try {
+      expect(hasLegacyDownloads()).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
@@ -312,10 +338,9 @@ describe('runSafMigration', () => {
   });
 
   it('leaves the DB cover alone when it is already relative', async () => {
-    seedLegacyNovel(
-      { id: 1, pluginId: 'p1', cover: 'Novels/p1/1/cover.png' },
-      [{ id: 5, novelId: 1 }],
-    );
+    seedLegacyNovel({ id: 1, pluginId: 'p1', cover: 'Novels/p1/1/cover.png' }, [
+      { id: 5, novelId: 1 },
+    ]);
 
     await runSafMigration();
 

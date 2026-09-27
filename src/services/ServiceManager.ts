@@ -144,6 +144,9 @@ export default class ServiceManager {
         taskIcon: { name: 'notification_icon', type: 'drawable' },
         color: '#00adb5',
         linkingURI: 'sorareader://',
+        // Android 14+ (targetSDK 34+) kills FGS started with type none.
+        // dataSync matches the manifest declaration and permission.
+        foregroundServiceType: ['dataSync'],
       }).catch(error => {
         Notifications.scheduleNotificationAsync({
           content: {
@@ -392,7 +395,8 @@ export default class ServiceManager {
           getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
           initialDownloadSettings;
         const retryDelayMs = (downloadSettings.retryDelaySeconds ?? 60) * 1000;
-        const chapterDelayMs = (downloadSettings.chapterDelaySeconds ?? 0) * 1000;
+        const chapterDelayMs =
+          (downloadSettings.chapterDelaySeconds ?? 0) * 1000;
         const parallelEnabled =
           downloadSettings.parallelChaptersEnabled ||
           downloadSettings.parallelNovelsEnabled;
@@ -407,8 +411,7 @@ export default class ServiceManager {
           if (downloadSettings.parallelNovelsEnabled) {
             const novelGroups = new Map<number, QueuedBackgroundTask[]>();
             for (const t of allDownloadTasks) {
-              const novelId =
-                (t.task as DownloadChapterTask).data.novelId || 0;
+              const novelId = (t.task as DownloadChapterTask).data.novelId || 0;
               if (!novelGroups.has(novelId)) {
                 novelGroups.set(novelId, []);
               }

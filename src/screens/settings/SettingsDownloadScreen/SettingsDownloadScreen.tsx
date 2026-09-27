@@ -7,14 +7,17 @@ import {
 } from '@hooks/persisted';
 import { defaultProxyConfig, ProxyMode } from '@hooks/persisted/useSettings';
 import { DownloadSettingsScreenProps } from '@navigators/types';
-import { runSafMigration } from '@services/saf/migrateToSaf';
+import {
+  hasLegacyDownloads,
+  runSafMigration,
+} from '@services/saf/migrateToSaf';
 import { SAF_TREE_ROOT, safMkdir, setSafTreeUri } from '@services/saf/safFile';
 import { syncSafTreeUriToServer } from '@services/saf/useSafLocation';
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { applyNativeProxy, clearNativeProxy } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { openDocumentTree } from 'react-native-saf-x';
 
@@ -60,9 +63,17 @@ const SettingsDownloadScreen = ({
 
   // A tree URI carries no readable label, so the picked folder's display name is
   // kept next to it for this row.
+  // A tree URI carries no readable label, so the picked folder's display name is
+  // kept next to it for this row.
   const [downloadFolderName, setDownloadFolderName] = useState(
     () => MMKVStorage.getString(DOWNLOAD_FOLDER_NAME_KEY) || '',
   );
+  const [legacyDetected, setLegacyDetected] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+
+  useEffect(() => {
+    setLegacyDetected(hasLegacyDownloads());
+  }, []);
 
   const handlePickDownloadFolder = useCallback(async () => {
     try {
@@ -78,10 +89,27 @@ const SettingsDownloadScreen = ({
       // still in the old app-private location into it.
       await safMkdir(SAF_TREE_ROOT);
       await runSafMigration();
+      setLegacyDetected(hasLegacyDownloads());
     } catch (error: any) {
       showToast(error?.message || String(error));
     }
   }, []);
+
+  const handleMigrateLegacy = useCallback(async () => {
+    if (migrating) {
+      return;
+    }
+    setMigrating(true);
+    try {
+      await runSafMigration();
+      setLegacyDetected(hasLegacyDownloads());
+      showToast(getString('downloadSettingsScreen.migrateDone'));
+    } catch (error: any) {
+      showToast(error?.message || String(error));
+    } finally {
+      setMigrating(false);
+    }
+  }, [migrating]);
 
   const mergedProxy = { ...defaultProxyConfig, ...proxy };
   const proxyModeLabel =
@@ -126,6 +154,19 @@ const SettingsDownloadScreen = ({
             title={getString(
               'downloadSettingsScreen.downloadFolderMigrationNote',
             )}
+            theme={theme}
+          />
+          <List.Item
+            title={getString('downloadSettingsScreen.migrateFiles')}
+            description={
+              migrating
+                ? getString('downloadSettingsScreen.migrating')
+                : legacyDetected
+                ? getString('downloadSettingsScreen.migrateFilesDesc')
+                : getString('downloadSettingsScreen.migrateNothingToMove')
+            }
+            onPress={handleMigrateLegacy}
+            disabled={!legacyDetected || migrating}
             theme={theme}
           />
         </List.Section>

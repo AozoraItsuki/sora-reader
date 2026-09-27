@@ -8,20 +8,27 @@ import AppErrorBoundary, {
 } from '@components/AppErrorBoundary/AppErrorBoundary';
 import { useInitDatabase } from '@database/db';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { useLibrarySettings,useSecuritySettings } from '@hooks/persisted/useSettings';
+import {
+  useLibrarySettings,
+  useSecuritySettings,
+} from '@hooks/persisted/useSettings';
 import { ThemeProvider } from '@hooks/persisted/useTheme';
 import { CloudflareSolverOverlay } from '@plugins/helpers/CloudflareSolverOverlay';
 import { initLocalServer } from '@plugins/local/localServerManager';
 import AppLockOverlay, { useAppLock } from '@screens/more/AppLockScreen';
-import ServiceManager from '@services/ServiceManager';
+import SetupStorageScreen, {
+  SETUP_STORAGE_DISMISSED,
+} from '@screens/setup/SetupStorageScreen';
 import { runSafMigration } from '@services/saf/migrateToSaf';
+import { getSafTreeUri } from '@services/saf/safFile';
+import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { restoreNativeProxyFromStorage } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
 import * as Notifications from 'expo-notifications';
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { NativeModules, StatusBar, StyleSheet } from 'react-native';
-
 import FileViewer from 'react-native-file-viewer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -54,7 +61,7 @@ const useScreenProtection = () => {
 
   useEffect(() => {
     try {
-      const {FlagSecure} = NativeModules;
+      const { FlagSecure } = NativeModules;
       if (!FlagSecure) {
         return;
       }
@@ -90,15 +97,27 @@ const useCancelStuckBackupTasks = () => {
     ];
 
     const hasStuckBackupTasks = taskList.some(
-      t => t?.task?.name && backupTasks.includes(t.task.name)
+      t => t?.task?.name && backupTasks.includes(t.task.name),
     );
 
     if (hasStuckBackupTasks) {
-      backupTasks.forEach(name => ServiceManager.manager.removeTasksByName(name as any));
+      backupTasks.forEach(name =>
+        ServiceManager.manager.removeTasksByName(name as any),
+      );
       showToast(getString('backupLogScreen.incompleteBackupCancelled'));
     }
   }, []);
 };
+
+/**
+ * Nothing can be downloaded until the user points the app at a folder, so setup
+ * blocks the library on the first run — until a folder is picked, or until the
+ * user explicitly skips it. Independent of the database: a failed init must
+ * still leave the setup screen reachable.
+ */
+const needsStorageSetup = (): boolean =>
+  getSafTreeUri() === null &&
+  MMKVStorage.getString(SETUP_STORAGE_DISMISSED) !== '1';
 
 const AppContent = () => {
   const { isLocked, isCredentialsRevoked, authenticate, dismissRevoked } =
@@ -106,10 +125,18 @@ const AppContent = () => {
   useScreenProtection();
   useCancelStuckBackupTasks();
 
+  const [showStorageSetup, setShowStorageSetup] = useState(needsStorageSetup);
+  // Setup persists the answer, so the gate has to be re-read once it reports
+  // completion instead of waiting for the next mount.
+  const recheckStorageSetup = useCallback(
+    () => setShowStorageSetup(needsStorageSetup()),
+    [],
+  );
+
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       async response => {
-        const {data} = response.notification.request.content;
+        const { data } = response.notification.request.content;
         if (data?.action === 'open_update_error_log' && data?.filePath) {
           try {
             const cleanPath = (data.filePath as string).replace('file://', '');
@@ -128,7 +155,11 @@ const AppContent = () => {
 
   return (
     <>
-      <Main />
+      {showStorageSetup ? (
+        <SetupStorageScreen onDone={recheckStorageSetup} />
+      ) : (
+        <Main />
+      )}
       <AppLockOverlay
         isLocked={isLocked}
         onAuthenticate={authenticate}
@@ -171,7 +202,10 @@ const App = () => {
                   <AppErrorBoundary>
                     <PaperProvider>
                       <BottomSheetModalProvider>
-                        <StatusBar translucent={true} backgroundColor="transparent" />
+                        <StatusBar
+                          translucent={true}
+                          backgroundColor="transparent"
+                        />
                         <AppContent />
                       </BottomSheetModalProvider>
                     </PaperProvider>

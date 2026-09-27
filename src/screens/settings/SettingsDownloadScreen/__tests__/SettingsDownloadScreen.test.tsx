@@ -46,6 +46,7 @@ jest.mock('../modals/ChapterDelayModal', () => () => null);
 jest.mock('../modals/RetryDelayModal', () => () => null);
 jest.mock('@services/saf/migrateToSaf', () => ({
   runSafMigration: jest.fn().mockResolvedValue(undefined),
+  hasLegacyDownloads: jest.fn().mockReturnValue(false),
 }));
 jest.mock('@utils/showToast', () => ({ showToast: jest.fn() }));
 jest.mock('react-native-saf-x', () => ({
@@ -56,6 +57,12 @@ jest.mock('react-native-saf-x', () => ({
 
 const { openDocumentTree } = jest.requireMock('react-native-saf-x') as {
   openDocumentTree: jest.Mock;
+};
+const { runSafMigration, hasLegacyDownloads } = jest.requireMock(
+  '@services/saf/migrateToSaf',
+) as { runSafMigration: jest.Mock; hasLegacyDownloads: jest.Mock };
+const { showToast } = jest.requireMock('@utils/showToast') as {
+  showToast: jest.Mock;
 };
 const nativeLocalServer = NativeLocalServer as jest.Mocked<
   typeof NativeLocalServer
@@ -106,6 +113,41 @@ describe('SettingsDownloadScreen download folder', () => {
 
     await waitFor(() =>
       expect(nativeLocalServer.setSafTreeUri).toHaveBeenCalledWith(TREE_URI),
+    );
+  });
+});
+
+describe('SettingsDownloadScreen migrate button', () => {
+  beforeEach(() => {
+    MMKVStorage.clearAll();
+    runSafMigration.mockClear();
+    runSafMigration.mockResolvedValue(undefined);
+    showToast.mockClear();
+  });
+
+  it('stays grey and does nothing when no legacy files exist', () => {
+    hasLegacyDownloads.mockReturnValue(false);
+    renderScreen();
+
+    const button = screen.getByText(
+      getString('downloadSettingsScreen.migrateFiles'),
+    );
+    expect(button).toBeDisabled();
+    fireEvent.press(button);
+    expect(runSafMigration).not.toHaveBeenCalled();
+  });
+
+  it('runs migration and toasts when legacy files exist', async () => {
+    hasLegacyDownloads.mockReturnValue(true);
+    renderScreen();
+
+    fireEvent.press(
+      screen.getByText(getString('downloadSettingsScreen.migrateFiles')),
+    );
+
+    await waitFor(() => expect(runSafMigration).toHaveBeenCalledTimes(1));
+    expect(showToast).toHaveBeenCalledWith(
+      getString('downloadSettingsScreen.migrateDone'),
     );
   });
 });

@@ -117,6 +117,17 @@ export const relativizeCoverPath = (cover: string, oldRoot: string): string => {
 export const legacyAbsPath = (oldRoot: string, treeRel: string) =>
   `${oldRoot}/${treeRel.replace(/^Novels\//, '')}`;
 
+/**
+ * True when the legacy app-private NOVEL_STORAGE still holds anything.
+ * Best-effort and never throws — drives the manual Migrate button state.
+ */
+export const hasLegacyDownloads = (): boolean => {
+  if (!NativeFileExists(NOVEL_STORAGE)) {
+    return false;
+  }
+  return NativeFileReadDir(NOVEL_STORAGE).length > 0;
+};
+
 /** Copy one app-private file into the SAF tree, then drop the original. */
 const migrateFile = async (
   oldRoot: string,
@@ -226,7 +237,11 @@ const migrateChapter = async (
       continue;
     }
     const rel = `${chapterDirRel}/${entry.name}`;
-    await migrateFile(oldRoot, rel, TEXT_ASSETS.has(entry.name) ? 'utf8' : 'base64');
+    await migrateFile(
+      oldRoot,
+      rel,
+      TEXT_ASSETS.has(entry.name) ? 'utf8' : 'base64',
+    );
   }
 
   NativeFileUnlink(legacyChapterDir);
@@ -243,9 +258,11 @@ const migrateNovelCover = async (
   const relative = relativizeCoverPath(cover, oldRoot);
 
   await safMkdir(novelDirRel(pluginId, id));
-  const copied = await migrateFile(oldRoot, coverRel(pluginId, id), 'base64').catch(
-    () => false,
-  );
+  const copied = await migrateFile(
+    oldRoot,
+    coverRel(pluginId, id),
+    'base64',
+  ).catch(() => false);
   if (copied) {
     // Drop ONLY the cover we copied. The chapter folders live in the same
     // directory, so removing the novel directory here would destroy any
@@ -292,7 +309,10 @@ const removeLegacyStorageIfDrained = async (
     }
     if (
       NativeFileExists(
-        legacyAbsPath(oldRoot, chapterRel(pluginId, chapter.novelId, chapter.id)),
+        legacyAbsPath(
+          oldRoot,
+          chapterRel(pluginId, chapter.novelId, chapter.id),
+        ),
       )
     ) {
       return false;
@@ -308,9 +328,7 @@ const removeLegacyStorageIfDrained = async (
         if (novelEntry.isDirectory) {
           const chapterEntries = NativeFileReadDir(novelEntry.path);
           if (
-            chapterEntries.some(
-              c => !c.isDirectory && !TEXT_ASSETS.has(c.name),
-            )
+            chapterEntries.some(c => !c.isDirectory && !TEXT_ASSETS.has(c.name))
           ) {
             return false;
           }
@@ -419,7 +437,10 @@ export const runSafMigration = async (): Promise<void> => {
       }
     }
 
-    const drained = await removeLegacyStorageIfDrained(oldRoot, pluginIdByNovelId);
+    const drained = await removeLegacyStorageIfDrained(
+      oldRoot,
+      pluginIdByNovelId,
+    );
     if (!drained) {
       log(
         'warn',
@@ -428,7 +449,11 @@ export const runSafMigration = async (): Promise<void> => {
       return;
     }
 
-    if (chapterFailures === 0 && coverFailures === 0 && unmappedChapters === 0) {
+    if (
+      chapterFailures === 0 &&
+      coverFailures === 0 &&
+      unmappedChapters === 0
+    ) {
       markSafMigrationDone();
     }
     log(

@@ -369,6 +369,11 @@
     "downloadFolderDesc": "Choose the folder downloaded chapters are saved to",
     "downloadFolderNotSet": "Not set",
     "downloadFolderMigrationNote": "Existing downloads are moved into the new folder automatically",
+    "migrateFiles": "Migrate old files",
+    "migrateFilesDesc": "Move downloads from the previous app-private folder into the chosen folder",
+    "migrating": "Migrating…",
+    "migrateDone": "Migration finished",
+    "migrateNothingToMove": "No old files to migrate",
     "autoDownload": "Auto-download",
     "downloadNewChapters": "Download new chapters",
     "parallelDownload": "Parallel Downloads",
@@ -828,6 +833,13 @@
     "cancelBackup": "Cancel Backup",
     "backupCancelled": "Backup cancelled",
     "incompleteBackupCancelled": "Incomplete backup/restore task was automatically cancelled."
+  },
+  "setupStorage": {
+    "title": "Set up downloads",
+    "desc": "Choose the folder downloaded chapters are saved to. SoraReader needs it to store your library outside the app data, and you can change it later in Settings.",
+    "chooseFolder": "Choose folder",
+    "migrateFiles": "Migrate files",
+    "skip": "Skip for now"
   },
   "tracking": "Tracking",
   "trackingScreen": {

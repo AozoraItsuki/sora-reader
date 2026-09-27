@@ -369,6 +369,11 @@
     "downloadFolderDesc": "Pilih folder untuk menyimpan bab yang diunduh",
     "downloadFolderNotSet": "Belum diatur",
     "downloadFolderMigrationNote": "Unduhan yang ada dipindahkan otomatis ke folder baru",
+    "migrateFiles": "Migrasi file lama",
+    "migrateFilesDesc": "Pindahkan unduhan dari folder privat lama ke folder pilihan",
+    "migrating": "Memigrasi…",
+    "migrateDone": "Migrasi selesai",
+    "migrateNothingToMove": "Tidak ada file lama untuk dimigrasi",
     "autoDownload": "Unduh otomatis",
     "downloadNewChapters": "Unduh bab baru",
     "parallelDownload": "Unduhan Paralel",
@@ -828,6 +833,13 @@
     "cancelBackup": "Batalkan Cadangan",
     "backupCancelled": "Cadangan dibatalkan",
     "incompleteBackupCancelled": "Tugas cadangan/pemulihan yang tidak lengkap dibatalkan secara otomatis."
+  },
+  "setupStorage": {
+    "title": "Siapkan unduhan",
+    "desc": "Pilih folder untuk menyimpan bab yang diunduh. SoraReader membutuhkannya untuk menyimpan pustaka Anda di luar data aplikasi, dan Anda dapat mengubahnya nanti di Pengaturan.",
+    "chooseFolder": "Pilih folder",
+    "migrateFiles": "Pindahkan berkas",
+    "skip": "Lewati sekarang"
   },
   "tracking": "Pelacakan",
   "trackingScreen": {

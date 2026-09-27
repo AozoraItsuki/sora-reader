@@ -328,6 +328,11 @@ export interface StringMap {
   'downloadSettingsScreen.downloadFolderDesc': 'string';
   'downloadSettingsScreen.downloadFolderNotSet': 'string';
   'downloadSettingsScreen.downloadFolderMigrationNote': 'string';
+  'downloadSettingsScreen.migrateFiles': 'string';
+  'downloadSettingsScreen.migrateFilesDesc': 'string';
+  'downloadSettingsScreen.migrating': 'string';
+  'downloadSettingsScreen.migrateDone': 'string';
+  'downloadSettingsScreen.migrateNothingToMove': 'string';
   'downloadSettingsScreen.autoDownload': 'string';
   'downloadSettingsScreen.downloadNewChapters': 'string';
   'downloadSettingsScreen.parallelDownload': 'string';
@@ -711,6 +716,11 @@ export interface StringMap {
   'backupLogScreen.cancelBackup': 'string';
   'backupLogScreen.backupCancelled': 'string';
   'backupLogScreen.incompleteBackupCancelled': 'string';
+  'setupStorage.title': 'string';
+  'setupStorage.desc': 'string';
+  'setupStorage.chooseFolder': 'string';
+  'setupStorage.migrateFiles': 'string';
+  'setupStorage.skip': 'string';
   'tracking': 'string';
   'trackingScreen.logOutMessage': 'string';
   'trackingScreen.revalidate': 'string';
