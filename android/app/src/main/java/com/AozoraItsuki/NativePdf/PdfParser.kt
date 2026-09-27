@@ -18,7 +18,7 @@ data class PdfPage(val pageNumber: Int, val text: String, val imagePath: String)
 data class PdfMetadata(
     val title: String = "",
     val author: String = "",
-    val cover: String = "",
+    var cover: String = "",
     val pages: MutableList<PdfPage> = mutableListOf(),
 )
 

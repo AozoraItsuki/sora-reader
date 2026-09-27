@@ -122,7 +122,7 @@ class LocalHttpServer(
             return notFound(requestedPath)
         }
 
-        var dir = tree
+        var dir: DocumentFile = tree
         if (relative.first() != NOVELS_DIR) {
             val novels = tree.findFile(NOVELS_DIR)
             if (novels == null || !novels.isDirectory) {

@@ -59,7 +59,7 @@ internal class SafTree(context: Context, val treeUri: Uri) {
 
     fun readBytes(relPath: String): ByteArray {
         val document = find(relPath) ?: throw SafException("Not found: $relPath")
-        return document.inputStream().use { it.readBytes() }
+        return (resolver.openInputStream(document.uri) ?: throw SafException("Not found: $relPath")).use { it.readBytes() }
     }
 
     fun writeBytes(relPath: String, bytes: ByteArray, mimeType: String) {
@@ -152,7 +152,7 @@ internal class SafTree(context: Context, val treeUri: Uri) {
         val mimeType = source.type ?: SafMime.OCTET_STREAM
         val target = targetParent.createFile(mimeType, name)
             ?: throw SafException("Could not create file: $name")
-        val input: InputStream = source.inputStream()
+        val input: InputStream = resolver.openInputStream(source.uri)
             ?: throw SafException("Could not read: ${source.uri}")
         input.use { openOutput(target).use { output -> it.copyTo(output) } }
     }
