@@ -14,7 +14,7 @@ export default {
     android: platformAndroid(),
   },
   remoteCacheProvider: providerGitHub({
-    repository: process.env.REPO_NAME || 'SoraReader',
+    repository: process.env.REPO_NAME || 'sora-reader',
     owner: process.env.REPO_OWNER || 'AozoraItsuki',
     //@ts-expect-error
     token: process.env.GITHUB_TOKEN,
