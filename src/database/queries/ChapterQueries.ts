@@ -103,6 +103,25 @@ export const markChapterRead = async (chapterId: number): Promise<void> => {
   });
 };
 
+/**
+ * Set the downloaded flag of one chapter without touching its files.
+ *
+ * Used by the post-migration reconcile step so the DB agrees with what is
+ * actually on disk. Never throws on its own — callers decide error policy.
+ */
+export const setChapterDownloaded = async (
+  chapterId: number,
+  downloaded: boolean,
+): Promise<void> => {
+  await dbManager.write(async tx => {
+    await tx
+      .update(chapterSchema)
+      .set({ isDownloaded: downloaded })
+      .where(eq(chapterSchema.id, chapterId))
+      .run();
+  });
+};
+
 export const markChaptersRead = async (chapterIds: number[]): Promise<void> => {
   if (!chapterIds.length) {
     return;
@@ -206,7 +225,9 @@ export const deleteChapters = async (
 
   await Promise.all(
     chapters.map(chapter =>
-      deleteDownloadedFiles(pluginId, novelId, chapter.id).catch(() => undefined),
+      deleteDownloadedFiles(pluginId, novelId, chapter.id).catch(
+        () => undefined,
+      ),
     ),
   );
 
@@ -231,9 +252,11 @@ export const deleteDownloads = async (
   }
   await Promise.all(
     chapters.map(chapter =>
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id).catch(
-        () => undefined,
-      ),
+      deleteDownloadedFiles(
+        chapter.pluginId,
+        chapter.novelId,
+        chapter.id,
+      ).catch(() => undefined),
     ),
   );
   await dbManager.write(async tx => {
@@ -245,9 +268,11 @@ export const deleteReadChaptersFromDb = async (): Promise<void> => {
   const chapters = await getReadDownloadedChapters();
   await Promise.all(
     (chapters ?? []).map(chapter =>
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id).catch(
-        () => undefined,
-      ),
+      deleteDownloadedFiles(
+        chapter.pluginId,
+        chapter.novelId,
+        chapter.id,
+      ).catch(() => undefined),
     ),
   );
   const chapterIds = chapters?.map(chapter => chapter.id);

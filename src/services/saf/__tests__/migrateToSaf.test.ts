@@ -1,6 +1,8 @@
 import {
   _legacyAbsPath,
+  collectLegacyCoverRefs,
   hasLegacyDownloads,
+  reconcileDownloadFlags,
   relativizeCoverPath,
   rewriteChapterHtml,
   runSafMigration,
@@ -29,6 +31,9 @@ let mockTreeUri: string | null;
 let mockMigrationDone: boolean;
 let mockLogEntries: string[];
 let mockFailWriteFor: (rel: string) => boolean;
+let mockFsReads: string[];
+let mockAllChapters: Map<number, Array<{ id: number; isDownloaded: boolean }>>;
+let mockFlagUpdates: Array<{ id: number; downloaded: boolean }>;
 
 const resetFakes = () => {
   mockLegacyFiles = new Map();
@@ -42,6 +47,9 @@ const resetFakes = () => {
   mockMigrationDone = false;
   mockLogEntries = [];
   mockFailWriteFor = () => false;
+  mockFsReads = [];
+  mockAllChapters = new Map();
+  mockFlagUpdates = [];
 };
 
 jest.mock('@utils/Storages', () => ({
@@ -119,11 +127,23 @@ jest.mock('@services/saf/safFile', () => ({
     mockTree.set(rel, { data, encoding });
     return true;
   },
+  safGetFileSize: async (rel: string) => mockTree.get(rel)?.data.length ?? 0,
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
   EncodingType: { UTF8: 'utf8', Base64: 'base64' },
-  readAsStringAsync: async (path: string) => `base64(${path})`,
+  readAsStringAsync: async (path: string) => {
+    mockFsReads.push(path);
+    return `base64(${path})`;
+  },
+}));
+
+jest.mock('@database/queries/ChapterQueries', () => ({
+  getNovelChapters: async (novelId: number) =>
+    (mockAllChapters.get(novelId) ?? []).map(chapter => ({ ...chapter })),
+  setChapterDownloaded: async (id: number, downloaded: boolean) => {
+    mockFlagUpdates.push({ id, downloaded });
+  },
 }));
 
 // The migration only ever selects the novel table (which carries `pluginId`) and
@@ -316,15 +336,17 @@ describe('runSafMigration', () => {
       data: '<html><body><img src="3.b64.png"></body></html>',
       encoding: 'utf8',
     });
-    // The image payload is copied verbatim as base64.
+    // The image payload is copied verbatim as base64, read via a file:// URI
+    // (expo-file-system rejects bare absolute paths).
     expect(mockTree.get('Novels/p1/1/5/3.b64.png')).toEqual({
-      data: `base64(${OLD_ROOT}/p1/1/5/3.b64.png)`,
+      data: `base64(file://${OLD_ROOT}/p1/1/5/3.b64.png)`,
       encoding: 'base64',
     });
     expect(mockTree.get('Novels/p1/1/cover.png')).toEqual({
-      data: `base64(${OLD_ROOT}/p1/1/cover.png)`,
+      data: `base64(file://${OLD_ROOT}/p1/1/cover.png)`,
       encoding: 'base64',
     });
+    expect(mockFsReads).toContain(`file://${OLD_ROOT}/p1/1/5/3.b64.png`);
 
     // The DB now holds a tree-relative cover with no file:// scheme.
     expect(mockCoverUpdates).toEqual([
@@ -357,9 +379,13 @@ describe('runSafMigration', () => {
 
     await expect(runSafMigration()).resolves.toBeUndefined();
 
-    // The failed chapter keeps its legacy folder, so the image survives and the
-    // novel directory is NOT wiped by the cover migration.
-    expect(mockLegacyFiles.has(`${OLD_ROOT}/p1/1/5/3.b64.png`)).toBe(true);
+    // The failed index.html keeps the chapter folder alive, but its sibling
+    // image is still migrated (per-file verification): progress is preserved
+    // and the retry only re-copies what is missing.
+    expect(mockLegacyFiles.has(`${OLD_ROOT}/p1/1/5/index.html`)).toBe(true);
+    expect(mockTree.has('Novels/p1/1/5/3.b64.png')).toBe(true);
+    expect(mockLegacyFiles.has(`${OLD_ROOT}/p1/1/5/3.b64.png`)).toBe(false);
+    expect(mockLegacyUnlinked).not.toContain(`${OLD_ROOT}/p1/1/5`);
     expect(mockLegacyUnlinked).not.toContain(`${OLD_ROOT}/p1/1`);
     expect(mockLegacyUnlinked).not.toContain(OLD_ROOT);
 
@@ -393,7 +419,7 @@ describe('runSafMigration', () => {
       encoding: 'utf8',
     });
     expect(mockTree.get('Novels/p1/1/5/3.b64.png')).toEqual({
-      data: `base64(${dir}/3.b64.png)`,
+      data: `base64(file://${dir}/3.b64.png)`,
       encoding: 'base64',
     });
     expect(mockLegacyFiles.size).toBe(0);
@@ -544,5 +570,141 @@ describe('runSafMigration progress', () => {
     await runSafMigration(onProgress);
 
     expect(calls).toEqual([]);
+  });
+});
+
+describe('collectLegacyCoverRefs', () => {
+  it('finds covers under any plugin folder', () => {
+    mockLegacyFiles.set(`${OLD_ROOT}/stale/1/cover.png`, 'JPEG');
+    mockLegacyFiles.set(`${OLD_ROOT}/p1/2/cover.png`, 'JPEG');
+
+    expect(collectLegacyCoverRefs(OLD_ROOT)).toEqual([
+      {
+        source: `${OLD_ROOT}/stale/1/cover.png`,
+        novelId: 1,
+        fromPluginId: 'stale',
+      },
+      { source: `${OLD_ROOT}/p1/2/cover.png`, novelId: 2, fromPluginId: 'p1' },
+    ]);
+  });
+
+  it('ignores non-numeric folders and returns empty for a missing root', () => {
+    mockLegacyFiles.set(`${OLD_ROOT}/p1/scratch/cover.png`, 'JPEG');
+
+    expect(collectLegacyCoverRefs(OLD_ROOT)).toEqual([]);
+    expect(collectLegacyCoverRefs('/root/Nowhere')).toEqual([]);
+  });
+});
+
+describe('migration verify-before-delete', () => {
+  it('keeps the source when the read is empty and writes nothing', async () => {
+    const dir = `${OLD_ROOT}/p1/1/5`;
+    mockLegacyFiles.set(`${dir}/index.html`, '');
+    mockNovels = [{ id: 1, pluginId: 'p1', cover: null }];
+    mockDownloadedChapters = [{ id: 5, novelId: 1 }];
+
+    await runSafMigration();
+
+    expect(mockTree.has('Novels/p1/1/5/index.html')).toBe(false);
+    expect(mockLegacyFiles.has(`${dir}/index.html`)).toBe(true);
+    expect(mockMigrationDone).toBe(false);
+  });
+
+  it('copies a cover from a stale plugin folder into the current one', async () => {
+    mockLegacyFiles.set(`${OLD_ROOT}/oldPlugin/1/cover.png`, 'JPEG');
+    mockNovels = [
+      {
+        id: 1,
+        pluginId: 'newPlugin',
+        cover: `file://${OLD_ROOT}/newPlugin/1/cover.png`,
+      },
+    ];
+    mockDownloadedChapters = [];
+
+    await runSafMigration();
+
+    expect(mockTree.get('Novels/newPlugin/1/cover.png')).toEqual({
+      data: `base64(file://${OLD_ROOT}/oldPlugin/1/cover.png)`,
+      encoding: 'base64',
+    });
+    expect(mockCoverUpdates).toEqual([
+      { id: 1, cover: 'Novels/newPlugin/1/cover.png' },
+    ]);
+  });
+
+  it('leaves the DB cover alone when no cover file exists on disk', async () => {
+    mockLegacyFiles.set(`${OLD_ROOT}/p1/1/5/index.html`, '<html></html>');
+    mockNovels = [
+      { id: 1, pluginId: 'p1', cover: `file://${OLD_ROOT}/p1/1/cover.png` },
+    ];
+    mockDownloadedChapters = [];
+
+    await runSafMigration();
+
+    // The old code rewrote the DB to a path with no file behind it (blank
+    // covers). Now the DB is untouched. The chapter itself migrates cleanly
+    // and nothing remains, so the run still closes out.
+    expect(mockCoverUpdates).toEqual([]);
+    expect(mockMigrationDone).toBe(true);
+  });
+
+  it('remaps an orphan chapter via the novel when it has no DB row', async () => {
+    // Novel row exists under the current pluginId, but this chapter was never
+    // inserted — the chapter-level map misses it, the novel-level map must not.
+    const dir = `${OLD_ROOT}/oldPlugin/1/7`;
+    mockLegacyFiles.set(`${dir}/index.html`, '<html></html>');
+    mockNovels = [{ id: 1, pluginId: 'newPlugin', cover: null }];
+    mockDownloadedChapters = [];
+
+    await runSafMigration();
+
+    expect(mockTree.has('Novels/newPlugin/1/7/index.html')).toBe(true);
+    expect(mockTree.has('Novels/oldPlugin/1/7/index.html')).toBe(false);
+  });
+});
+
+describe('reconcileDownloadFlags', () => {
+  it('heals a flag when the file sits in the tree', async () => {
+    mockNovels = [{ id: 1, pluginId: 'p1', cover: null }];
+    mockAllChapters.set(1, [{ id: 9, isDownloaded: false }]);
+    mockTree.set('Novels/p1/1/9/index.html', {
+      data: '<html></html>',
+      encoding: 'utf8',
+    });
+
+    await expect(reconcileDownloadFlags()).resolves.toEqual({
+      healed: 1,
+      cleared: 0,
+    });
+    expect(mockFlagUpdates).toEqual([{ id: 9, downloaded: true }]);
+  });
+
+  it('clears a flag whose file is gone from both tree and legacy root', async () => {
+    mockNovels = [{ id: 1, pluginId: 'p1', cover: null }];
+    mockAllChapters.set(1, [{ id: 10, isDownloaded: true }]);
+
+    await expect(reconcileDownloadFlags()).resolves.toEqual({
+      healed: 0,
+      cleared: 1,
+    });
+    expect(mockFlagUpdates).toEqual([{ id: 10, downloaded: false }]);
+  });
+
+  it('leaves agreeing rows untouched', async () => {
+    mockNovels = [{ id: 1, pluginId: 'p1', cover: null }];
+    mockAllChapters.set(1, [
+      { id: 11, isDownloaded: true },
+      { id: 12, isDownloaded: false },
+    ]);
+    mockTree.set('Novels/p1/1/11/index.html', {
+      data: '<html></html>',
+      encoding: 'utf8',
+    });
+
+    await expect(reconcileDownloadFlags()).resolves.toEqual({
+      healed: 0,
+      cleared: 0,
+    });
+    expect(mockFlagUpdates).toEqual([]);
   });
 });
