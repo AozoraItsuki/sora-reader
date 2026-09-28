@@ -15,6 +15,9 @@ workflows:
         - ~/.gradle/caches
         - ~/.gradle/wrapper
         - $CM_BUILD_DIR/node_modules
+        - ~/.local/share/pnpm/store
+        - ~/Library/pnpm/store
+        - ~/.pnpm-store
     environment:
       node: 22
       java: 17
