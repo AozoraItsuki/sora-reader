@@ -21,6 +21,13 @@ class LocalServerModule(context: ReactApplicationContext) : NativeLocalServerSpe
          * ensured the persisted permission and pushed the uri in.
          */
         @Volatile private var mSafTreeUri: Uri? = null
+
+        /**
+         * Absolute directory to serve from, set by the direct (all-files)
+         * storage backend. Blank until JS pushes one, which keeps the legacy
+         * app-private directory as the default.
+         */
+        @Volatile private var mDownloadRoot: String = ""
     }
 
     /**
@@ -38,6 +45,12 @@ class LocalServerModule(context: ReactApplicationContext) : NativeLocalServerSpe
     }
 
     @ReactMethod
+    override fun setDownloadRoot(path: String) {
+        mDownloadRoot = path.trim()
+        Log.i(TAG, "Download root ${mDownloadRoot.ifBlank { "unset (legacy fallback)" }}")
+    }
+
+    @ReactMethod
     override fun startServer(promise: Promise) {
         try {
             if (mHttpServer?.isAlive == true) {
@@ -45,10 +58,15 @@ class LocalServerModule(context: ReactApplicationContext) : NativeLocalServerSpe
                 return
             }
 
-            val basePath = reactApplicationContext.getExternalFilesDir(null)?.absolutePath
-                ?: throw RuntimeException("External files directory not available")
-
-            val novelsPath = File(basePath, NOVELS_DIR).absolutePath
+            // An explicit root wins: it is the shared download folder, which the
+            // app can address directly once "all files access" is granted.
+            val novelsPath = if (mDownloadRoot.isNotBlank()) {
+                mDownloadRoot
+            } else {
+                val basePath = reactApplicationContext.getExternalFilesDir(null)?.absolutePath
+                    ?: throw RuntimeException("External files directory not available")
+                File(basePath, NOVELS_DIR).absolutePath
+            }
 
             // Use port 0 to let the OS assign a random available port
             val httpServer = LocalHttpServer(0, novelsPath, safSourceProvider)

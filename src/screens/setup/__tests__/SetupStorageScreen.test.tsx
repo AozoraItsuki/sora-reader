@@ -18,11 +18,23 @@ jest.mock('@hooks/persisted', () => {
   const theme = jest.requireActual('@hooks/persisted/useTheme');
   return { useTheme: theme.useTheme };
 });
+jest.mock('@specs/NativeFile', () => ({
+  __esModule: true,
+  default: {
+    hasAllFilesAccess: jest.fn(() => false),
+    openAllFilesAccessSettings: jest.fn(),
+  },
+}));
 jest.mock('@services/saf/safFile', () => ({
   SAF_TREE_ROOT: 'Novels',
   getSafTreeUri: jest.fn(),
+  isDirectStorageReady: jest.fn(() => false),
+  ensureDirectStorage: jest.fn().mockResolvedValue(false),
   safMkdir: jest.fn().mockResolvedValue(true),
   setSafTreeUri: jest.fn(),
+}));
+jest.mock('@services/saf/useSafLocation', () => ({
+  syncSafTreeUriToServer: jest.fn(),
 }));
 jest.mock('@services/saf/migrateToSaf', () => ({
   hasLegacyDownloads: jest.fn().mockReturnValue(false),
@@ -38,19 +50,22 @@ jest.mock('react-native-saf-x', () => ({
 const { openDocumentTree } = jest.requireMock('react-native-saf-x') as {
   openDocumentTree: jest.Mock;
 };
+const nativeFile = jest.requireMock('@specs/NativeFile').default as {
+  hasAllFilesAccess: jest.Mock;
+  openAllFilesAccessSettings: jest.Mock;
+};
 const { hasLegacyDownloads, runSafMigration } = jest.requireMock(
   '@services/saf/migrateToSaf',
 ) as { hasLegacyDownloads: jest.Mock; runSafMigration: jest.Mock };
-const { safMkdir, setSafTreeUri, getSafTreeUri } = jest.requireMock(
-  '@services/saf/safFile',
-) as {
-  safMkdir: jest.Mock;
-  setSafTreeUri: jest.Mock;
-  getSafTreeUri: jest.Mock;
-};
-
-const TREE_URI =
-  'content://com.android.externalstorage.documents/tree/primary%3ADownload';
+const { syncSafTreeUriToServer } = jest.requireMock(
+  '@services/saf/useSafLocation',
+) as { syncSafTreeUriToServer: jest.Mock };
+const { ensureDirectStorage, isDirectStorageReady, safMkdir } =
+  jest.requireMock('@services/saf/safFile') as {
+    ensureDirectStorage: jest.Mock;
+    isDirectStorageReady: jest.Mock;
+    safMkdir: jest.Mock;
+  };
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -71,21 +86,29 @@ const renderScreen = (onDone: () => void) => {
   );
 };
 
+/** Answer the settings round-trip with the given grant state. */
+const answerGrantWith = (granted: boolean) => {
+  ensureDirectStorage.mockImplementation(async () => granted);
+  isDirectStorageReady.mockReturnValue(granted);
+};
+
 describe('SetupStorageScreen', () => {
   beforeEach(() => {
     // `clearMocks` does not reach mocks built inside a `jest.mock` factory, so
     // the call history every assertion below depends on is cleared here.
     [
-      getSafTreeUri,
+      ensureDirectStorage,
       hasLegacyDownloads,
+      isDirectStorageReady,
       openDocumentTree,
       runSafMigration,
       safMkdir,
-      setSafTreeUri,
+      syncSafTreeUriToServer,
     ].forEach(mock => mock.mockClear());
+    nativeFile.openAllFilesAccessSettings.mockClear();
     hasLegacyDownloads.mockReturnValue(false);
-    getSafTreeUri.mockReturnValue(TREE_URI);
-    openDocumentTree.mockResolvedValue({ uri: TREE_URI, name: 'Download' });
+    nativeFile.hasAllFilesAccess.mockReturnValue(false);
+    answerGrantWith(false);
   });
 
   it('hides the migration action when the legacy folder is empty', () => {
@@ -106,27 +129,39 @@ describe('SetupStorageScreen', () => {
     ).toBeTruthy();
   });
 
-  it('hands the picked folder to the migration and reports completion', async () => {
+  it('routes the primary action through the system access screen', async () => {
     const onDone = jest.fn();
     renderScreen(onDone);
 
-    fireEvent.press(screen.getByText(getString('setupStorage.chooseFolder')));
+    fireEvent.press(screen.getByText(getString('setupStorage.grantAccess')));
 
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
-    expect(setSafTreeUri).toHaveBeenCalledWith(TREE_URI);
-    expect(safMkdir).toHaveBeenCalledWith('Novels');
-    expect(runSafMigration).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(nativeFile.openAllFilesAccessSettings).toHaveBeenCalled(),
+    );
+    expect(ensureDirectStorage).toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
   });
 
-  it('stays on the setup screen when the picker is dismissed', async () => {
-    openDocumentTree.mockResolvedValue(null);
+  it('reports completion once the grant is in place', async () => {
+    answerGrantWith(true);
     const onDone = jest.fn();
     renderScreen(onDone);
 
-    fireEvent.press(screen.getByText(getString('setupStorage.chooseFolder')));
+    fireEvent.press(screen.getByText(getString('setupStorage.grantAccess')));
 
-    await waitFor(() => expect(openDocumentTree).toHaveBeenCalled());
-    expect(setSafTreeUri).not.toHaveBeenCalled();
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(safMkdir).toHaveBeenCalledWith('Novels');
+    expect(syncSafTreeUriToServer).toHaveBeenCalled();
+  });
+
+  it('stays on the setup screen while access is still refused', async () => {
+    answerGrantWith(false);
+    const onDone = jest.fn();
+    renderScreen(onDone);
+
+    fireEvent.press(screen.getByText(getString('setupStorage.grantAccess')));
+
+    await waitFor(() => expect(ensureDirectStorage).toHaveBeenCalled());
     expect(onDone).not.toHaveBeenCalled();
   });
 

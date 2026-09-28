@@ -108,6 +108,7 @@ export type ChapterScreenProps = StackScreenProps<
 export type ReaderStackParamList = {
   Novel:
     | {
+        id?: number;
         name: string;
         path: string;
         pluginId: string;

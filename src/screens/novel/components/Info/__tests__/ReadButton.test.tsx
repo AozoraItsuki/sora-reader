@@ -26,7 +26,6 @@ jest.mock('@strings/translations', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
-  const React = require('react');
   const { View } = require('react-native');
 
   return {

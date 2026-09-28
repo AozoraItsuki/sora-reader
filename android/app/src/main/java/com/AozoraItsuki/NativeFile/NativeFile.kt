@@ -1,10 +1,14 @@
 package com.AozoraItsuki.NativeFile
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.WritableNativeArray
@@ -273,6 +277,31 @@ class NativeFile(context: ReactApplicationContext) :
             }
         }
         return 0.0
+    }
+
+    override fun hasAllFilesAccess(): Boolean {
+        // The permission does not exist before Android 11, and no legacy
+        // runtime grant reaches shared storage root either, so the honest
+        // answer there is "not granted".
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+        return Environment.isExternalStorageManager()
+    }
+
+    override fun openAllFilesAccessSettings() {
+        val context = reactApplicationContext
+        UiThreadUtil.runOnUiThread {
+            val packageUri = Uri.fromParts("package", context.packageName, null)
+            val allFilesIntent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, packageUri)
+            val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
+            val intent =
+                if (allFilesIntent.resolveActivity(context.packageManager) != null) {
+                    allFilesIntent
+                } else {
+                    fallbackIntent
+                }
+            context.currentActivity?.startActivity(intent)
+                ?: context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     override fun detectImageMimeType(filePath: String): String {

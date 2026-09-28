@@ -414,7 +414,9 @@
     "proxySave": "Save",
     "proxyCurrentMode": "Current: %{mode}",
     "proxyNewIdentityRequested": "New Tor identity requested, retrying...",
-    "proxyNewIdentityFailed": "Failed to request new Tor identity"
+    "proxyNewIdentityFailed": "Failed to request new Tor identity",
+    "downloadFolderShared": "/SoraReader (shared storage)",
+    "downloadFolderAccessLost": "access not granted"
   },
   "generalSettings": "General",
   "generalSettingsScreen": {
@@ -837,11 +839,13 @@
   },
   "setupStorage": {
     "title": "Set up downloads",
-    "desc": "Choose the folder downloaded chapters are saved to. SoraReader needs it to store your library outside the app data, and you can change it later in Settings.",
-    "chooseFolder": "Choose folder",
+    "desc": "Downloaded chapters are always saved to a SoraReader folder on shared storage, so they stay outside the app data backup and are visible to any file manager. Android needs your permission for that.",
     "migrateFiles": "Migrate files",
     "migratingProgress": "Moved %{done} of %{total} files",
-    "skip": "Skip for now"
+    "skip": "Skip for now",
+    "grantAccess": "Grant access",
+    "grantAccessDesc": "Opens the Android setting that lets SoraReader use shared storage",
+    "accessMissing": "Access is not granted yet, so chapters cannot be downloaded."
   },
   "tracking": "Tracking",
   "trackingScreen": {

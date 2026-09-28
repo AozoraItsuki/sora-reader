@@ -36,6 +36,17 @@ export interface Spec extends TurboModule {
     headers: { [key: string]: string } | Headers,
     body?: string,
   ) => Promise<void>;
+  /**
+   * True when the user granted "all files access", which is what lets the app
+   * read and write arbitrary absolute paths under shared storage.
+   * Always false below Android 11 (API 30).
+   */
+  hasAllFilesAccess: () => boolean;
+  /**
+   * Open the system screen where "all files access" is granted for this app.
+   * Falls back to the app details page when that screen is unavailable.
+   */
+  openAllFilesAccessSettings: () => void;
   getConstants: () => {
     ExternalDirectoryPath: string;
     ExternalCachesDirectoryPath: string;

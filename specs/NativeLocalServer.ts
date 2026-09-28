@@ -10,6 +10,12 @@ export interface Spec extends TurboModule {
    * Pass an empty string to fall back to the legacy app-private directory.
    */
   setSafTreeUri: (uri: string) => void;
+  /**
+   * Serve chapter files from an absolute directory instead of the app-private
+   * one. Used by the direct (all-files) storage backend, which needs no SAF tree.
+   * An empty string clears the override and restores the default behavior.
+   */
+  setDownloadRoot: (path: string) => void;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeLocalServer');

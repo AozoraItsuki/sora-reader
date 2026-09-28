@@ -374,6 +374,8 @@ export interface StringMap {
   'downloadSettingsScreen.proxyCurrentMode': 'string';
   'downloadSettingsScreen.proxyNewIdentityRequested': 'string';
   'downloadSettingsScreen.proxyNewIdentityFailed': 'string';
+  'downloadSettingsScreen.downloadFolderShared': 'string';
+  'downloadSettingsScreen.downloadFolderAccessLost': 'string';
   'generalSettings': 'string';
   'generalSettingsScreen.preferences': 'string';
   'generalSettingsScreen.asc': 'string';
@@ -719,10 +721,12 @@ export interface StringMap {
   'backupLogScreen.incompleteBackupCancelled': 'string';
   'setupStorage.title': 'string';
   'setupStorage.desc': 'string';
-  'setupStorage.chooseFolder': 'string';
   'setupStorage.migrateFiles': 'string';
   'setupStorage.migratingProgress': 'string';
   'setupStorage.skip': 'string';
+  'setupStorage.grantAccess': 'string';
+  'setupStorage.grantAccessDesc': 'string';
+  'setupStorage.accessMissing': 'string';
   'tracking': 'string';
   'trackingScreen.logOutMessage': 'string';
   'trackingScreen.revalidate': 'string';

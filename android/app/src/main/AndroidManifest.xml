@@ -7,6 +7,8 @@
   <!-- Storage -->
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+  <!-- Lets downloads live in a plain /SoraReader folder instead of the picked SAF tree -->
+  <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
   <!-- For background jobs -->
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

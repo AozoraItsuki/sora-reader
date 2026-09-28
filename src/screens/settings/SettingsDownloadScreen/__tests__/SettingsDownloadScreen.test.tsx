@@ -49,6 +49,13 @@ jest.mock('@services/saf/migrateToSaf', () => ({
   runSafMigration: jest.fn().mockResolvedValue(undefined),
   hasLegacyDownloads: jest.fn().mockReturnValue(false),
 }));
+// A device with no shared storage root: the plain `/SoraReader` folder cannot
+// exist there, so the download-folder row keeps its picker. The shared-root row
+// is covered by SettingsDownloadScreen.sharedRoot.test.tsx.
+jest.mock('@utils/Storages', () => ({
+  SHARED_ROOT: '',
+  SHARED_NOVELS: '',
+}));
 jest.mock('@utils/showToast', () => ({ showToast: jest.fn() }));
 jest.mock('react-native-saf-x', () => ({
   __esModule: true,

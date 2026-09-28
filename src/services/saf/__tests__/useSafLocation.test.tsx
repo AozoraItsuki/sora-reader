@@ -10,13 +10,15 @@ import { useSafLocation } from '../useSafLocation';
 jest.mock('expo-file-system/legacy', () => ({
   StorageAccessFramework: {
     getUriForDirectoryInRoot: jest.fn(
-      (name: string) => `content://com.android.externalstorage.documents/root/${name}`,
+      (name: string) =>
+        `content://com.android.externalstorage.documents/root/${name}`,
     ),
     requestDirectoryPermissionsAsync: jest.fn(),
   },
 }));
 
-const TREE_URI = 'content://com.android.externalstorage.documents/tree/primary%3ADownload';
+const TREE_URI =
+  'content://com.android.externalstorage.documents/tree/primary%3ADownload';
 
 const nativeSaf = NativeSaf as jest.Mocked<typeof NativeSaf>;
 const nativeLocalServer = NativeLocalServer as jest.Mocked<
@@ -104,9 +106,7 @@ describe('useSafLocation', () => {
     expect(result.current.treeUri).toBe(TREE_URI);
     expect(result.current.ready).toBe(true);
     expect(MMKVStorage.getString(SAF_DOWNLOAD_TREE_URI)).toBe(TREE_URI);
-    expect(nativeLocalServer.setSafTreeUri).toHaveBeenLastCalledWith(
-      TREE_URI,
-    );
+    expect(nativeLocalServer.setSafTreeUri).toHaveBeenLastCalledWith(TREE_URI);
   });
 
   it('leaves the state untouched when the picker is declined', async () => {

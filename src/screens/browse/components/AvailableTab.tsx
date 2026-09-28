@@ -1,8 +1,9 @@
-import { EmptyView, IconButtonV2 } from '@components';
+import { EmptyView } from '@components';
 import { usePlugins } from '@hooks/persisted';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 import { MoreStackScreenProps } from '@navigators/types';
 import { PluginItem } from '@plugins/types';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { useNavigation } from '@react-navigation/native';
 import { getString } from '@strings/translations';
 import { coverPlaceholderColor } from '@theme/colors';
@@ -23,7 +24,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 interface AvailableTabProps {
   searchText: string;

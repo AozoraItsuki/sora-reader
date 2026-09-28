@@ -29,6 +29,7 @@ import {
 import { chapterSchema, novelSchema } from '@database/schema';
 import DebugLogService from '@services/DebugLogService';
 import {
+  ensureDirectStorage,
   ensureSafPermission,
   getSafTreeUri,
   isSafMigrationDone,
@@ -575,13 +576,18 @@ export const runSafMigration = async (
   }
 
   try {
-    if (!(await ensureSafPermission())) {
-      log('log', `${BTAG} Skipped: SAF download tree permission not granted`);
-      return;
-    }
-    if (!getSafTreeUri()) {
-      log('log', `${BTAG} Skipped: no SAF download tree configured`);
-      return;
+    // Either backend can take the writes: the shared root when all-files access
+    // is granted, the picked tree otherwise. Probing the native permission
+    // keeps this correct after a reboot, when the cached flag starts empty.
+    if (!(await ensureDirectStorage())) {
+      if (!(await ensureSafPermission())) {
+        log('log', `${BTAG} Skipped: SAF download tree permission not granted`);
+        return;
+      }
+      if (!getSafTreeUri()) {
+        log('log', `${BTAG} Skipped: no SAF download tree configured`);
+        return;
+      }
     }
 
     // Heal flag/disk disagreements first: a restore or refresh may have left

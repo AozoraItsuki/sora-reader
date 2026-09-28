@@ -27,6 +27,7 @@ let mockNovels: NovelRow[];
 let mockDownloadedChapters: ChapterRow[];
 let mockCoverUpdates: Array<{ id: number; cover: string }>;
 let mockPermissionGranted: boolean;
+let mockDirectReady: boolean;
 let mockTreeUri: string | null;
 let mockMigrationDone: boolean;
 let mockLogEntries: string[];
@@ -43,6 +44,7 @@ const resetFakes = () => {
   mockDownloadedChapters = [];
   mockCoverUpdates = [];
   mockPermissionGranted = true;
+  mockDirectReady = false;
   mockTreeUri = 'content://downloads/tree';
   mockMigrationDone = false;
   mockLogEntries = [];
@@ -117,6 +119,7 @@ jest.mock('@services/saf/safFile', () => ({
     mockMigrationDone = true;
   },
   ensureSafPermission: async () => mockPermissionGranted,
+  ensureDirectStorage: async () => mockDirectReady,
   getSafTreeUri: () => mockTreeUri,
   safExists: async (rel: string) => mockTree.has(rel),
   safMkdir: async () => true,
@@ -321,6 +324,23 @@ describe('runSafMigration', () => {
 
     expect(mockMigrationDone).toBe(true);
     expect(mockTree.size).toBe(0);
+  });
+
+  it('migrates into the shared root when no tree is picked at all', async () => {
+    mockDirectReady = true;
+    mockTreeUri = null;
+    mockPermissionGranted = false;
+    seedLegacyNovel(
+      { id: 1, pluginId: 'p1', cover: `file://${OLD_ROOT}/p1/1/cover.png` },
+      [{ id: 5, novelId: 1 }],
+    );
+
+    await runSafMigration();
+
+    expect(mockTree.get('Novels/p1/1/5/index.html')?.data).toBe(
+      '<html><body><img src="3.b64.png"></body></html>',
+    );
+    expect(mockMigrationDone).toBe(true);
   });
 
   it('migrates chapters, rewrites html and relativises the cover', async () => {

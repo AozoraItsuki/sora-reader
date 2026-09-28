@@ -20,7 +20,7 @@ import SetupStorageScreen, {
   SETUP_STORAGE_DISMISSED,
 } from '@screens/setup/SetupStorageScreen';
 import { runSafMigration } from '@services/saf/migrateToSaf';
-import { getSafTreeUri } from '@services/saf/safFile';
+import { getSafTreeUri, isDirectStorageReady } from '@services/saf/safFile';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
@@ -110,12 +110,14 @@ const useCancelStuckBackupTasks = () => {
 };
 
 /**
- * Nothing can be downloaded until the user points the app at a folder, so setup
- * blocks the library on the first run — until a folder is picked, or until the
- * user explicitly skips it. Independent of the database: a failed init must
- * still leave the setup screen reachable.
+ * Nothing can be downloaded until the user grants access to a download folder,
+ * so setup blocks the library on the first run — until all-files access is
+ * granted, until a tree is picked, or until the user explicitly skips it.
+ * Synchronous on purpose: the gate is read during the first render. Independent
+ * of the database: a failed init must still leave the setup screen reachable.
  */
 const needsStorageSetup = (): boolean =>
+  !isDirectStorageReady() &&
   getSafTreeUri() === null &&
   MMKVStorage.getString(SETUP_STORAGE_DISMISSED) !== '1';
 

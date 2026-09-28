@@ -4,24 +4,23 @@ import {
   hasLegacyDownloads,
   runSafMigration,
 } from '@services/saf/migrateToSaf';
-import { SAF_TREE_ROOT, safMkdir, setSafTreeUri } from '@services/saf/safFile';
+import {
+  ensureDirectStorage,
+  isDirectStorageReady,
+  SAF_TREE_ROOT,
+  safMkdir,
+} from '@services/saf/safFile';
 import { syncSafTreeUriToServer } from '@services/saf/useSafLocation';
+import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
-import { openDocumentTree } from 'react-native-saf-x';
 
-/** Set to '1' once the user picked a folder or explicitly skipped this screen. */
+/** Set to '1' once all-files access was granted or the user skipped setup. */
 export const SETUP_STORAGE_DISMISSED = 'SETUP_STORAGE_DISMISSED';
-
-/**
- * Display name of the picked download folder. Same key `SettingsDownloadScreen`
- * reads, so a folder chosen here shows up on its download-folder row too.
- */
-const DOWNLOAD_FOLDER_NAME_KEY = 'SAF_TREE_DISPLAY_NAME';
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -30,14 +29,15 @@ const errorMessage = (error: unknown): string =>
 type MigrationProgress = { done: number; total: number; label: string };
 
 interface SetupStorageScreenProps {
-  /** Called once a folder is configured or the user skipped setup. */
+  /** Called once access is granted or the user skipped setup. */
   onDone: () => void;
 }
 
 /**
- * First-run storage setup: the app cannot download anything until the user
- * points it at a folder, so this blocks the library until then (or until the
- * user says they do not want to pick one right now).
+ * First-run storage setup: downloads live in a plain `/SoraReader` folder on
+ * shared storage, which Android only allows with all-files access. So this is a
+ * grant screen, not a folder picker — it blocks the library until the user
+ * grants it (or says they do not want to right now).
  */
 const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
   const theme = useTheme();
@@ -48,19 +48,19 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
   const [migrating, setMigrating] = useState(false);
   const [progress, setProgress] = useState<MigrationProgress | null>(null);
 
-  const handleChooseFolder = useCallback(async () => {
+  const handleGrantAccess = useCallback(async () => {
     try {
-      const picked = await openDocumentTree(true);
-      if (!picked) {
+      // Android shows its own screen; the probe afterwards is what tells us
+      // whether the user actually flipped the switch.
+      NativeFile.openAllFilesAccessSettings();
+      if (!(await ensureDirectStorage())) {
         return;
       }
-      setSafTreeUri(picked.uri);
-      syncSafTreeUriToServer();
-      MMKVStorage.set(DOWNLOAD_FOLDER_NAME_KEY, picked.name);
-      // Make sure the tree the server walks into exists, then move whatever is
-      // still in the old app-private location into it.
+      // Make sure the root the server walks into exists before it is told to
+      // serve from it, then move whatever is still in the old app-private
+      // location into the new one.
       await safMkdir(SAF_TREE_ROOT);
-      await runSafMigration();
+      syncSafTreeUriToServer();
       onDone();
     } catch (error) {
       showToast(errorMessage(error));
@@ -73,9 +73,9 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
     }
     setMigrating(true);
     try {
-      // Choosing a folder already migrates; this retries a run that could not
-      // finish, which deliberately leaves the legacy tree in place. It forces
-      // the run so a migration already marked done can be re-run by hand too.
+      // Granting already migrates on a fresh install; this retries a run that
+      // could not finish, which deliberately leaves the legacy tree in place. It
+      // forces the run so a migration already marked done can be re-run by hand.
       await runSafMigration(
         (done, total, label) => setProgress({ done, total, label }),
         true,
@@ -102,10 +102,17 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
           </List.SubHeader>
           <List.InfoItem title={getString('setupStorage.desc')} theme={theme} />
           <List.Item
-            title={getString('setupStorage.chooseFolder')}
-            onPress={handleChooseFolder}
+            title={getString('setupStorage.grantAccess')}
+            description={getString('setupStorage.grantAccessDesc')}
+            onPress={handleGrantAccess}
             theme={theme}
           />
+          {!isDirectStorageReady() && (
+            <List.InfoItem
+              title={getString('setupStorage.accessMissing')}
+              theme={theme}
+            />
+          )}
           {hasLegacyFiles && (
             <List.Item
               title={getString('setupStorage.migrateFiles')}

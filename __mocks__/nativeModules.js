@@ -36,17 +36,18 @@ jest.mock('react-native-quick-crypto', () => ({
   createHmac: jest.fn(),
   pbkdf2Sync: jest.fn(),
   randomBytes: jest.fn(),
-  randomUUID: jest.fn(() => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-    /[xy]/g,
-    c => {
+  randomUUID: jest.fn(() =>
+    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
       const r = (Math.random() * 16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
       return v.toString(16);
-    },
-  )),
+    }),
+  ),
 }));
 
-jest.mock('react-native-device-info', () => require('react-native-device-info/jest/react-native-device-info-mock'));
+jest.mock('react-native-device-info', () =>
+  require('react-native-device-info/jest/react-native-device-info-mock'),
+);
 
 jest.mock('@specs/NativeFile', () => ({
   __esModule: true,
@@ -59,10 +60,15 @@ jest.mock('@specs/NativeFile', () => ({
     mkdir: jest.fn(),
     unlink: jest.fn(),
     readDir: jest.fn(() => []),
+    getFileSize: jest.fn(() => 0),
     downloadFile: jest.fn().mockResolvedValue(),
+    // Off by default: direct (all-files) storage has to be granted explicitly.
+    hasAllFilesAccess: jest.fn(() => false),
+    openAllFilesAccessSettings: jest.fn(),
     getConstants: jest.fn(() => ({
       ExternalDirectoryPath: '/mock/external',
       ExternalCachesDirectoryPath: '/mock/caches',
+      StoragePath: '/mock/storage',
     })),
   },
 }));
@@ -100,10 +106,14 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {
     configure: jest.fn(),
     hasPlayServices: jest.fn(() => Promise.resolve(true)),
-    signIn: jest.fn(() => Promise.resolve({ user: { id: 'mock', email: 'mock@mock.com' } })),
+    signIn: jest.fn(() =>
+      Promise.resolve({ user: { id: 'mock', email: 'mock@mock.com' } }),
+    ),
     signOut: jest.fn(() => Promise.resolve(true)),
     isSignedIn: jest.fn(() => Promise.resolve(false)),
-    getTokens: jest.fn(() => Promise.resolve({ idToken: 'mockId', accessToken: 'mockAccess' })),
+    getTokens: jest.fn(() =>
+      Promise.resolve({ idToken: 'mockId', accessToken: 'mockAccess' }),
+    ),
   },
 }));
 
@@ -149,6 +159,7 @@ jest.mock('@specs/NativeLocalServer', () => ({
     getServerUrl: jest.fn(() => 'http://127.0.0.1:8080'),
     setAllowProxyAPI: jest.fn(),
     setSafTreeUri: jest.fn(),
+    setDownloadRoot: jest.fn(),
   },
 }));
 

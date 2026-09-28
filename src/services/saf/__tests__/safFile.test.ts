@@ -1,12 +1,21 @@
+import NativeFile from '@specs/NativeFile';
 import NativeSaf from '@specs/NativeSaf';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { pickDirectory } from '@react-native-documents/picker';
-import { StorageAccessFramework } from 'expo-file-system/legacy';
+import {
+  EncodingType,
+  StorageAccessFramework,
+  readAsStringAsync,
+  writeAsStringAsync,
+} from 'expo-file-system/legacy';
 
 import {
   clearSafFolder,
+  ensureDirectStorage,
   ensureSafPermission,
+  getDirectRootAbsolute,
   getSafTreeUri,
+  isDirectStorageReady,
   isSafMigrationDone,
   isSafReady,
   markSafMigrationDone,
@@ -29,25 +38,45 @@ import {
 } from '../safFile';
 
 jest.mock('expo-file-system/legacy', () => ({
+  EncodingType: { UTF8: 'utf8', Base64: 'base64' },
   StorageAccessFramework: {
     getUriForDirectoryInRoot: jest.fn(
-      (name: string) => `content://com.android.externalstorage.documents/root/${name}`,
+      (name: string) =>
+        `content://com.android.externalstorage.documents/root/${name}`,
     ),
     requestDirectoryPermissionsAsync: jest.fn(),
   },
+  readAsStringAsync: jest.fn(async () => ''),
+  writeAsStringAsync: jest.fn(async () => undefined),
 }));
 
-const TREE_URI = 'content://com.android.externalstorage.documents/tree/primary%3ADownload';
+const TREE_URI =
+  'content://com.android.externalstorage.documents/tree/primary%3ADownload';
+/** `SHARED_ROOT` as Storages derives it from the mocked `StoragePath`. */
+const SHARED_ROOT = '/mock/storage/SoraReader';
 
 const nativeSaf = NativeSaf as jest.Mocked<typeof NativeSaf>;
+const nativeFile = NativeFile as jest.Mocked<typeof NativeFile>;
 const storageAccess = StorageAccessFramework as jest.Mocked<
   typeof StorageAccessFramework
+>;
+const readAsString = readAsStringAsync as jest.MockedFunction<
+  typeof readAsStringAsync
+>;
+const writeAsString = writeAsStringAsync as jest.MockedFunction<
+  typeof writeAsStringAsync
 >;
 const documentPicker = pickDirectory as jest.MockedFunction<
   typeof pickDirectory
 >;
 
 const setTree = () => MMKVStorage.set(SAF_DOWNLOAD_TREE_URI, TREE_URI);
+
+/** Turn the direct backend on, the way a granted "all files access" would. */
+const grantDirectAccess = async () => {
+  nativeFile.hasAllFilesAccess.mockReturnValue(true);
+  await ensureDirectStorage();
+};
 
 describe('safFile', () => {
   beforeEach(() => {
@@ -67,6 +96,13 @@ describe('safFile', () => {
       granted: false,
     });
     documentPicker.mockRejectedValue({ code: 'OPERATION_CANCELED' });
+    nativeFile.hasAllFilesAccess.mockReturnValue(false);
+  });
+
+  // The direct backend caches its answer in module state, so every test starts
+  // from "not granted" and turns it on explicitly.
+  beforeEach(async () => {
+    await ensureDirectStorage();
   });
 
   describe('persisted tree uri', () => {
@@ -151,9 +187,9 @@ describe('safFile', () => {
 
     it('reads text and base64 payloads', async () => {
       nativeSaf.readFile.mockResolvedValue('<p>hi</p>');
-      await expect(
-        safReadFile('Novels/local/115/index.html'),
-      ).resolves.toBe('<p>hi</p>');
+      await expect(safReadFile('Novels/local/115/index.html')).resolves.toBe(
+        '<p>hi</p>',
+      );
       expect(nativeSaf.readFile).toHaveBeenCalledWith(
         TREE_URI,
         'Novels/local/115/index.html',
@@ -349,15 +385,11 @@ describe('safFile', () => {
     });
 
     it('forwards a plugin request init as headers, method and body', async () => {
-      await safDownloadFile(
-        'https://host/b.png',
-        'Novels/local/b.png',
-        {
-          method: 'POST',
-          headers: { 'User-Agent': 'Sora', Referer: 'https://host/' },
-          body: 'payload',
-        },
-      );
+      await safDownloadFile('https://host/b.png', 'Novels/local/b.png', {
+        method: 'POST',
+        headers: { 'User-Agent': 'Sora', Referer: 'https://host/' },
+        body: 'payload',
+      });
       expect(nativeSaf.downloadFile).toHaveBeenCalledWith(
         TREE_URI,
         'https://host/b.png',
@@ -407,6 +439,173 @@ describe('safFile', () => {
       await expect(
         readDownloadedChapter('Novels/local/115/456/index.html'),
       ).resolves.toBeNull();
+    });
+  });
+
+  describe('direct backend', () => {
+    it('is not ready until the native probe reports the grant', async () => {
+      expect(isDirectStorageReady()).toBe(false);
+      expect(getDirectRootAbsolute()).toBeNull();
+      expect(isSafReady()).toBe(false);
+    });
+
+    it('publishes the shared root once access is granted', async () => {
+      await grantDirectAccess();
+
+      expect(isDirectStorageReady()).toBe(true);
+      expect(getDirectRootAbsolute()).toBe(SHARED_ROOT);
+      // Direct storage answers the same readiness question consumers already ask.
+      expect(isSafReady()).toBe(true);
+    });
+
+    it('takes precedence over a configured tree', async () => {
+      setTree();
+      await grantDirectAccess();
+
+      await safMkdir('Novels/local/115');
+      expect(nativeFile.mkdir).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115`,
+      );
+      expect(nativeSaf.mkdir).not.toHaveBeenCalled();
+    });
+
+    it('routes every file operation to an absolute path', async () => {
+      await grantDirectAccess();
+
+      await safMkdir('Novels/local/115/456');
+      expect(nativeFile.mkdir).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115/456`,
+      );
+
+      await safWriteFile('Novels/local/115/index.html', '<p>hi</p>');
+      expect(nativeFile.writeFile).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115/index.html`,
+        '<p>hi</p>',
+      );
+
+      nativeFile.readFile.mockReturnValue('<p>hi</p>');
+      await expect(safReadFile('Novels/local/115/index.html')).resolves.toBe(
+        '<p>hi</p>',
+      );
+      expect(nativeFile.readFile).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115/index.html`,
+      );
+
+      nativeFile.exists.mockReturnValue(true);
+      await expect(safExists('Novels/local/115')).resolves.toBe(true);
+      expect(nativeFile.exists).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115`,
+      );
+
+      nativeFile.readDir.mockReturnValue([
+        { name: 'index.html', path: 'p/index.html', isDirectory: false },
+        { name: '0.b64.png', path: 'p/0.b64.png', isDirectory: false },
+      ]);
+      await expect(safReadDir('Novels/local/115/456')).resolves.toEqual([
+        'index.html',
+        '0.b64.png',
+      ]);
+      expect(nativeFile.readDir).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115/456`,
+      );
+
+      nativeFile.getFileSize.mockReturnValue(2048);
+      await expect(safGetFileSize('Novels/local/115/0.b64.png')).resolves.toBe(
+        2048,
+      );
+
+      await safMove('Novels/local/115/a.html', 'Novels/local/115/b.html');
+      expect(nativeFile.moveFile).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115/a.html`,
+        `${SHARED_ROOT}/Novels/local/115/b.html`,
+      );
+
+      await expect(safUnlink('Novels/local/115/456')).resolves.toBe(true);
+      expect(nativeFile.unlink).toHaveBeenCalledWith(
+        `${SHARED_ROOT}/Novels/local/115/456`,
+      );
+    });
+
+    it('keeps refusing paths that could escape the shared root', async () => {
+      await grantDirectAccess();
+
+      await expect(safMkdir('../secrets')).rejects.toThrow('[saf] Unsafe path');
+      expect(nativeFile.mkdir).not.toHaveBeenCalled();
+    });
+
+    it('resolves the tree root itself to the shared root', async () => {
+      await grantDirectAccess();
+
+      await expect(safExists('')).resolves.toBeDefined();
+      expect(nativeFile.exists).toHaveBeenCalledWith(SHARED_ROOT);
+    });
+
+    it('reports a missing entry as absent instead of a silent no-op', async () => {
+      await grantDirectAccess();
+      nativeFile.exists.mockReturnValue(false);
+
+      await expect(safUnlink('Novels/local/115')).resolves.toBe(false);
+      expect(nativeFile.unlink).not.toHaveBeenCalled();
+    });
+
+    it('round-trips base64 payloads through expo, which decodes bytes', async () => {
+      await grantDirectAccess();
+      readAsString.mockResolvedValue('aGk=');
+
+      await expect(
+        safReadFile('Novels/local/115/0.b64.png', 'base64'),
+      ).resolves.toBe('aGk=');
+      expect(readAsString).toHaveBeenCalledWith(
+        `file://${SHARED_ROOT}/Novels/local/115/0.b64.png`,
+        { encoding: EncodingType.Base64 },
+      );
+
+      await safWriteFile('Novels/local/115/0.b64.png', 'aGk=', 'base64');
+      expect(writeAsString).toHaveBeenCalledWith(
+        `file://${SHARED_ROOT}/Novels/local/115/0.b64.png`,
+        'aGk=',
+        { encoding: EncodingType.Base64 },
+      );
+    });
+
+    it('downloads straight into the absolute path', async () => {
+      await grantDirectAccess();
+
+      await safDownloadFile('https://host/a.png', 'Novels/local/a.png', {
+        headers: { Referer: 'https://host/' },
+      });
+
+      expect(nativeFile.downloadFile).toHaveBeenCalledWith(
+        'https://host/a.png',
+        `${SHARED_ROOT}/Novels/local/a.png`,
+        'get',
+        { Referer: 'https://host/' },
+        undefined,
+      );
+      expect(nativeSaf.downloadFile).not.toHaveBeenCalled();
+    });
+
+    it('serves chapters without a tree uri at all', async () => {
+      await grantDirectAccess();
+      nativeFile.exists.mockReturnValue(true);
+      nativeFile.readFile.mockReturnValue('<html>chapter</html>');
+
+      await expect(
+        readDownloadedChapter('Novels/local/115/456/index.html'),
+      ).resolves.toBe('<html>chapter</html>');
+    });
+
+    it('falls back to the tree as soon as the grant is revoked', async () => {
+      setTree();
+      await grantDirectAccess();
+      nativeFile.hasAllFilesAccess.mockReturnValue(false);
+      await ensureDirectStorage();
+
+      await safMkdir('Novels/local/115');
+      expect(nativeSaf.mkdir).toHaveBeenCalledWith(
+        TREE_URI,
+        'Novels/local/115',
+      );
     });
   });
 });

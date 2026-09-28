@@ -1,22 +1,49 @@
 /**
- * SAF (Storage Access Framework) file layer for the user-picked download tree.
+ * Storage backend for the download folder.
  *
- * Every path handled here is RELATIVE to the tree root, using the same layout
- * the app-private storage used, so nothing downstream has to care where the
- * bytes actually live:
+ * Every path handled here is RELATIVE to the download root, using the same
+ * layout the app-private storage used, so nothing downstream has to care where
+ * the bytes actually live:
  *
  *   Novels/{pluginId}/{novelId}/cover.png
  *   Novels/{pluginId}/{novelId}/{chapterId}/index.html
- *   Novels/{pluginId}/{novelId}/{chapterId}/3.b64.png
+ *   Novels/{pluginId}/{novelId}/{chapterId}/{i}.b64.png
  *
- * The tree uri itself lives in MMKV under [SAF_DOWNLOAD_TREE_URI]; the native
- * side ([NativeSaf]) resolves every path through `DocumentFile` +
- * `ContentResolver`, so the tree is never touched with `java.io.File`.
+ * Two backends answer for that layout:
+ *
+ * - `direct` (default): absolute paths under `SHARED_ROOT`, reachable with
+ *   `java.io.File` once the user grants all-files access — Mihon-style, no
+ *   picker, and the files are visible to any file manager;
+ * - `tree` (fallback): the `content://` tree the user picked, resolved through
+ *   `DocumentFile` + `ContentResolver` in [NativeSaf]. Never touched with
+ *   `java.io.File`.
+ *
+ * The tree uri lives in MMKV under [SAF_DOWNLOAD_TREE_URI]. Every operation
+ * below branches on [isDirectStorageReady], so the two modes stay
+ * interchangeable for callers.
  */
 import { pickDirectory } from '@react-native-documents/picker';
 import NativeSaf from '@specs/NativeSaf';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { StorageAccessFramework } from 'expo-file-system/legacy';
+
+import {
+  directAbsolutePath,
+  directDownloadFile,
+  directExists,
+  directGetFileSize,
+  directMkdir,
+  directMove,
+  directReadDir,
+  directReadFile,
+  directUnlink,
+  directWriteFile,
+  ensureDirectStorage,
+  getDirectRootAbsolute,
+  isDirectStorageReady,
+} from './directStorage';
+
+export { ensureDirectStorage, getDirectRootAbsolute, isDirectStorageReady };
 
 /** MMKV key holding the persisted `content://` tree uri. */
 export const SAF_DOWNLOAD_TREE_URI = 'SAF_DOWNLOAD_TREE_URI';
@@ -44,7 +71,8 @@ export type SafRequestInit = {
  */
 let lastKnownPermission: boolean | null = null;
 
-const normalizeTreeUri = (uri: string): string => uri.trim().replace(/\/+$/, '');
+const normalizeTreeUri = (uri: string): string =>
+  uri.trim().replace(/\/+$/, '');
 
 /** Persisted tree uri, or null when the user never picked a folder. */
 export const getSafTreeUri = (): string | null => {
@@ -64,12 +92,14 @@ export const setSafTreeUri = (uri: string | null): void => {
 };
 
 /**
- * True when a tree is configured and was not found to be inaccessible.
- * Synchronous by design — call [ensureSafPermission] for the authoritative
- * answer, which re-takes the persisted grant after a reboot.
+ * True when downloads can be read and written: the shared root is granted, or a
+ * tree is configured and was not found to be inaccessible.
+ * Synchronous by design — call [ensureDirectStorage] or [ensureSafPermission]
+ * for the authoritative answer, which re-takes the grant after a reboot.
  */
 export const isSafReady = (): boolean =>
-  getSafTreeUri() !== null && lastKnownPermission !== false;
+  isDirectStorageReady() ||
+  (getSafTreeUri() !== null && lastKnownPermission !== false);
 
 export const isSafMigrationDone = (): boolean =>
   MMKVStorage.getString(SAF_MIGRATION_DONE) === '1';
@@ -110,8 +140,13 @@ export const normalizeSafPath = (
 };
 
 /** Absolute document uri of a tree-relative path; for readers and `<img src>`. */
-export const safDocumentUri = (relPath: string): string =>
-  `${requireTreeUri()}/${normalizeSafPath(relPath)}`;
+export const safDocumentUri = (relPath: string): string => {
+  const rel = normalizeSafPath(relPath);
+  if (isDirectStorageReady()) {
+    return `file://${directAbsolutePath(rel)}`;
+  }
+  return `${requireTreeUri()}/${rel}`;
+};
 
 /**
  * Re-take the persisted grant for the stored tree, which is what brings access
@@ -186,8 +221,14 @@ export const clearSafFolder = async (): Promise<boolean> => {
 };
 
 /** Create `relPath` and every missing parent directory. Idempotent. */
-export const safMkdir = async (relPath: string): Promise<boolean> =>
-  NativeSaf.mkdir(requireTreeUri(), normalizeSafPath(relPath));
+export const safMkdir = async (relPath: string): Promise<boolean> => {
+  const rel = normalizeSafPath(relPath);
+  if (isDirectStorageReady()) {
+    directMkdir(directAbsolutePath(rel));
+    return true;
+  }
+  return NativeSaf.mkdir(requireTreeUri(), rel);
+};
 
 /**
  * Write (overwriting) `data` at `relPath`. `encoding` selects how the string is
@@ -197,69 +238,109 @@ export const safWriteFile = async (
   relPath: string,
   data: string,
   encoding: SafEncoding = 'utf8',
-): Promise<boolean> =>
-  NativeSaf.writeFile(
-    requireTreeUri(),
-    normalizeSafPath(relPath),
-    data,
-    encoding,
-  );
+): Promise<boolean> => {
+  const rel = normalizeSafPath(relPath);
+  if (isDirectStorageReady()) {
+    await directWriteFile(directAbsolutePath(rel), data, encoding);
+    return true;
+  }
+  return NativeSaf.writeFile(requireTreeUri(), rel, data, encoding);
+};
 
 /** Read `relPath` as `utf8` text or `base64`, per `encoding`. */
 export const safReadFile = async (
   relPath: string,
   encoding: SafEncoding = 'utf8',
-): Promise<string> =>
-  NativeSaf.readFile(
-    requireTreeUri(),
-    normalizeSafPath(relPath),
-    encoding,
-  );
+): Promise<string> => {
+  const rel = normalizeSafPath(relPath);
+  if (isDirectStorageReady()) {
+    return directReadFile(directAbsolutePath(rel), encoding);
+  }
+  return NativeSaf.readFile(requireTreeUri(), rel, encoding);
+};
 
-export const safExists = async (relPath: string): Promise<boolean> =>
-  NativeSaf.exists(requireTreeUri(), normalizeSafPath(relPath, { allowRoot: true }));
+export const safExists = async (relPath: string): Promise<boolean> => {
+  const rel = normalizeSafPath(relPath, { allowRoot: true });
+  if (isDirectStorageReady()) {
+    return directExists(directAbsolutePath(rel));
+  }
+  return NativeSaf.exists(requireTreeUri(), rel);
+};
 
 /** Recursively remove a file or directory. Resolves false when absent. */
-export const safUnlink = async (relPath: string): Promise<boolean> =>
-  NativeSaf.unlink(requireTreeUri(), normalizeSafPath(relPath));
+export const safUnlink = async (relPath: string): Promise<boolean> => {
+  const rel = normalizeSafPath(relPath);
+  if (isDirectStorageReady()) {
+    return directUnlink(directAbsolutePath(rel));
+  }
+  return NativeSaf.unlink(requireTreeUri(), rel);
+};
 
 /** Display names of the direct children; an empty string lists the root. */
-export const safReadDir = async (relPath: string): Promise<string[]> =>
-  NativeSaf.readDir(requireTreeUri(), normalizeSafPath(relPath, { allowRoot: true }));
+export const safReadDir = async (relPath: string): Promise<string[]> => {
+  const rel = normalizeSafPath(relPath, { allowRoot: true });
+  if (isDirectStorageReady()) {
+    return directReadDir(directAbsolutePath(rel));
+  }
+  return NativeSaf.readDir(requireTreeUri(), rel);
+};
 
-/** Move a file or directory inside the tree, replacing the destination. */
+/** Move a file or directory inside the download root, replacing the destination. */
 export const safMove = async (
   oldRelPath: string,
   newRelPath: string,
-): Promise<boolean> =>
-  NativeSaf.move(
-    requireTreeUri(),
-    normalizeSafPath(oldRelPath),
-    normalizeSafPath(newRelPath),
-  );
+): Promise<boolean> => {
+  const from = normalizeSafPath(oldRelPath);
+  const to = normalizeSafPath(newRelPath);
+  if (isDirectStorageReady()) {
+    directMove(directAbsolutePath(from), directAbsolutePath(to));
+    return true;
+  }
+  return NativeSaf.move(requireTreeUri(), from, to);
+};
 
-/** Size in bytes; 0 for a directory or a missing path. */
-export const safGetFileSize = async (relPath: string): Promise<number> =>
-  NativeSaf.getFileSize(requireTreeUri(), normalizeSafPath(relPath));
+/** Size in bytes; 0 when the path is missing. */
+export const safGetFileSize = async (relPath: string): Promise<number> => {
+  const rel = normalizeSafPath(relPath);
+  if (isDirectStorageReady()) {
+    return directGetFileSize(directAbsolutePath(rel));
+  }
+  return NativeSaf.getFileSize(requireTreeUri(), rel);
+};
 
 /**
- * Download `url` straight into the tree, gzip-decoding and MIME-sniffing
- * natively. `init` accepts a plugin request init, a bare header map, or
- * nothing, so `plugin.imageRequestInit` keeps working.
+ * Download `url` straight into the download root, gzip-decoding and
+ * MIME-sniffing natively. `init` accepts a plugin request init, a bare header
+ * map, or nothing, so `plugin.imageRequestInit` keeps working.
  */
 export const safDownloadFile = async (
   url: string,
   relPath: string,
   init?: SafRequestInit,
-): Promise<boolean> =>
-  NativeSaf.downloadFile(
+): Promise<boolean> => {
+  const rel = normalizeSafPath(relPath);
+  const method = (init?.method || 'get').toLowerCase();
+  const headers = toHeaderMap(init);
+  const body = typeof init?.body === 'string' ? init.body : undefined;
+  if (isDirectStorageReady()) {
+    await directDownloadFile(
+      url,
+      directAbsolutePath(rel),
+      method,
+      headers,
+      body,
+    );
+    return true;
+  }
+  return NativeSaf.downloadFile(
     requireTreeUri(),
     url,
-    normalizeSafPath(relPath),
-    (init?.method || 'get').toLowerCase(),
-    toHeaderMap(init),
-    typeof init?.body === 'string' ? init.body : undefined,
+    rel,
+    method,
+    headers,
+    body,
   );
+};
 
 /**
  * Read a downloaded chapter, or null when it is not in the tree yet. Callers
@@ -309,24 +390,25 @@ const pickSafDirectory = async (): Promise<string | null> => {
   try {
     // Opening the picker on an existing SoraReader folder is friendlier; the
     // uri is simply ignored when no such folder exists.
-    initialUri = StorageAccessFramework.getUriForDirectoryInRoot(
-      SAF_FOLDER_NAME,
-    );
+    initialUri =
+      StorageAccessFramework.getUriForDirectoryInRoot(SAF_FOLDER_NAME);
   } catch (error) {
     console.warn('[saf] No initial folder for the picker', error);
   }
 
   try {
-    const result = await StorageAccessFramework.requestDirectoryPermissionsAsync(
-      initialUri,
-    );
+    const result =
+      await StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
     // An explicit answer from the user: never prompt twice in a row.
     return result.granted ? result.directoryUri ?? null : null;
   } catch (error) {
     if (isCancellation(error)) {
       return null;
     }
-    console.warn('[saf] SAF picker unavailable, using the document picker', error);
+    console.warn(
+      '[saf] SAF picker unavailable, using the document picker',
+      error,
+    );
   }
 
   try {

@@ -22,7 +22,6 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo, useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { IconButton } from 'react-native-paper';
 import Animated, {
   useAnimatedProps,
   useSharedValue,
@@ -46,8 +45,8 @@ import ReadButton from './ReadButton';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { ChapterFilterKey } from '@database/constants';
-import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { useNovelAction } from '@screens/novel/NovelContext';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 
 interface NovelInfoHeaderProps {
   chapters: ChapterInfo[];

@@ -5,6 +5,9 @@ import {
   useNovelLayout,
   useNovelValue,
 } from '@screens/novel/NovelContext';
+import { getString } from '@strings/translations';
+import { StringMap } from '@strings/types';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import color from 'color';
 import React, { useMemo, useState } from 'react';
 import {
@@ -31,11 +34,8 @@ import ReaderTextAlignSelector from './ReaderBottomSheet/ReaderTextAlignSelector
 import ReaderThemeSelector from './ReaderBottomSheet/ReaderThemeSelector';
 import ReaderValueChange from './ReaderBottomSheet/ReaderValueChange';
 import TextSizeSlider from './ReaderBottomSheet/TextSizeSlider';
-import TTSTab from './ReaderBottomSheet/TTSTab';
 import TranslateTab from './ReaderBottomSheet/TranslateTab';
-import { getString } from '@strings/translations';
-import { resolveDownloadUrl } from '@utils/DownloadPaths';
-import { StringMap } from '@strings/types';
+import TTSTab from './ReaderBottomSheet/TTSTab';
 
 const SCREEN_HEIGHT = Dimensions.get('screen').height;
 
@@ -92,7 +92,7 @@ const ChapterFooter = ({
   const chapters = useNovelValue('chapters');
   const chapterIndex = chapters.findIndex(c => c.id === chapter.id);
   const currentPosition = chapterIndex >= 0 ? chapterIndex + 1 : null;
-  const totalChapters = novel.totalChapters || chapters.length || null;
+  const totalChapters = chapters.length || null;
 
   const [activeTab, setActiveTab] = useState<TabKey>('read');
   const [editTermsVisible, setEditTermsVisible] = useState(false);
@@ -245,8 +245,10 @@ const ChapterFooter = ({
                 onPress={() =>
                   navigation.navigate('Novel', {
                     id: novel.id,
+                    name: novel.name,
                     path: novel.path,
                     pluginId: novel.pluginId,
+                    cover: novel.cover ?? null,
                   })
                 }
                 activeOpacity={0.75}

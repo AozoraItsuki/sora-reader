@@ -1,10 +1,12 @@
 import NativeLocalServer from '@specs/NativeLocalServer';
+import { SHARED_NOVELS } from '@utils/Storages';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   clearSafFolder,
   ensureSafPermission,
   getSafTreeUri,
+  isDirectStorageReady,
   isSafMigrationDone,
   markSafMigrationDone,
   pickDownloadFolder,
@@ -31,15 +33,22 @@ export interface UseSafLocationResult {
 }
 
 /**
- * Point the local HTTP server at the SAF tree, or at the legacy app-private
- * directory when no tree is configured. The server owns the request serving —
- * this only hands it the uri it should read from.
+ * Point the local HTTP server at whichever backend is active: the shared
+ * download root in direct mode, the SAF tree otherwise. The server owns the
+ * request serving — this only hands it the location it should read from.
  */
 export const syncSafTreeUriToServer = (): void => {
   try {
-    NativeLocalServer.setSafTreeUri(getSafTreeUri() ?? '');
+    const direct = isDirectStorageReady();
+    // Exactly one of the two is ever set, so a mode switch cannot leave the
+    // previous root behind on the native side.
+    NativeLocalServer.setDownloadRoot(direct ? SHARED_NOVELS : '');
+    NativeLocalServer.setSafTreeUri(direct ? '' : getSafTreeUri() ?? '');
   } catch (error) {
-    console.warn('[saf] Could not hand the tree uri to the local server', error);
+    console.warn(
+      '[saf] Could not hand the download root to the local server',
+      error,
+    );
   }
 };
 

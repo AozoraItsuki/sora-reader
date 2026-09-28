@@ -11,12 +11,20 @@ import {
   hasLegacyDownloads,
   runSafMigration,
 } from '@services/saf/migrateToSaf';
-import { SAF_TREE_ROOT, safMkdir, setSafTreeUri } from '@services/saf/safFile';
+import {
+  ensureDirectStorage,
+  isDirectStorageReady,
+  SAF_TREE_ROOT,
+  safMkdir,
+  setSafTreeUri,
+} from '@services/saf/safFile';
 import { syncSafTreeUriToServer } from '@services/saf/useSafLocation';
+import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { applyNativeProxy, clearNativeProxy } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
+import { SHARED_ROOT } from '@utils/Storages';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
@@ -66,18 +74,34 @@ const SettingsDownloadScreen = ({
   const chapterDelayModal = useBoolean();
 
   // A tree URI carries no readable label, so the picked folder's display name is
-  // kept next to it for this row.
-  // A tree URI carries no readable label, so the picked folder's display name is
-  // kept next to it for this row.
+  // kept next to it for this row. Irrelevant in direct mode, where the folder is
+  // fixed and the only question is whether access is still granted.
   const [downloadFolderName, setDownloadFolderName] = useState(
     () => MMKVStorage.getString(DOWNLOAD_FOLDER_NAME_KEY) || '',
   );
+  const [directAccess, setDirectAccess] = useState(isDirectStorageReady);
   const [legacyDetected, setLegacyDetected] = useState(false);
   const [migrating, setMigrating] = useState(false);
   const [progress, setProgress] = useState<MigrationProgress | null>(null);
 
+  // The device can host the plain shared download root at all. When it cannot,
+  // the picked tree stays the only backend and the row keeps its picker.
+  const sharedRootAvailable = SHARED_ROOT !== '';
+
   useEffect(() => {
     setLegacyDetected(hasLegacyDownloads());
+    // The all-files grant survives reboots but not a revoke from system
+    // settings, so the row has to be told about it on every visit.
+    void ensureDirectStorage().then(setDirectAccess);
+  }, []);
+
+  const handleGrantDirectAccess = useCallback(async () => {
+    try {
+      NativeFile.openAllFilesAccessSettings();
+      setDirectAccess(await ensureDirectStorage());
+    } catch (error: any) {
+      showToast(error?.message || String(error));
+    }
   }, []);
 
   const handlePickDownloadFolder = useCallback(async () => {
@@ -158,13 +182,29 @@ const SettingsDownloadScreen = ({
           <List.Item
             title={getString('downloadSettingsScreen.downloadFolder')}
             description={
-              downloadFolderName
+              sharedRootAvailable
+                ? `${getString(
+                    'downloadSettingsScreen.downloadFolderDesc',
+                  )}\n${getString(
+                    'downloadSettingsScreen.downloadFolderShared',
+                  )}${
+                    directAccess
+                      ? ''
+                      : ` — ${getString(
+                          'downloadSettingsScreen.downloadFolderAccessLost',
+                        )}`
+                  }`
+                : downloadFolderName
                 ? `${getString(
                     'downloadSettingsScreen.downloadFolderDesc',
                   )}\n${downloadFolderName}`
                 : getString('downloadSettingsScreen.downloadFolderNotSet')
             }
-            onPress={handlePickDownloadFolder}
+            onPress={
+              sharedRootAvailable
+                ? handleGrantDirectAccess
+                : handlePickDownloadFolder
+            }
             theme={theme}
           />
           <List.InfoItem

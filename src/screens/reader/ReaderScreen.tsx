@@ -4,16 +4,16 @@ import { useBackHandler } from '@hooks/index';
 import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
 import { discordRPC } from '@modules/discord/DiscordRPC';
 import { ChapterScreenProps } from '@navigators/types';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { resolveUrl } from '@services/plugin/fetch';
 import { getString } from '@strings/translations';
-import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
+import { buildApplyTermsJs,getAllTermsForNovel } from '@utils/readerTerms';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getAllTermsForNovel, buildApplyTermsJs } from '@utils/readerTerms';
 import { ChapterContextProvider, useChapterContext } from './ChapterContext';
 import ChapterLoadingScreen from './ChapterLoadingScreen/ChapterLoadingScreen';
 import ChapterDrawer from './components/ChapterDrawer';
@@ -71,15 +71,13 @@ export const ChapterContent = ({
   const { novel, chapter } = useChapterContext();
   const readerSheetRef = useRef<BottomSheetModalMethods>(null);
   const theme = useTheme();
-  const { pageReader = false, keepScreenOn } = useChapterGeneralSettings();
+  const { keepScreenOn } = useChapterGeneralSettings();
   const [bookmarked, setBookmarked] = useState<boolean>(
     chapter.bookmark ?? false,
   );
   const [locked, setLocked] = useState(false);
   const [lockBtnVisible, setLockBtnVisible] = useState(false);
   const lastBackPressRef = useRef<number>(0);
-  const [sheetTabIndex, setSheetTabIndex] = useState(0);
-  const [sheetTabKey, setSheetTabKey] = useState(0);
 
   useEffect(() => {
     setBookmarked(chapter.bookmark ?? false);
@@ -101,15 +99,6 @@ export const ChapterContent = ({
     }
     return false;
   });
-
-  const presentSheetAtTab = useCallback(
-    (tabIndex: number) => {
-      setSheetTabIndex(tabIndex);
-      setSheetTabKey(k => k + 1);
-      readerSheetRef.current?.present();
-    },
-    [],
-  );
 
   const applyTermsToWebView = useCallback(() => {
     const novelId = ctxNovel?.id ?? 0;
@@ -139,30 +128,6 @@ export const ChapterContent = ({
     hideHeader();
   }, [hideHeader, openDrawer]);
 
-  if (error) {
-    return (
-      <ErrorScreenV2
-        error={error}
-        actions={[
-          {
-            iconName: 'refresh',
-            title: getString('common.retry'),
-            onPress: refetch,
-          },
-          {
-            iconName: 'earth',
-            title: 'WebView',
-            onPress: () =>
-              navigation.navigate('WebviewScreen', {
-                name: novel.name,
-                url: chapter.path,
-                pluginId: novel.pluginId,
-              }),
-          },
-        ]}
-      />
-    );
-  }
   const handleUnlock = useCallback(() => {
     setLocked(false);
     setLockBtnVisible(false);
@@ -191,6 +156,33 @@ export const ChapterContent = ({
     setLockBtnVisible(false);
   }, []);
 
+  // After every hook: an earlier return would unbalance the hook order when
+  // `error` flips between renders.
+  if (error) {
+    return (
+      <ErrorScreenV2
+        error={error}
+        actions={[
+          {
+            iconName: 'refresh',
+            title: getString('common.retry'),
+            onPress: refetch,
+          },
+          {
+            iconName: 'earth',
+            title: 'WebView',
+            onPress: () =>
+              navigation.navigate('WebviewScreen', {
+                name: novel.name,
+                url: chapter.path,
+                pluginId: novel.pluginId,
+              }),
+          },
+        ]}
+      />
+    );
+  }
+
   return (
     <View style={[{ paddingStart: left, paddingEnd: right }, styles.container]}>
       {keepScreenOn ? <KeepScreenAwake /> : null}
@@ -204,8 +196,8 @@ export const ChapterContent = ({
       </ChapterLoadingScreen>
       <ReaderBottomSheetV2
         bottomSheetRef={readerSheetRef}
-        initialTabIndex={sheetTabIndex}
-        initialTabKey={sheetTabKey}
+        initialTabIndex={0}
+        initialTabKey={0}
       />
       {!hidden && !locked && (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">

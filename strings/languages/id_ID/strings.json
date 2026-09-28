@@ -414,7 +414,9 @@
     "proxySave": "Simpan",
     "proxyCurrentMode": "Aktif: %{mode}",
     "proxyNewIdentityRequested": "Identitas Tor baru diminta, mencoba ulang...",
-    "proxyNewIdentityFailed": "Gagal meminta identitas Tor baru"
+    "proxyNewIdentityFailed": "Gagal meminta identitas Tor baru",
+    "downloadFolderShared": "/SoraReader (penyimpanan bersama)",
+    "downloadFolderAccessLost": "izin belum diberikan"
   },
   "generalSettings": "Umum",
   "generalSettingsScreen": {
@@ -837,11 +839,13 @@
   },
   "setupStorage": {
     "title": "Siapkan unduhan",
-    "desc": "Pilih folder untuk menyimpan bab yang diunduh. SoraReader membutuhkannya untuk menyimpan pustaka Anda di luar data aplikasi, dan Anda dapat mengubahnya nanti di Pengaturan.",
-    "chooseFolder": "Pilih folder",
+    "desc": "Bab yang diunduh selalu disimpan ke folder SoraReader di penyimpanan bersama, sehingga tetap berada di luar cadangan data aplikasi dan terlihat oleh pengelola berkas mana pun. Android memerlukan izin Anda untuk itu.",
     "migrateFiles": "Pindahkan berkas",
     "migratingProgress": "Memindahkan %{done} dari %{total} berkas",
-    "skip": "Lewati sekarang"
+    "skip": "Lewati sekarang",
+    "grantAccess": "Beri izin",
+    "grantAccessDesc": "Membuka pengaturan Android yang mengizinkan SoraReader memakai penyimpanan bersama",
+    "accessMissing": "Izin belum diberikan, jadi bab tidak dapat diunduh."
   },
   "tracking": "Pelacakan",
   "trackingScreen": {

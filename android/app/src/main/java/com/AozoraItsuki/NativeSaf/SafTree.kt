@@ -131,18 +131,52 @@ internal class SafTree(context: Context, val treeUri: Uri) {
             } else if (!create) {
                 return null
             }
-            current = if (mimeType != null) {
-                current.createFile(mimeType, fileName ?: segment)
-            } else {
-                current.createDirectory(segment)
-            } ?: throw SafException("Could not create: $segment")
+            current = createChild(current, segment, mimeType, fileName)
+                ?: throw SafException("Could not create: $segment")
         }
         return current
     }
 
+    /**
+     * Create one child, guarding against provider auto-rename duplicates.
+     *
+     * `createDirectory`/`createFile` never fail on a name collision: the
+     * provider silently renames (`Novels` -> `Novels (1)`). So a `findFile`
+     * miss that races another writer (download service, migration, setup
+     * running at once — or a stale listing) would otherwise pile up one new
+     * `Novels (N)` folder per call. When the created entry is not named what
+     * was asked, delete the dupe and re-use the pre-existing entry instead.
+     */
+    private fun createChild(
+        parent: DocumentFile,
+        segment: String,
+        mimeType: String?,
+        fileName: String?,
+    ): DocumentFile? {
+        val expected = fileName ?: segment
+        val isDir = mimeType == null
+        fun attempt(): DocumentFile? {
+            val created = if (isDir) {
+                parent.createDirectory(segment)
+            } else {
+                parent.createFile(mimeType, expected)
+            } ?: return null
+            if (created.name == expected) return created
+            // Auto-renamed on collision: drop our dupe (just created, empty).
+            runCatching { deleteDocument(created) }
+            return null
+        }
+        attempt()?.let { return it }
+        // Reuse the entry our findFile missed, when its type fits.
+        val existing = parent.findFile(expected)
+        if (existing != null && existing.isDirectory == isDir) return existing
+        // Otherwise try once more on the cleaned-up parent.
+        return attempt()
+    }
+
     private fun copyInto(source: DocumentFile, targetParent: DocumentFile, name: String) {
         if (source.isDirectory) {
-            val directory = targetParent.createDirectory(name)
+            val directory = createChild(targetParent, name, null, null)
                 ?: throw SafException("Could not create directory: $name")
             source.listFiles().orEmpty().forEach { child ->
                 copyInto(child, directory, child.name ?: throw SafException("Unnamed entry"))
@@ -150,7 +184,7 @@ internal class SafTree(context: Context, val treeUri: Uri) {
             return
         }
         val mimeType = source.type ?: SafMime.OCTET_STREAM
-        val target = targetParent.createFile(mimeType, name)
+        val target = createChild(targetParent, name, mimeType, name)
             ?: throw SafException("Could not create file: $name")
         val input: InputStream = resolver.openInputStream(source.uri)
             ?: throw SafException("Could not read: ${source.uri}")
