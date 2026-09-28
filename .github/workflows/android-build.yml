@@ -12,7 +12,7 @@ on:
           - debug
           - release
       arch:
-        description: 'Target ABI'
+        description: 'Target ABI (all = one APK per ABI, never universal)'
         required: true
         default: 'all'
         type: choice
@@ -24,10 +24,10 @@ on:
 
 permissions:
   contents: write
-  actions: write
+  actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.variant || 'debug' }}-${{ inputs.arch || 'all' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.variant || 'auto' }}
   cancel-in-progress: false
 
 env:
@@ -122,35 +122,40 @@ jobs:
             "cmake;3.22.1" \
             "ndk;27.1.12297006"
 
-      - name: Build Android
-        id: rock-build
-        uses: callstackincubator/android@v3
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          variant: ${{ env.VARIANT }}
-          setup-java: false
-          validate-gradle-wrapper: true
-          re-sign: ${{ env.VARIANT == 'release' }}
-          sign: ${{ env.VARIANT == 'release' }}
-          keystore-base64: ${{ env.VARIANT == 'release' && secrets.KEYSTORE_B64 || '' }}
-          keystore-path: release.keystore
-          keystore-store-file: release.keystore
-          keystore-store-password: ${{ env.VARIANT == 'release' && secrets.KEYSTORE_PASSWORD || '' }}
-          keystore-key-alias: ${{ env.VARIANT == 'release' && secrets.KEY_ALIAS || '' }}
-          keystore-key-password: ${{ env.VARIANT == 'release' && secrets.KEY_PASSWORD || '' }}
-          rock-build-extra-params: >-
-            ${{ env.ARCH != 'all'
-              && format('-PtargetAbis={0} -PreactNativeArchitectures={0}', env.ARCH)
-              || '' }}
+      - name: Decode Keystore (release only)
+        if: env.VARIANT == 'release'
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: echo "$KEYSTORE_B64" | base64 --decode > android/app/release.keystore
 
-      - name: Show Rock Build Result
+      - name: Make Gradlew Executable
+        run: chmod +x android/gradlew
+
+      - name: Build Debug APK
+        if: env.VARIANT != 'release'
         run: |
-          echo "${{ steps.rock-build.outputs.artifact-url }}"
-          echo "${{ steps.rock-build.outputs.artifact-id }}"
-          find android/app/build/outputs \
-            -type f \
-            \( -name "*.apk" -o -name "*.aab" \) \
-            -print || true
+          if [[ "$ARCH" == "all" ]]; then
+            pnpm rock build:android --variant debug
+          else
+            pnpm rock build:android --variant debug \
+              --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
+          fi
+
+      - name: Build Release APK
+        if: env.VARIANT == 'release'
+        env:
+          KEYSTORE_FILE: release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [[ "$ARCH" == "all" ]]; then
+            pnpm rock build:android --variant release
+          else
+            pnpm rock build:android --variant release \
+              --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
+          fi
+          ls android/app/build/outputs/apk/release/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -161,9 +166,9 @@ jobs:
             android/app/build/outputs/bundle/**/*.aab
           if-no-files-found: error
 
-      - name: Create GitHub Release
-        if: env.VARIANT == 'release'
+      - name: Create GitHub Release (release only)
         uses: softprops/action-gh-release@v2
+        if: env.VARIANT == 'release'
         with:
           tag_name: build-${{ github.run_number }}
           name: SoraReader Build #${{ github.run_number }}
