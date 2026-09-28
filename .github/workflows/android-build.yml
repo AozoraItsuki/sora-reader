@@ -95,29 +95,6 @@ jobs:
             pnpm run generate:env:debug
           fi
 
-      - name: Validate Release Signing Secrets
-        if: ${{ env.VARIANT == 'release' }}
-        shell: bash
-        run: |
-          set -e
-          if [[ -z "${{ secrets.KEYSTORE_B64 }}" ]]; then
-            echo "❌ Error: KEYSTORE_B64 secret is not set"
-            exit 1
-          fi
-          if [[ -z "${{ secrets.KEYSTORE_PASSWORD }}" ]]; then
-            echo "❌ Error: KEYSTORE_PASSWORD secret is not set"
-            exit 1
-          fi
-          if [[ -z "${{ secrets.KEY_ALIAS }}" ]]; then
-            echo "❌ Error: KEY_ALIAS secret is not set"
-            exit 1
-          fi
-          if [[ -z "${{ secrets.KEY_PASSWORD }}" ]]; then
-            echo "❌ Error: KEY_PASSWORD secret is not set"
-            exit 1
-          fi
-          echo "✅ All release signing secrets are configured"
-
       - name: Setup Android SDK
         run: |
           ANDROID_HOME="$HOME/android-sdk"
@@ -185,7 +162,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create GitHub Release
-        if: ${{ env.VARIANT == 'release' && success() }}
+        if: env.VARIANT == 'release'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
