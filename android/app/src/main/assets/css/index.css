@@ -17,8 +17,15 @@ html {
 body {
   margin-left: 0;
   margin-right: 0;
-  padding-bottom: calc(40px + var(--reader-bottomInset, 0px));
-  padding-top: var(--StatusBar-currentHeight);
+  /* Both offsets come from the safe-area insets injected at generation time
+     (--reader-topInset / --reader-bottomInset). The old fixed 40px bottom
+     reservation and the always-on status bar top offset double-offset fullscreen
+     and went stale whenever the system bars changed. */
+  --reader-footerInset: 0px;
+  padding-top: var(--reader-topInset, 0px);
+  padding-bottom: calc(
+    var(--reader-footerInset) + var(--reader-bottomInset, 0px)
+  );
 
   font-size: var(--readerSettings-textSize);
   background-color: var(--readerSettings-theme);
@@ -26,6 +33,13 @@ body {
   text-align: var(--readerSettings-textAlign);
   line-height: var(--readerSettings-lineHeight);
   font-family: var(--readerSettings-fontFamily);
+}
+
+/* The footer is fixed-positioned chrome, so the document only reserves room for
+   it while it is actually rendered (reader-footer-wrapper is toggled via
+   d-none). Its 1rem line scales with the reader text size. */
+body:has(#reader-footer-wrapper:not(.d-none)) {
+  --reader-footerInset: 2.4rem;
 }
 
 body:not(.page-reader) .transition-chapter {

@@ -29,6 +29,7 @@ import ReaderSheetPreferenceItem from './ReaderSheetPreferenceItem';
 import ReaderTextAlignSelector from './ReaderTextAlignSelector';
 import ReaderThemeSelector from './ReaderThemeSelector';
 import ReaderValueChange from './ReaderValueChange';
+import { getReaderSheetSnapPoints } from './snapPoints';
 import TextSizeSlider from './TextSizeSlider';
 import TranslateTab from './TranslateTab';
 import TTSTab from './TTSTab';
@@ -145,6 +146,11 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   const { bottom, left, right } = useSafeAreaInsets();
   const layout = useWindowDimensions();
 
+  const snapPoints = useMemo(
+    () => getReaderSheetSnapPoints(layout.height, bottom),
+    [layout.height, bottom],
+  );
+
   const tabHeaderColor = overlay(2, theme.surface);
   const backgroundColor = tabHeaderColor;
 
@@ -189,7 +195,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   return (
     <BottomSheet
       bottomSheetRef={bottomSheetRef}
-      snapPoints={[360, 600]}
+      snapPoints={snapPoints}
       backgroundStyle={{ backgroundColor }}
       bottomInset={bottom}
       containerStyle={[
@@ -232,7 +238,9 @@ const styles = StyleSheet.create({
   tabView: {
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
-    height: 600,
+    // Fill the current snap point instead of a fixed 600dp, which overflowed the
+    // sheet whenever the window was shorter than that.
+    flex: 1,
   },
   flex: { flex: 1 },
 });

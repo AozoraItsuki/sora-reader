@@ -1,7 +1,12 @@
 import { useAppSettings } from '@hooks/persisted/index';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { memo } from 'react';
-import { Dimensions, DimensionValue, StyleSheet, View } from 'react-native';
+import {
+  DimensionValue,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 
 const SkeletonLines = ({
@@ -24,6 +29,7 @@ const SkeletonLines = ({
   highlightColor?: string;
 }) => {
   const { disableLoadingAnimations } = useAppSettings();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
   const styles = createStyleSheet(
     containerWidth,
@@ -34,7 +40,8 @@ const SkeletonLines = ({
   );
 
   const createLines = () => {
-    let availableHeight: number = percentToNumberV(containerHeight) - 10;
+    let availableHeight: number =
+      percentToNumberV(containerHeight, windowHeight) - 10;
     let res: boolean[] = [];
     let numberOfLongLines = 0;
     const height = textSize * lineHeight;
@@ -57,7 +64,7 @@ const SkeletonLines = ({
   const renderLoadingRect = (item: boolean, index: number) => {
     const skeletonWidth: number = width
       ? Number(width)
-      : percentToNumberH('90%');
+      : percentToNumberH('90%', windowWidth);
     const skeletonHeight = textSize;
     if (typeof color !== 'string') {
       color = '#ebebeb';
@@ -77,7 +84,8 @@ const SkeletonLines = ({
           shimmerColors={[color, highlightColor, color]}
           width={
             typeof width === 'string'
-              ? percentToNumberH(skeletonWidth) * randomNumber + '%'
+              ? percentToNumberH(skeletonWidth, windowWidth) * randomNumber +
+                '%'
               : randomNumber * skeletonWidth
           }
           height={skeletonHeight}
@@ -105,23 +113,23 @@ const SkeletonLines = ({
   return <View style={styles.container}>{lines.map(renderLoadingRect)}</View>;
 };
 
-const percentToNumberV = (number: DimensionValue): number => {
+const percentToNumberV = (
+  number: DimensionValue,
+  windowHeight: number,
+): number => {
   if (isNaN(Number(number))) {
-    return (
-      Dimensions.get('window').height *
-      (Number(String(number).replace('%', '')) / 100)
-    );
+    return windowHeight * (Number(String(number).replace('%', '')) / 100);
   } else {
     return Number(number);
   }
 };
 
-const percentToNumberH = (number: DimensionValue): number => {
+const percentToNumberH = (
+  number: DimensionValue,
+  windowWidth: number,
+): number => {
   if (isNaN(Number(number))) {
-    return (
-      Dimensions.get('window').width *
-      (Number(String(number).replace('%', '')) / 100)
-    );
+    return windowWidth * (Number(String(number).replace('%', '')) / 100);
   } else {
     return Number(number);
   }

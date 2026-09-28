@@ -282,7 +282,7 @@ export const initialChapterReaderSettings: ChapterReaderSettings = {
   textAlign: 'left',
   padding: 16,
   fontFamily: '',
-  lineHeight: 1.5,
+  lineHeight: 1.75,
   customCSS: '',
   customJS: '',
   customThemes: [],

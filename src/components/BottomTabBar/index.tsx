@@ -8,7 +8,7 @@ import { Text } from 'react-native-paper';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TAB_BAR_CONTENT_HEIGHT = 68;
+const TAB_BAR_CONTENT_HEIGHT = 56;
 const TAB_ICON_CONTAINER_HEIGHT = 32;
 const TAB_ICON_ACTIVE_WIDTH = 64;
 const TAB_ICON_INACTIVE_WIDTH = 40;
@@ -180,7 +180,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   contentRow: {
-    alignItems: 'center',
+    // `stretch` (not `center`) so every tab fills the full bar height and keeps
+    // a >= 48dp touch target; the icon/label column stays vertically centred by
+    // `pressable.justifyContent`.
+    alignItems: 'stretch',
     flexDirection: 'row',
     height: TAB_BAR_CONTENT_HEIGHT,
   },

@@ -6,6 +6,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 const TRACK_TINT_COLOR = '#000000';
 
+const MIN_TEXT_SIZE = 12;
+const MAX_TEXT_SIZE = 28;
+
 const TextSizeSlider: React.FC = () => {
   const theme = useTheme();
 
@@ -19,8 +22,8 @@ const TextSizeSlider: React.FC = () => {
       <Slider
         style={styles.slider}
         value={textSize}
-        minimumValue={12}
-        maximumValue={20}
+        minimumValue={MIN_TEXT_SIZE}
+        maximumValue={MAX_TEXT_SIZE}
         step={1}
         minimumTrackTintColor={theme.primary}
         maximumTrackTintColor={TRACK_TINT_COLOR}

@@ -9,7 +9,13 @@ import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { getString } from '@strings/translations';
 import { xor } from 'lodash-es';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, View } from 'react-native';
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { Divider, Portal } from 'react-native-paper';
 
 interface SetCategoryModalProps {
@@ -28,6 +34,7 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
   onEditCategories,
 }) => {
   const theme = useTheme();
+  const { height: windowHeight } = useWindowDimensions();
   const { navigate } = useNavigation<NavigationProp<RootStackParamList>>();
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [categories = [], setCategories] = useState<CCategory[]>();
@@ -58,7 +65,7 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
         </Text>
         <FlatList
           data={categories}
-          style={styles.categoryList}
+          style={{ maxHeight: windowHeight * 0.4 }}
           renderItem={({ item }) => (
             <Checkbox
               status={
@@ -125,9 +132,6 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
 export default SetCategoryModal;
 
 const styles = StyleSheet.create({
-  categoryList: {
-    maxHeight: Dimensions.get('window').height * 0.4,
-  },
   divider: { height: 1, width: '90%', marginLeft: '5%' },
   btnContainer: {
     flexDirection: 'row',

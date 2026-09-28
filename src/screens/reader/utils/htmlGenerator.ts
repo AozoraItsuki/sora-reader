@@ -19,6 +19,11 @@ export interface HtmlTemplateOptions {
   assetsUriPrefix: string;
   batteryLevel: number | null;
   readerBottomInset?: number;
+  /**
+   * Safe-area top inset in px. Defaults to the status bar height so callers
+   * that predate the injection keep their previous top offset.
+   */
+  readerTopInset?: number;
   pluginCustomCSS?: string;
   pluginCustomJS?: string;
   nextChapterScreenVisible?: boolean;
@@ -56,6 +61,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     assetsUriPrefix,
     batteryLevel,
     readerBottomInset = 0,
+    readerTopInset = StatusBar.currentHeight ?? 0,
     pluginCustomCSS = '',
     pluginCustomJS = '',
     nextChapterScreenVisible = false,
@@ -71,7 +77,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     providedReaderDir || (readerSettings.textAlign === 'right' ? 'rtl' : 'ltr');
 
   // Safe JSON serialization for inline scripts
-  const safeJsonStringify = (data: any) =>
+  const safeJsonStringify = (data: unknown) =>
     JSON.stringify(data).replace(/</g, '\\u003c');
 
   const initialReaderConfig = {
@@ -161,7 +167,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     <link rel="stylesheet" href="${assetsUriPrefix}/css/tts.css">
     <style>
       :root {
-        --StatusBar-currentHeight: ${StatusBar.currentHeight}px;
+        --reader-topInset: ${readerTopInset}px;
         --readerSettings-theme: ${readerSettings.theme};
         --readerSettings-padding: ${readerSettings.padding}px;
         --readerSettings-textSize: ${readerSettings.textSize}px;
@@ -285,7 +291,9 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
     <style>${readerSettings.customCSS || ''}</style>
   </head>
   <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
-    <div id="SoraReader-chapter" class="sorareader-chapter-block" data-chapter-id="${chapter.id}">
+    <div id="SoraReader-chapter" class="sorareader-chapter-block" data-chapter-id="${
+      chapter.id
+    }">
       <div id="SoraReader-title-novel">
         ${chapter.name}
       </div>

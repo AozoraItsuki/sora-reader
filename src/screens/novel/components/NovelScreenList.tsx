@@ -18,11 +18,11 @@ import * as Haptics from 'expo-haptics';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Dimensions,
   NativeScrollEvent,
   NativeSyntheticEvent,
   RefreshControl,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { AnimatedFAB } from 'react-native-paper';
@@ -109,7 +109,10 @@ const NovelScreenList = ({
   const theme = useTheme();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
-  const { downloadingChapterIds, downloadChapter, cancelChapterDownload } = useDownload();
+  const { height: windowHeight } = useWindowDimensions();
+
+  const { downloadingChapterIds, downloadChapter, cancelChapterDownload } =
+    useDownload();
 
   // Mark chapters as downloaded when their download completes
   const prevDownloadingRef = useRef(downloadingChapterIds);
@@ -168,14 +171,13 @@ const NovelScreenList = ({
         }
       }
 
-      const screenHeight = Dimensions.get('window').height;
-      const newShowTop = currentScrollPosition > screenHeight / 2;
+      const newShowTop = currentScrollPosition > windowHeight / 2;
       if (newShowTop !== showScrollToTopRef.current) {
         showScrollToTopRef.current = newShowTop;
         setShowScrollToTop(newShowTop);
       }
     },
-    [headerOpacity, useFabForContinueReading, lastRead],
+    [headerOpacity, useFabForContinueReading, lastRead, windowHeight],
   );
 
   // --- Stable callbacks ---

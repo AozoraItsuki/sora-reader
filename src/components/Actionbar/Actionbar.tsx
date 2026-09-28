@@ -3,10 +3,10 @@ import MaterialCommunityIcons from '@react-native-vector-icons/material-design-i
 import { MaterialDesignIconName } from '@type/icon';
 import React from 'react';
 import {
-  Dimensions,
   Pressable,
   StyleProp,
   StyleSheet,
+  useWindowDimensions,
   ViewStyle,
 } from 'react-native';
 import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
@@ -32,6 +32,8 @@ export const Actionbar: React.FC<ActionbarProps> = ({
 
   const { bottom } = useSafeAreaInsets();
 
+  const { width: windowWidth } = useWindowDimensions();
+
   if (!active) {
     return null;
   }
@@ -45,6 +47,7 @@ export const Actionbar: React.FC<ActionbarProps> = ({
           backgroundColor: theme.surface2,
           minHeight: 80 + bottom,
           paddingBottom: bottom,
+          width: windowWidth,
         },
         viewStyle,
       ]}
@@ -78,6 +81,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     position: 'absolute',
-    width: Dimensions.get('window').width,
   },
 });

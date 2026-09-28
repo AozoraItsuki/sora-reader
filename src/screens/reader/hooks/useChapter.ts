@@ -36,10 +36,7 @@ import NativeSPenRemote from '@specs/NativeSPenRemote';
 import NativeVolumeButtonListener from '@specs/NativeVolumeButtonListener';
 import { isSafReady, safReadFile } from '@services/saf/safFile';
 import { getString } from '@strings/translations';
-import {
-  chapterIndexRel,
-  legacyDownloadPath,
-} from '@utils/DownloadPaths';
+import { chapterIndexRel, legacyDownloadPath } from '@utils/DownloadPaths';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { parseChapterNumber } from '@utils/parseChapterNumber';
 import { showToast } from '@utils/showToast';
@@ -57,9 +54,9 @@ import {
 } from 'react';
 import {
   AppState,
-  Dimensions,
   NativeEventEmitter,
   NativeModules,
+  useWindowDimensions,
 } from 'react-native';
 import WebView from 'react-native-webview';
 
@@ -161,6 +158,7 @@ export default function useChapter(
   } = useChapterGeneralSettings();
   const { incognitoMode } = useLibrarySettings();
   const [error, setError] = useState<string>();
+  const { height: windowHeight } = useWindowDimensions();
   const { tracker } = useTracker();
   const { trackedNovel, updateAllTrackedNovels } = useTrackedNovel(novel.id);
   const { setImmersiveMode, showStatusAndNavBar } = useFullscreenMode();
@@ -174,7 +172,7 @@ export default function useChapter(
       } else {
         const offset = defaultTo(
           volumeButtonsOffset,
-          Math.round(Dimensions.get('window').height * 0.75),
+          Math.round(windowHeight * 0.75),
         );
         webViewRef.current?.injectJavaScript(`(()=>{
           window.scrollBy({top: -${offset}, behavior: 'smooth'})
@@ -189,14 +187,14 @@ export default function useChapter(
       } else {
         const offset = defaultTo(
           volumeButtonsOffset,
-          Math.round(Dimensions.get('window').height * 0.75),
+          Math.round(windowHeight * 0.75),
         );
         webViewRef.current?.injectJavaScript(`(()=>{
           window.scrollBy({top: ${offset}, behavior: 'smooth'})
         })()`);
       }
     });
-  }, [webViewRef, volumeButtonsOffset, isPageReaderMode]);
+  }, [webViewRef, volumeButtonsOffset, isPageReaderMode, windowHeight]);
 
   useEffect(() => {
     if (useVolumeButtons) {
@@ -364,8 +362,18 @@ export default function useChapter(
             : loadChapterText(chap.id, chap.path);
         const [nextChapResult, prevChapResult, awaitedText] = await Promise.all(
           [
-            getNextChapter(chap.novelId, chap.position!, chap.page ?? '', chap.id),
-            getPrevChapter(chap.novelId, chap.position!, chap.page ?? '', chap.id),
+            getNextChapter(
+              chap.novelId,
+              chap.position!,
+              chap.page ?? '',
+              chap.id,
+            ),
+            getPrevChapter(
+              chap.novelId,
+              chap.position!,
+              chap.page ?? '',
+              chap.id,
+            ),
             text,
           ],
         );
@@ -630,7 +638,7 @@ export default function useChapter(
               webViewRef.current?.injectJavaScript(`(()=>{
                 window.scrollBy({top:${defaultTo(
                   autoScrollOffset,
-                  Dimensions.get('window').height,
+                  windowHeight,
                 )},behavior:'smooth'})
               })()`);
             }
@@ -661,6 +669,7 @@ export default function useChapter(
     webViewRef,
     hidden,
     isPageReaderMode,
+    windowHeight,
   ]);
 
   const updateTracker = useCallback(() => {

@@ -11,7 +11,7 @@ import {
 } from '@hooks/persisted/useNovel/store/novelStore.types';
 import { ReaderStackParamList } from '@navigators/types';
 import { RouteProp } from '@react-navigation/native';
-import React, { createContext, useContext, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from 'zustand';
 
@@ -68,26 +68,29 @@ export function NovelContextProvider({ children, route }: Props) {
   const { bottom, top } = useSafeAreaInsets();
   const orientation = useDeviceOrientation();
 
-  const navigationBarHeightRef = useRef(bottom);
-  const statusBarHeightRef = useRef(top);
+  // Safe-area readings can transiently report 0 (insets not measured yet,
+  // gesture navigation, or the frame right after a rotation). Keep the last
+  // non-zero reading for the *current* orientation as a fallback so overlays
+  // never sit flush against the screen edge, but let a rotation reset that
+  // memory so the values follow the new screen size instead of ratcheting up
+  // monotonically for the lifetime of the screen.
+  const lastNonZeroInsets = useRef({ orientation, bottom: 0, top: 0 });
 
-  if (bottom < navigationBarHeightRef.current && orientation === 'landscape') {
-    navigationBarHeightRef.current = bottom;
-  } else if (bottom > navigationBarHeightRef.current) {
-    navigationBarHeightRef.current = bottom;
+  if (lastNonZeroInsets.current.orientation !== orientation) {
+    lastNonZeroInsets.current = { orientation, bottom, top };
+  } else {
+    if (bottom > 0) {
+      lastNonZeroInsets.current.bottom = bottom;
+    }
+    if (top > 0) {
+      lastNonZeroInsets.current.top = top;
+    }
   }
 
-  if (top > statusBarHeightRef.current) {
-    statusBarHeightRef.current = top;
-  }
-
-  const layoutValue = useMemo(
-    () => ({
-      navigationBarHeight: navigationBarHeightRef.current,
-      statusBarHeight: statusBarHeightRef.current,
-    }),
-    [],
-  );
+  const layoutValue = {
+    navigationBarHeight: bottom || lastNonZeroInsets.current.bottom,
+    statusBarHeight: top || lastNonZeroInsets.current.top,
+  };
   return (
     <NovelStoreContext.Provider value={novelStore}>
       <NovelLayoutContext.Provider value={layoutValue}>

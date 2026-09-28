@@ -107,7 +107,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     fetchChapterHtmlForInfiniteScroll,
   } = useChapterContext();
   const theme = useTheme();
-  const { bottom } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   // Use state for settings so they update when MMKV changes
   const [readerSettings, setReaderSettings] = useState<ChapterReaderSettings>(
     () =>
@@ -123,6 +123,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     );
   }, [chapter.id]);
   const readerBottomInset = chapterGeneralSettings.fullScreenMode ? 0 : bottom;
+  // The reader chrome already sits inside the safe area, so the document only
+  // offsets by what the system bars actually cover right now.
+  const readerTopInset = chapterGeneralSettings.fullScreenMode ? 0 : top;
 
   // Update readerSettings when chapter changes
   useEffect(() => {
@@ -399,6 +402,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
             )};
             document.documentElement.style.setProperty('--reader-bottomInset', '${
               newGeneralSettings.fullScreenMode ? 0 : bottom
+            }px');
+            document.documentElement.style.setProperty('--reader-topInset', '${
+              newGeneralSettings.fullScreenMode ? 0 : top
             }px');`,
           );
           break;
@@ -417,7 +423,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
       subscription.remove();
       mmkvListener.remove();
     };
-  }, [bottom, webViewRef]);
+  }, [bottom, top, webViewRef]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
@@ -593,6 +599,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         assetsUriPrefix,
         batteryLevel,
         readerBottomInset,
+        readerTopInset,
         pluginCustomCSS,
         pluginCustomJS,
         nextChapterScreenVisible: nextChapterScreenVisible.current,
@@ -621,6 +628,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     plugin?.site,
     plugin?.imageRequestInit,
     readerBottomInset,
+    readerTopInset,
     batteryLevel,
     chapterGeneralSettings,
     nextChapter,

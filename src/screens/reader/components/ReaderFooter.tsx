@@ -11,7 +11,6 @@ import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import color from 'color';
 import React, { useMemo, useState } from 'react';
 import {
-  Dimensions,
   Image,
   Pressable,
   ScrollView,
@@ -19,6 +18,7 @@ import {
   Switch,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -36,8 +36,6 @@ import ReaderValueChange from './ReaderBottomSheet/ReaderValueChange';
 import TextSizeSlider from './ReaderBottomSheet/TextSizeSlider';
 import TranslateTab from './ReaderBottomSheet/TranslateTab';
 import TTSTab from './ReaderBottomSheet/TTSTab';
-
-const SCREEN_HEIGHT = Dimensions.get('screen').height;
 
 interface ChapterFooterProps {
   navigation: ChapterScreenProps['navigation'];
@@ -87,7 +85,12 @@ const ChapterFooter = ({
   const theme = useTheme();
   const { navigationBarHeight } = useNovelLayout();
   const { followNovel } = useNovelActions();
-  const { setChapterGeneralSettings, ...generalSettings } = useChapterGeneralSettings();
+  const { setChapterGeneralSettings, ...generalSettings } =
+    useChapterGeneralSettings();
+  // Off-screen travel distance for the enter/exit worklets. Tracked from the
+  // window (not a module-scope constant) so the animation still clears the
+  // viewport after a rotation.
+  const windowHeight = useWindowDimensions().height;
 
   const chapters = useNovelValue('chapters');
   const chapterIndex = chapters.findIndex(c => c.id === chapter.id);
@@ -118,7 +121,7 @@ const ChapterFooter = ({
       opacity: withTiming(1, { duration: 150 }),
     };
     const initialValues = {
-      transform: [{ translateY: SCREEN_HEIGHT }],
+      transform: [{ translateY: windowHeight }],
       opacity: 0,
     };
     return { initialValues, animations };
@@ -129,7 +132,7 @@ const ChapterFooter = ({
     const animations = {
       transform: [
         {
-          translateY: withTiming(SCREEN_HEIGHT, {
+          translateY: withTiming(windowHeight, {
             duration: 250,
             easing: fastOutSlowIn,
             reduceMotion: ReduceMotion.System,
@@ -192,17 +195,30 @@ const ChapterFooter = ({
               >
                 {currentPosition && totalChapters ? (
                   <>
-                    <Text style={[styles.chapterPositionBig, { color: theme.onSurface }]}>
+                    <Text
+                      style={[
+                        styles.chapterPositionBig,
+                        { color: theme.onSurface },
+                      ]}
+                    >
                       {`Ch. ${currentPosition} / ${totalChapters}`}
                     </Text>
                     {progressPercent != null && (
-                      <Text style={[styles.chapterPercentSub, { color: theme.onSurfaceVariant }]}>
+                      <Text
+                        style={[
+                          styles.chapterPercentSub,
+                          { color: theme.onSurfaceVariant },
+                        ]}
+                      >
                         {`${progressPercent}%`}
                       </Text>
                     )}
                   </>
                 ) : (
-                  <Text style={[styles.chapterNameText, { color: theme.onSurface }]} numberOfLines={2}>
+                  <Text
+                    style={[styles.chapterNameText, { color: theme.onSurface }]}
+                    numberOfLines={2}
+                  >
                     {chapter.name}
                   </Text>
                 )}
@@ -227,21 +243,33 @@ const ChapterFooter = ({
               </Pressable>
             </View>
 
-            <View style={[styles.rowDivider, { backgroundColor: dividerColor }]} />
+            <View
+              style={[styles.rowDivider, { backgroundColor: dividerColor }]}
+            />
 
             {/* Contents | Novel info */}
             <View style={styles.actionRow}>
               <TouchableOpacity
-                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
+                style={[
+                  styles.actionHalfBtn,
+                  { backgroundColor: cardBg, borderColor: dividerColor },
+                ]}
                 onPress={openDrawer}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.actionIcon, { color: theme.onSurface }]}>☰</Text>
-                <Text style={[styles.actionLabel, { color: theme.onSurface }]}>Contents</Text>
+                <Text style={[styles.actionIcon, { color: theme.onSurface }]}>
+                  ☰
+                </Text>
+                <Text style={[styles.actionLabel, { color: theme.onSurface }]}>
+                  Contents
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
+                style={[
+                  styles.actionHalfBtn,
+                  { backgroundColor: cardBg, borderColor: dividerColor },
+                ]}
                 onPress={() =>
                   navigation.navigate('Novel', {
                     id: novel.id,
@@ -261,37 +289,77 @@ const ChapterFooter = ({
                   />
                 ) : null}
                 <View style={styles.novelTextWrap}>
-                  <Text style={[styles.novelSuperLabel, { color: theme.onSurfaceVariant }]}>NOVEL</Text>
-                  <Text style={[styles.novelTitle, { color: theme.onSurface }]} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.novelSuperLabel,
+                      { color: theme.onSurfaceVariant },
+                    ]}
+                  >
+                    NOVEL
+                  </Text>
+                  <Text
+                    style={[styles.novelTitle, { color: theme.onSurface }]}
+                    numberOfLines={1}
+                  >
                     {novel.name}
                   </Text>
                 </View>
-                <Text style={[styles.chevron, { color: theme.onSurfaceVariant }]}>›</Text>
+                <Text
+                  style={[styles.chevron, { color: theme.onSurfaceVariant }]}
+                >
+                  ›
+                </Text>
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.rowDivider, { backgroundColor: dividerColor }]} />
+            <View
+              style={[styles.rowDivider, { backgroundColor: dividerColor }]}
+            />
 
             {/* Edit Terms | Reading/Library */}
             <View style={styles.actionRow}>
               <TouchableOpacity
-                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
+                style={[
+                  styles.actionHalfBtn,
+                  { backgroundColor: cardBg, borderColor: dividerColor },
+                ]}
                 onPress={() => setEditTermsVisible(true)}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.actionIcon, { color: theme.onSurface }]}>✎</Text>
-                <Text style={[styles.actionLabel, { color: theme.onSurface }]}>Edit Terms</Text>
+                <Text style={[styles.actionIcon, { color: theme.onSurface }]}>
+                  ✎
+                </Text>
+                <Text style={[styles.actionLabel, { color: theme.onSurface }]}>
+                  Edit Terms
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.actionHalfBtn, { backgroundColor: cardBg, borderColor: dividerColor }]}
+                style={[
+                  styles.actionHalfBtn,
+                  { backgroundColor: cardBg, borderColor: dividerColor },
+                ]}
                 onPress={() => followNovel()}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.actionIcon, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
+                <Text
+                  style={[
+                    styles.actionIcon,
+                    {
+                      color: novel.inLibrary ? theme.primary : theme.onSurface,
+                    },
+                  ]}
+                >
                   {novel.inLibrary ? '📚' : '📖'}
                 </Text>
-                <Text style={[styles.actionLabel, { color: novel.inLibrary ? theme.primary : theme.onSurface }]}>
+                <Text
+                  style={[
+                    styles.actionLabel,
+                    {
+                      color: novel.inLibrary ? theme.primary : theme.onSurface,
+                    },
+                  ]}
+                >
                   {novel.inLibrary ? 'In Library' : 'Reading'}
                 </Text>
               </TouchableOpacity>
@@ -301,7 +369,10 @@ const ChapterFooter = ({
 
       case 'display':
         return (
-          <ScrollView style={styles.tabScrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.tabScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             <TextSizeSlider />
             <ReaderThemeSelector />
             <ReaderTextAlignSelector />
@@ -325,7 +396,10 @@ const ChapterFooter = ({
 
       case 'settings':
         return (
-          <ScrollView style={styles.tabScrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.tabScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             {SETTINGS_PREFS.map(pref => (
               <Pressable
                 key={pref.key}
@@ -333,14 +407,22 @@ const ChapterFooter = ({
                 android_ripple={{ color: theme.rippleColor }}
                 onPress={() => toggleSetting(pref.key)}
               >
-                <Text style={[styles.prefLabel, { color: theme.onSurfaceVariant }]}>
-                  {getString(`readerScreen.bottomSheet.${pref.label}` as keyof StringMap)}
+                <Text
+                  style={[styles.prefLabel, { color: theme.onSurfaceVariant }]}
+                >
+                  {getString(
+                    `readerScreen.bottomSheet.${pref.label}` as keyof StringMap,
+                  )}
                 </Text>
                 <Switch
                   value={!!(generalSettings as any)[pref.key]}
                   onValueChange={() => toggleSetting(pref.key)}
                   trackColor={{ true: theme.primary, false: theme.outline }}
-                  thumbColor={(generalSettings as any)[pref.key] ? theme.onPrimary : theme.surfaceVariant}
+                  thumbColor={
+                    (generalSettings as any)[pref.key]
+                      ? theme.onPrimary
+                      : theme.surfaceVariant
+                  }
                 />
               </Pressable>
             ))}
@@ -393,19 +475,25 @@ const ChapterFooter = ({
             return (
               <TouchableOpacity
                 key={tab.key}
-                style={[
-                  styles.tabBtn,
-                  isActive && styles.tabBtnActive,
-                ]}
+                style={[styles.tabBtn, isActive && styles.tabBtnActive]}
                 onPress={() => {
                   setActiveTab(tab.key as TabKey);
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.tabIcon, { color: tabColor }]}>{tab.icon}</Text>
-                <Text style={[styles.tabLabel, { color: tabColor }]}>{tab.label}</Text>
+                <Text style={[styles.tabIcon, { color: tabColor }]}>
+                  {tab.icon}
+                </Text>
+                <Text style={[styles.tabLabel, { color: tabColor }]}>
+                  {tab.label}
+                </Text>
                 {isActive && (
-                  <View style={[styles.tabIndicator, { backgroundColor: theme.primary }]} />
+                  <View
+                    style={[
+                      styles.tabIndicator,
+                      { backgroundColor: theme.primary },
+                    ]}
+                  />
                 )}
               </TouchableOpacity>
             );

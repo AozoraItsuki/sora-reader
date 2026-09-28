@@ -1,16 +1,41 @@
+/*
+ * Paged mode owns the whole viewport: the body never scrolls and the page frame
+ * is a multicolumn box that is translated horizontally. Its height therefore has
+ * to be the real dynamic viewport minus the chrome that overlays it, not a fixed
+ * 90vh that clipped on short screens and whenever the system bars were visible.
+ *
+ * The frame sits inside the body padding declared by index.css (top inset), so
+ * subtracting that same inset from the height makes frame + padding add up to
+ * exactly one viewport. --reader-pageHeight is declared on the body so it also
+ * picks up the footer reservation index.css sets for that same element.
+ */
 body.page-reader {
   overflow: hidden;
   padding-bottom: unset;
+  --reader-pageHeight: calc(
+    100vh - var(--reader-topInset, 0px) - var(--reader-bottomInset, 0px) -
+      var(--reader-footerInset, 0px)
+  );
+}
+
+@supports (height: 100dvh) {
+  body.page-reader {
+    --reader-pageHeight: calc(
+      100dvh - var(--reader-topInset, 0px) - var(--reader-bottomInset, 0px) -
+        var(--reader-footerInset, 0px)
+    );
+  }
 }
 
 body.page-reader > #SoraReader-chapter {
-  height: calc(90vh);
+  height: var(--reader-pageHeight);
   column-width: calc(100vw - var(--readerSettings-padding) * 2);
   column-gap: calc(var(--readerSettings-padding) * 2);
   transition: 200ms;
 }
-.transition-chapter {
-  height: calc(90vh);
+
+body.page-reader .transition-chapter {
+  height: var(--reader-pageHeight);
   break-after: column;
   display: flex;
   flex-direction: column;
