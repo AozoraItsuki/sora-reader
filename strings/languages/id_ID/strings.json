@@ -799,6 +799,40 @@
     "noChapterReadingTime": "Tidak ada data waktu membaca bab"
   },
   "securitySettings": "Keamanan",
+  "termsSettingsScreen": {
+    "globalTab": "Global",
+    "perNovelTab": "Per-novel",
+    "globalTerms": "Istilah global",
+    "globalTermsDesc": "Diterapkan ke semua novel yang kamu baca",
+    "novelPicker": "Novel",
+    "noNovels": "Tidak ada novel di pustaka",
+    "selectNovelFirst": "Pilih novel untuk mengelola istilah",
+    "novelTerms": "Istilah novel",
+    "noGlobalTerms": "Belum ada istilah global",
+    "noNovelTerms": "Belum ada istilah untuk novel ini",
+    "addTerm": "Tambah istilah",
+    "editTerm": "Edit istilah",
+    "hiddenTerm": "(disembunyikan)",
+    "scope": "Cakupan",
+    "scopeGlobal": "Semua novel",
+    "scopeNovel": "Novel ini",
+    "fromLabel": "Ganti",
+    "fromPlaceholder": "Teks yang dicari",
+    "fromHint": "Pisahkan varian dengan |, contoh kuma|kuma-san",
+    "toLabel": "Dengan",
+    "toPlaceholder": "Teks pengganti (kosong untuk menyembunyikan)",
+    "caseSensitive": "Peka huruf besar-kecil",
+    "replacementStyle": "Gaya teks pengganti",
+    "bold": "Tebal",
+    "italic": "Miring",
+    "underline": "Garis bawah",
+    "color": "Warna",
+    "customColor": "Warna khusus",
+    "customColorPlaceholder": "#ff0000 atau 255,0,0",
+    "colorInvalidError": "Masukkan warna heks (#f00) atau RGB (255,0,0)",
+    "colorEmptyError": "Masukkan warna atau kosongkan kolom",
+    "preview": "Pratinjau"
+  },
   "securitySettingsScreen": {
     "appLockSection": "Kunci Aplikasi",
     "appLock": "Kunci aplikasi",
@@ -922,5 +956,6 @@
     "btnViewNovel": "Lihat Novel",
     "btnReadChapter": "Baca Bab",
     "error": "Error"
-  }
+  },
+  "termsSettings": "Istilah Pembaca"
 }

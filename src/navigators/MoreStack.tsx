@@ -3,10 +3,11 @@ import CategoriesScreen from '@screens/Categories/CategoriesScreen';
 import DebugLogScreen from '@screens/more/DebugLogScreen';
 import SettingsAIScreen from '@screens/settings/SettingsAIScreen';
 import TranslatePromptScreen from '@screens/settings/SettingsAIScreen/TranslatePromptScreen';
-import SettingsDownloadScreen from '@screens/settings/SettingsDownloadScreen/SettingsDownloadScreen';
 import DiscordSettings from '@screens/settings/SettingsDiscordScreen';
+import SettingsDownloadScreen from '@screens/settings/SettingsDownloadScreen/SettingsDownloadScreen';
 import RespositorySettings from '@screens/settings/SettingsRepositoryScreen/SettingsRepositoryScreen';
 import SecuritySettings from '@screens/settings/SettingsSecurityScreen';
+import SettingsTermsScreen from '@screens/settings/SettingsTermsScreen/SettingsTermsScreen';
 import NovelReadingTimeStatsScreen from '@screens/StatsScreen/NovelReadingTimeStatsScreen';
 import ReadingTimeStatsScreen from '@screens/StatsScreen/ReadingTimeStatsScreen';
 import StatsScreen from '@screens/StatsScreen/StatsScreen';
@@ -46,6 +47,7 @@ const SettingsStack = () => (
     <Stack.Screen name="AISettings" component={SettingsAIScreen} />
     <Stack.Screen name="AIPromptsSettings" component={TranslatePromptScreen} />
     <Stack.Screen name="DownloadSettings" component={SettingsDownloadScreen} />
+    <Stack.Screen name="TermsSettings" component={SettingsTermsScreen} />
   </Stack.Navigator>
 );
 

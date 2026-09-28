@@ -364,8 +364,8 @@ export default function useChapter(
             : loadChapterText(chap.id, chap.path);
         const [nextChapResult, prevChapResult, awaitedText] = await Promise.all(
           [
-            getNextChapter(chap.novelId, chap.position!, chap.page ?? ''),
-            getPrevChapter(chap.novelId, chap.position!, chap.page ?? ''),
+            getNextChapter(chap.novelId, chap.position!, chap.page ?? '', chap.id),
+            getPrevChapter(chap.novelId, chap.position!, chap.page ?? '', chap.id),
             text,
           ],
         );
@@ -396,6 +396,7 @@ export default function useChapter(
               chap.novelId,
               chap.position!,
               chap.page ?? '',
+              chap.id,
             );
           } catch {}
         }
@@ -418,6 +419,7 @@ export default function useChapter(
               chap.novelId,
               chap.position!,
               chap.page ?? '',
+              chap.id,
             );
           } catch {}
         }

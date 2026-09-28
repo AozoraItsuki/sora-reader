@@ -689,21 +689,54 @@ export const getPrevChapter = async (
   novelId: number,
   chapterPosition: number,
   page: string,
+  currentId?: number,
 ): Promise<ChapterInfo | undefined> => {
-  // First try: same page, lower position
-  const samePage = await dbManager
-    .select()
-    .from(chapterSchema)
-    .where(
-      and(
-        eq(chapterSchema.novelId, novelId),
-        eq(chapterSchema.page, page),
-        lt(chapterSchema.position, chapterPosition),
-      ),
-    )
-    .orderBy(desc(chapterSchema.position))
-    .limit(1)
-    .get();
+  // First try: same page, lower position.
+  // With currentId the step is an index-walk over the (position, id) order,
+  // so chapters sharing a duplicate/stale position can never be skipped.
+  let samePage: ChapterInfo | undefined;
+  if (currentId !== undefined) {
+    const ordered = await dbManager
+      .select()
+      .from(chapterSchema)
+      .where(
+        and(eq(chapterSchema.novelId, novelId), eq(chapterSchema.page, page)),
+      )
+      .orderBy(asc(chapterSchema.position), asc(chapterSchema.id))
+      .all();
+    const idx = ordered.findIndex(chapter => chapter.id === currentId);
+    if (idx > 0) {
+      samePage = ordered[idx - 1];
+    } else if (idx === -1) {
+      samePage = await dbManager
+        .select()
+        .from(chapterSchema)
+        .where(
+          and(
+            eq(chapterSchema.novelId, novelId),
+            eq(chapterSchema.page, page),
+            lt(chapterSchema.position, chapterPosition),
+          ),
+        )
+        .orderBy(desc(chapterSchema.position))
+        .limit(1)
+        .get();
+    }
+  } else {
+    samePage = await dbManager
+      .select()
+      .from(chapterSchema)
+      .where(
+        and(
+          eq(chapterSchema.novelId, novelId),
+          eq(chapterSchema.page, page),
+          lt(chapterSchema.position, chapterPosition),
+        ),
+      )
+      .orderBy(desc(chapterSchema.position))
+      .limit(1)
+      .get();
+  }
   if (samePage) {
     return samePage;
   }
@@ -753,21 +786,54 @@ export const getNextChapter = async (
   novelId: number,
   chapterPosition: number,
   page: string,
+  currentId?: number,
 ): Promise<ChapterInfo | undefined> => {
-  // First try: same page, higher position
-  const samePage = await dbManager
-    .select()
-    .from(chapterSchema)
-    .where(
-      and(
-        eq(chapterSchema.novelId, novelId),
-        eq(chapterSchema.page, page),
-        gt(chapterSchema.position, chapterPosition),
-      ),
-    )
-    .orderBy(asc(chapterSchema.position))
-    .limit(1)
-    .get();
+  // First try: same page, higher position.
+  // With currentId the step is an index-walk over the (position, id) order,
+  // so chapters sharing a duplicate/stale position can never be skipped.
+  let samePage: ChapterInfo | undefined;
+  if (currentId !== undefined) {
+    const ordered = await dbManager
+      .select()
+      .from(chapterSchema)
+      .where(
+        and(eq(chapterSchema.novelId, novelId), eq(chapterSchema.page, page)),
+      )
+      .orderBy(asc(chapterSchema.position), asc(chapterSchema.id))
+      .all();
+    const idx = ordered.findIndex(chapter => chapter.id === currentId);
+    if (idx !== -1 && idx + 1 < ordered.length) {
+      samePage = ordered[idx + 1];
+    } else if (idx === -1) {
+      samePage = await dbManager
+        .select()
+        .from(chapterSchema)
+        .where(
+          and(
+            eq(chapterSchema.novelId, novelId),
+            eq(chapterSchema.page, page),
+            gt(chapterSchema.position, chapterPosition),
+          ),
+        )
+        .orderBy(asc(chapterSchema.position))
+        .limit(1)
+        .get();
+    }
+  } else {
+    samePage = await dbManager
+      .select()
+      .from(chapterSchema)
+      .where(
+        and(
+          eq(chapterSchema.novelId, novelId),
+          eq(chapterSchema.page, page),
+          gt(chapterSchema.position, chapterPosition),
+        ),
+      )
+      .orderBy(asc(chapterSchema.position))
+      .limit(1)
+      .get();
+  }
   if (samePage) {
     return samePage;
   }

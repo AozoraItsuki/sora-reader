@@ -970,6 +970,26 @@ describe('ChapterQueries', () => {
 
       expect(result?.id).toBe(chapterId2);
     });
+    it('should not skip a chapter sharing the same position', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, { inLibrary: true });
+      const chapterId1 = await insertTestChapter(testDb, novelId, {
+        page: '1',
+        position: 4,
+      });
+      const chapterId2 = await insertTestChapter(testDb, novelId, {
+        page: '1',
+        position: 4,
+      });
+      await insertTestChapter(testDb, novelId, {
+        page: '1',
+        position: 6,
+      });
+
+      const result = await getPrevChapter(novelId, 4, '1', chapterId2);
+
+      expect(result?.id).toBe(chapterId1);
+    });
   });
 
   describe('getNextChapter', () => {
@@ -1044,6 +1064,26 @@ describe('ChapterQueries', () => {
       });
 
       const result = await getNextChapter(novelId, 0, '1');
+
+      expect(result?.id).toBe(chapterId2);
+    });
+    it('should not skip a chapter sharing the same position', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, { inLibrary: true });
+      const chapterId1 = await insertTestChapter(testDb, novelId, {
+        page: '1',
+        position: 4,
+      });
+      const chapterId2 = await insertTestChapter(testDb, novelId, {
+        page: '1',
+        position: 4,
+      });
+      await insertTestChapter(testDb, novelId, {
+        page: '1',
+        position: 6,
+      });
+
+      const result = await getNextChapter(novelId, 4, '1', chapterId1);
 
       expect(result?.id).toBe(chapterId2);
     });

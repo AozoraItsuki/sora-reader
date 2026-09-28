@@ -183,6 +183,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     isAppendingRef.current = true;
     try {
       const chapHtml = await fetchChapterHtmlForInfiniteScroll(chap);
+      if (!chapHtml || chapHtml.trim().length === 0) {
+        // Empty fetch (missing download + failed source load): do NOT mark
+        // appended and do NOT advance — the chapter stays next in line so a
+        // later scroll retries it instead of silently skipping to ch+2.
+        return;
+      }
       const terms = getAllTermsForNovel(novel.id ?? 0);
       const processedHtml =
         terms.length > 0 ? applyTermsToHtml(chapHtml, terms) : chapHtml;
@@ -208,6 +214,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         chap.novelId,
         chap.position!,
         chap.page ?? '',
+        chap.id,
       );
       infiniteNextChapterRef.current = nextNextChap ?? undefined;
     } catch {

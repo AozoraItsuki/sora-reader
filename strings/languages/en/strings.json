@@ -799,6 +799,40 @@
     "noChapterReadingTime": "No chapter reading time data found"
   },
   "securitySettings": "Security",
+  "termsSettingsScreen": {
+    "globalTab": "Global",
+    "perNovelTab": "Per-novel",
+    "globalTerms": "Global terms",
+    "globalTermsDesc": "Applied to every novel you read",
+    "novelPicker": "Novel",
+    "noNovels": "No novels in your library",
+    "selectNovelFirst": "Pick a novel to manage its terms",
+    "novelTerms": "Novel terms",
+    "noGlobalTerms": "No global terms yet",
+    "noNovelTerms": "No terms for this novel yet",
+    "addTerm": "Add term",
+    "editTerm": "Edit term",
+    "hiddenTerm": "(hidden)",
+    "scope": "Scope",
+    "scopeGlobal": "All novels",
+    "scopeNovel": "This novel",
+    "fromLabel": "Replace",
+    "fromPlaceholder": "Text to find",
+    "fromHint": "Separate variants with |, e.g. kuma|kuma-san",
+    "toLabel": "With",
+    "toPlaceholder": "Replacement text (empty to hide the match)",
+    "caseSensitive": "Case sensitive",
+    "replacementStyle": "Replacement style",
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "color": "Color",
+    "customColor": "Custom color",
+    "customColorPlaceholder": "#ff0000 or 255,0,0",
+    "colorInvalidError": "Enter a hex (#f00) or RGB (255,0,0) color",
+    "colorEmptyError": "Enter a color or clear the field",
+    "preview": "Preview"
+  },
   "securitySettingsScreen": {
     "appLockSection": "App Lock",
     "appLock": "Lock app",
@@ -922,5 +956,6 @@
     "btnViewNovel": "View Novel",
     "btnReadChapter": "Read Chapter",
     "error": "Error"
-  }
+  },
+  "termsSettings": "Reader Terms"
 }

@@ -1,18 +1,13 @@
 import { Appbar, SafeAreaView } from '@components';
 import { useTheme } from '@hooks/persisted';
 import { SettingsScreenProps } from '@navigators/types';
+import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { getString } from '@strings/translations';
 import React from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+
 import { DiscordSVG } from './SettingsDiscordScreen';
 
 export const AIIconSvg = ({ color, size, ...props }: any) => (
@@ -91,6 +86,12 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           screen: 'RespositorySettings',
         },
         {
+          title: getString('termsSettings'),
+          description: 'Global and per-novel text replacements',
+          icon: 'format-color-highlight',
+          screen: 'TermsSettings',
+        },
+        {
           title: getString('tracking'),
           description: 'AniList, MyAnimeList tracker sync',
           icon: 'sync',
@@ -165,9 +166,7 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
             key={section.sectionTitle}
             entering={FadeInDown.delay(sIdx * 60).duration(280)}
           >
-            <Text
-              style={[styles.sectionTitle, { color: theme.primary }]}
-            >
+            <Text style={[styles.sectionTitle, { color: theme.primary }]}>
               {section.sectionTitle.toUpperCase()}
             </Text>
             <View

@@ -40,16 +40,26 @@ export function saveNovelTerms(novelId: number, terms: ReaderTerm[]): void {
 }
 
 function wrapWithStyle(text: string, style?: TermStyle): string {
-  if (!style) return text;
-  const { bold, italic, underline, color } = style;
-  if (!bold && !italic && !underline && !color) return text;
-
+  if (!hasTermStyle(style)) return text;
+  const { bold, italic, underline, color } = style!;
   let result = text;
   if (bold) result = `<strong>${result}</strong>`;
   if (italic) result = `<em>${result}</em>`;
   if (underline) result = `<u>${result}</u>`;
   if (color) result = `<span style="color:${color}">${result}</span>`;
   return result;
+}
+
+/**
+ * True when the style would render any visible mark.
+ * Terms without a style still get their text replaced, but must not be
+ * wrapped in a `.lnr-term` span — the reader CSS underlines every such
+ * span, which would mark text the user never styled.
+ */
+export function hasTermStyle(style?: TermStyle): boolean {
+  return Boolean(
+    style && (style.bold || style.italic || style.underline || style.color),
+  );
 }
 
 /**
@@ -94,14 +104,20 @@ function applyTermsToText(text: string, terms: ReaderTerm[]): string {
 
       while ((m = re.exec(seg.content)) !== null) {
         if (m.index > lastIndex) {
-          newSegments.push({ content: seg.content.slice(lastIndex, m.index), html: null });
+          newSegments.push({
+            content: seg.content.slice(lastIndex, m.index),
+            html: null,
+          });
         }
 
         const originalMatch = m[0];
         const inner = wrapWithStyle(term.to, term.style);
+        const styled = hasTermStyle(term.style);
         const fromEncoded = encodeURIComponent(originalMatch);
         const toEncoded = encodeURIComponent(term.to);
-        const spanHtml = `<span class="lnr-term" data-from="${fromEncoded}" data-to="${toEncoded}" data-scope="${term.scope}">${inner}</span>`;
+        const spanHtml = styled
+          ? `<span class="lnr-term" data-from="${fromEncoded}" data-to="${toEncoded}" data-scope="${term.scope}">${inner}</span>`
+          : inner;
         newSegments.push({ content: originalMatch, html: spanHtml });
 
         lastIndex = m.index + m[0].length;
@@ -158,13 +174,16 @@ function buildRe(fromStr,cs){
   return new RegExp('('+parts.join('|')+')',cs?'g':'gi');
 }
 function wrapStyle(text,style){
-  if(!style)return text;
+  if(!hasTermStyle(style))return text;
   var r=text;
   if(style.bold)r='<strong>'+r+'</strong>';
   if(style.italic)r='<em>'+r+'</em>';
   if(style.underline)r='<u>'+r+'</u>';
   if(style.color)r='<span style="color:'+style.color+'">'+r+'</span>';
   return r;
+}
+function hasTermStyle(style){
+  return Boolean(style&&(style.bold||style.italic||style.underline||style.color));
 }
 
 var existing=Array.prototype.slice.call(chEl.querySelectorAll('.lnr-term'));
@@ -204,7 +223,7 @@ nodes.forEach(function(textNode){
         if(m.index>lastIdx)newSegs.push({content:seg.content.slice(lastIdx,m.index),html:null});
         var orig=m[0];
         var styled=wrapStyle(term.to,term.style);
-        var spanHtml='<span class="lnr-term" data-from="'+encodeURIComponent(orig)+'" data-to="'+encodeURIComponent(term.to)+'" data-scope="'+(term.scope||'')+'">' +styled+'</span>';
+        var spanHtml=hasTermStyle(term.style)?'<span class="lnr-term" data-from="'+encodeURIComponent(orig)+'" data-to="'+encodeURIComponent(term.to)+'" data-scope="'+(term.scope||'')+'">' +styled+'</span>':styled;
         newSegs.push({content:orig,html:spanHtml});
         lastIdx=m.index+m[0].length;
       }

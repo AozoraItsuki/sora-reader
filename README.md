@@ -1,117 +1,52 @@
-## SoraReader eXtended
+# SoraReader
 
-This is a modified version for my personal use. It is perfectly compatible with the original SoraReader's plugins and backup files, allowing you to easily migrate to this application.
+A free and open-source light novel reader for Android, Mihon/Tachiyomi-style library management with an Expo + React Native codebase.
 
-> [!WARNING]  
-> This version is not recommended for production use.
+> **Fork origin.** This project is a fork of [lnreader/lnreader](https://github.com/lnreader/lnreader) (via the SoraReader line), heavily modified: new build system, new storage model, and many features below. It is a personal fork, not affiliated with the upstream projects.
 
-> [!CAUTION]  
-> Despite having a similar icon and app name, this application is not affiliated with the original app (I just haven't come up with a better icon and name yet).
+## Storage model
 
-> [!NOTE]  
-> This fork uses AI slop.
+- Downloads default to shared storage at `/sdcard/SoraReader` (`Novels/{plugin}/{novel}/{chapter}/index.html`), so your library survives reinstalls and is visible in file managers. Requires the All-files-access permission once on first launch (Setup Storage screen).
+- SAF folder trees remain supported as a fallback; legacy app-private downloads are migrated automatically (verify-before-delete, with a manual Migrate button in Download settings).
+- Plugins stay in app-private data. A `.nomedia` is written per chapter so galleries stay clean.
 
----
+## Features
 
-### Screenshots
+- Reader: infinite scroll with chapter-sequence validation (no skipped chapters), WebView with chapter illustrations, text-to-speech, translation (Google + LLM), per-novel and global **reader terms** with custom bold/italic/underline/color (hex or RGB) managed from Settings → Terms.
+- PDF: in-app viewer, import as local novel (image-only below Android 15), export chapters to PDF.
+- EPUB: import and export with image support.
+- Backups: selective sections (library, downloads, categories, repositories, settings) to local file, Google Drive, or self-hosted server.
+- Library: updates, categories, novel merge/reconcile, reading stats, history.
+- Integrations: AniList / MyAnimeList tracking, Discord RPC, Cloudflare challenge solver, Samsung S-Pen actions, app lock.
+- Local HTTP server serves downloads to the reader; covers resolve from the new location after migration.
 
-|||||
-| :-: | :-: | :-: | :-: |
-| <img src="./.github/readme-images/v2/applock.jpg" width="220" /> | <img src="./.github/readme-images/v2/book_detail.jpg" width="220" /> | <img src="./.github/readme-images/v2/reader.jpg" width="220" /> | <img src="./.github/readme-images/v2/translate.jpg" width="220" /> |
+## Tech stack
 
-### Key Changes from the Original SoraReader
+React Native 0.83 · Expo SDK 55 · Rock 0.12 (build/run tooling) · TypeScript · Drizzle ORM + op-sqlite · MMKV · Zustand · React Native Paper · pnpm. Custom TurboModules under `android/` and `specs/` (NativeFile, NativeSaf, NativePdf, LocalServer).
 
-- **Advanced Light Novel Structure**: Partial support for organizing Japanese Light Novels into "series" and "volumes" based on the legacy Page structure.
-- **Auto HTTPS Upgrade**: The reader WebView now automatically upgrades insecure HTTP connections to HTTPS.
-- ~~**Default DNS over HTTPS (DoH)**: Implemented DoH by default using Cloudflare's 1.1.1.1 for enhanced privacy and bypass.~~
-- **EPUB Image Fixes**: Fixed bugs causing missing images when exporting image-heavy novels to EPUB (also resolved issues when importing these EPUB files).
-- **EPUB Import Permissions**: Fixed file read permission errors that occurred when importing EPUBs.
-- **Novel Translation**: Implemented in-app novel translation capabilities using Google Translate and LLMs.
-- **App Lock & Privacy**: Added custom App Lock and prevented taking screenshots to protect privacy.
-- **Smooth Backups**: Optimized the Backup & Restore menu to prevent UI freezes.
-- **Developer Tools**: Added a Debug menu and a Storage/Cache viewer.
-- **UI Enhancements**: Minor but meaningful tweaks and improvements to the user interface.
-- **Samsung S-Pen Air Actions (Only on N10-N20U/S21U-S24U/Tab S6-Tab S10U)**: Support for Samsung users with S-Pen to control without touching the screen when reading.
-- **Bypass CF Turnstile**: wtf
-- **Discord RPC**
+## Building
 
----
+Prerequisites: Node 22, pnpm 10, Java 17, Android SDK (compileSdk 36, build-tools 36.0.0, NDK 27.1.12297006, CMake 3.22.1).
 
-<details>
-<summary><b>Original README</b> (Click to expand/collapse)</summary>
+```sh
+pnpm install
+pnpm run generate:env:debug
+pnpm rock run:android --app-id-suffix "debug" --active-arch-only   # dev
+pnpm rock build:android --variant release                          # release APK
+```
 
-<p align="center">
-  <a href="https://sorareader.app">
-    <img src="./.github/readme-images/icon_new.png" align="center" width="128" />
-  </a>
-</p>
+CI is manual-only: GitHub Actions (`Build`, workflow_dispatch with variant + ABI selector, per-ABI APKs, Gradle/SDK/pnpm caching) and a Codemagic release workflow. Pushing never triggers a build.
 
-<h1 align="center">SoraReader</h1>
-
-<p align="center">
-  SoraReader is a free and open source light novel reader for Android, inspired by Tachiyomi.
-</p>
-
-<div align="center">
-  <a href="https://discord.gg/QdcWN4MD63">
-    <img alt="Discord Chat" src="https://img.shields.io/discord/835746409357246465.svg?logo=discord&logoColor=white&logoWidth=20&labelColor=5865F2&color=4752C4&label=discord&style=flat">
-  </a>
-  <a href="https://github.com/sorareader/sorareader/releases">
-    <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/sorareader/sorareader/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat">
-  </a>
-</div>
-
-<div align="center">
-  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/sorareader/sorareader/build.yml?labelColor=27303D&style=flat">
-  <a href="https://github.com/sorareader/sorareader/blob/main/LICENSE">
-    <img alt="GitHub" src="https://img.shields.io/github/license/sorareader/sorareader?labelColor=27303D&color=1a73e8&style=flat">
-  </a>
-  <a title="Crowdin" target="_blank" href="https://crowdin.com/project/sorareader">
-    <img src="https://badges.crowdin.net/sorareader/localized.svg">
-  </a>
-</div>
-
-<h2 align="center">Download</h2>
-
-<p align="center">
-  <a href="https://github.com/sorareader/sorareader/releases/latest">
-    <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/sorareader/sorareader?label=Stable&labelColor=0d7377&color=084c4e&style=flat">
-  </a>
-  <a href="https://github.com/sorareader/sorareader/releases/latest">
-    <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/sorareader/sorareader?include_prereleases&sort=semver&label=Beta&labelColor=3d3d5c&color=2a2a47&style=flat">
-  </a>
-</p>
-
-<p align="center">
-  Get the app from our <a href="https://github.com/sorareader/sorareader/releases">releases page</a>.
-</p>
-
-<p align="center">
-  <em>Android 7.0 or higher.</em>
-</p>
-
-<h2 align="center">Screenshots</h2>
-
-<p align="center">
-  <img src="./.github/readme-images/screenshots.png" align="center" />
-</p>
+Useful scripts: `pnpm jest` (tests), `pnpm run type-check` (`tsc --noEmit`), `pnpm run lint`, `pnpm run format:check`, `pnpm run generate:string-types`.
 
 ## Plugins
 
-SoraReader does not have any affiliation with the content providers available.
-
-Plugin requests should be created at [sorareader-plugins](https://github.com/sorareader/sorareader-plugins).
+No affiliation with content providers. Plugins live in a separate repository; bundled local-plugin support included.
 
 ## Translation
 
-Help translate SoraReader into your language on [Crowdin](https://crowdin.com/project/sorareader).
-
-## Building & Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md)
+Holds `strings/languages/{en,id_ID}` plus Crowdin config (`crowdin.yml`); run the string-types generator after editing.
 
 ## License
 
-[MIT](https://github.com/sorareader/sorareader/blob/main/LICENSE)
-
-</details>
+MIT — see [LICENSE](./LICENSE) (copyright retained from upstream).
