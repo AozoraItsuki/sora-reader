@@ -17,6 +17,7 @@ import { safMkdir, safWriteFile } from '@services/saf/safFile';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { chapterRel, coverRel, novelDirRel } from '@utils/DownloadPaths';
+import { eq } from 'drizzle-orm';
 import { EncodingType, readAsStringAsync } from 'expo-file-system/legacy';
 
 /** Row returned by the chapter batch insert, for the Phase 2 file I/O pass. */
@@ -159,6 +160,15 @@ export const batchInsertChapters = async (
         .run();
 
       if (insertId !== undefined && insertId >= 0) {
+        // The chapter folder on disk is keyed by the real row id, so the
+        // stored path has to name it too — the ordinal placeholder above only
+        // exists to satisfy the NOT NULL / unique constraint during the
+        // insert itself.
+        await tx
+          .update(chapterSchema)
+          .set({ path: chapterRel(LOCAL_PLUGIN_ID, novelId, insertId) })
+          .where(eq(chapterSchema.id, insertId))
+          .run();
         results.push({
           insertId,
           fakeId: i,

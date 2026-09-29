@@ -44,7 +44,9 @@ import {
 import ReadButton from './ReadButton';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+import { localCoverFileUri } from '@components/novelCoverUri';
 import { ChapterFilterKey } from '@database/constants';
+import { defaultCover } from '@plugins/helpers/constants';
 import { useNovelAction } from '@screens/novel/NovelContext';
 import { resolveDownloadUrl } from '@utils/DownloadPaths';
 
@@ -96,11 +98,7 @@ const ChapterCountSkeleton = ({ theme }: { theme: ThemeColors }) => {
   }, [disableLoadingAnimations, sv]);
 
   if (disableLoadingAnimations) {
-    return (
-      <View
-        style={[styles.chapterCountSkeleton, { backgroundColor }]}
-      />
-    );
+    return <View style={[styles.chapterCountSkeleton, { backgroundColor }]} />;
   }
 
   const LG = Animated.createAnimatedComponent(LinearGradient);
@@ -134,12 +132,21 @@ const useShimmer = (theme: ThemeColors) => {
     );
   }, [disableLoadingAnimations, sv]);
 
-  return { animatedStyle, highlightColor, backgroundColor, disableLoadingAnimations };
+  return {
+    animatedStyle,
+    highlightColor,
+    backgroundColor,
+    disableLoadingAnimations,
+  };
 };
 
 const NovelDetailsSkeleton = ({ theme }: { theme: ThemeColors }) => {
-  const { animatedStyle, highlightColor, backgroundColor, disableLoadingAnimations } =
-    useShimmer(theme);
+  const {
+    animatedStyle,
+    highlightColor,
+    backgroundColor,
+    disableLoadingAnimations,
+  } = useShimmer(theme);
 
   const shimmer = !disableLoadingAnimations ? (
     <AnimatedLinearGradient
@@ -154,12 +161,16 @@ const NovelDetailsSkeleton = ({ theme }: { theme: ThemeColors }) => {
   return (
     <>
       <Row style={styles.infoRow}>
-        <View style={[styles.infoSkeletonBar, styles.w130, { backgroundColor }]}>
+        <View
+          style={[styles.infoSkeletonBar, styles.w130, { backgroundColor }]}
+        >
           {shimmer}
         </View>
       </Row>
       <Row style={styles.infoRow}>
-        <View style={[styles.infoSkeletonBar, styles.w180, { backgroundColor }]}>
+        <View
+          style={[styles.infoSkeletonBar, styles.w180, { backgroundColor }]}
+        >
           {shimmer}
         </View>
       </Row>
@@ -168,8 +179,12 @@ const NovelDetailsSkeleton = ({ theme }: { theme: ThemeColors }) => {
 };
 
 const ButtonGroupSkeleton = ({ theme }: { theme: ThemeColors }) => {
-  const { animatedStyle, highlightColor, backgroundColor, disableLoadingAnimations } =
-    useShimmer(theme);
+  const {
+    animatedStyle,
+    highlightColor,
+    backgroundColor,
+    disableLoadingAnimations,
+  } = useShimmer(theme);
 
   const shimmer = !disableLoadingAnimations ? (
     <AnimatedLinearGradient
@@ -183,8 +198,12 @@ const ButtonGroupSkeleton = ({ theme }: { theme: ThemeColors }) => {
 
   return (
     <View style={styles.buttonGroupSkeletonContainer}>
-      <View style={[styles.buttonSkeleton, { backgroundColor }]}>{shimmer}</View>
-      <View style={[styles.buttonSkeleton, { backgroundColor }]}>{shimmer}</View>
+      <View style={[styles.buttonSkeleton, { backgroundColor }]}>
+        {shimmer}
+      </View>
+      <View style={[styles.buttonSkeleton, { backgroundColor }]}>
+        {shimmer}
+      </View>
     </View>
   );
 };
@@ -222,10 +241,17 @@ const NovelInfoHeader = ({
     [novel.pluginId],
   );
 
-  const coverSource = useMemo(
-    () => ({ uri: resolveDownloadUrl(novel.cover) }),
-    [novel.cover],
-  );
+  // Same disk-first resolution as the library grid: a cover file sitting in
+  // the shared tree wins over a stale `cover` column (typical after a backup
+  // restore), with the served/remote url as the fallback.
+  const coverSource = useMemo(() => {
+    const source =
+      typeof novel.id === 'number' && novel.pluginId
+        ? { pluginId: novel.pluginId, novelId: novel.id }
+        : null;
+    const localUri = localCoverFileUri(novel.cover, source);
+    return { uri: localUri ?? resolveDownloadUrl(novel.cover) ?? defaultCover };
+  }, [novel.cover, novel.id, novel.pluginId]);
 
   const novelStatus = useMemo(
     () => (novel.id !== 'NO_ID' ? novel.status ?? undefined : undefined),
@@ -233,8 +259,7 @@ const NovelInfoHeader = ({
   );
 
   const handleTitlePress = useCallback(
-    () =>
-      navigation.replace('GlobalSearchScreen', { searchText: novel.name }),
+    () => navigation.replace('GlobalSearchScreen', { searchText: novel.name }),
     [navigation, novel.name],
   );
 
@@ -257,7 +282,13 @@ const NovelInfoHeader = ({
     } else {
       deleteDownloadSnackbar?.setFalse();
     }
-  }, [isLoading, followNovel, novel.inLibrary, chapters, deleteDownloadSnackbar]);
+  }, [
+    isLoading,
+    followNovel,
+    novel.inLibrary,
+    chapters,
+    deleteDownloadSnackbar,
+  ]);
 
   const handleTrackerSheet = useCallback(
     () => trackerSheetRef.current?.present(),
@@ -276,12 +307,18 @@ const NovelInfoHeader = ({
 
   return (
     <>
-      <CoverImage source={coverSource} theme={theme} hideBackdrop={hideBackdrop}>
+      <CoverImage
+        source={coverSource}
+        theme={theme}
+        hideBackdrop={hideBackdrop}
+      >
         <NovelInfoContainer>
           <NovelThumbnail
             source={coverSource}
             theme={theme}
-            setCustomNovelCover={isLoading ? showNotAvailable : setCustomNovelCover}
+            setCustomNovelCover={
+              isLoading ? showNotAvailable : setCustomNovelCover
+            }
             saveNovelCover={isLoading ? showNotAvailable : saveNovelCover}
           />
           <View style={styles.novelDetails}>
@@ -344,9 +381,7 @@ const NovelInfoHeader = ({
             {novel.genres ? (
               <NovelGenres theme={theme} genres={novel.genres} />
             ) : null}
-            {novel.tags ? (
-              <NovelTags theme={theme} tags={novel.tags} />
-            ) : null}
+            {novel.tags ? <NovelTags theme={theme} tags={novel.tags} /> : null}
           </>
         )}
 
@@ -373,7 +408,9 @@ const NovelInfoHeader = ({
                   <ChapterCountSkeleton theme={theme} />
                 ) : (
                   <Text style={[{ color: theme.onSurface }, styles.chapters]}>
-                    {`${totalChapters ?? 0} ${getString('novelScreen.chapters')}`}
+                    {`${totalChapters ?? 0} ${getString(
+                      'novelScreen.chapters',
+                    )}`}
                   </Text>
                 )}
               </View>

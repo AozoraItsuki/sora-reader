@@ -572,17 +572,18 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
       terms.length > 0 ? applyTermsToHtml(html, terms) : html;
 
     sourceDataRef.current = {
-      // Downloaded chapters are served by the local HTTP server out of the SAF
-      // tree, so pointing baseUrl at the chapter directory makes the relative
-      // `0.b64.png` sources the download writer emits resolve. Plugin-hosted
-      // chapters that are not downloaded keep resolving against the plugin site.
-      baseUrl: novel.isLocal
-        ? `${getLocalServerUrl()}/local/${novel.id}/`
-        : chapter.isDownloaded
-        ? `${getLocalServerUrl()}/Novels/${novel.pluginId}/${novel.id}/${
-            chapter.id
-          }/`
-        : plugin?.site,
+      // Downloaded chapters are served by the local HTTP server out of the
+      // shared Novels root, so pointing baseUrl at the chapter directory
+      // makes the relative `0.b64.png` sources the download writer emits
+      // resolve. Plugin-hosted chapters that are not downloaded keep
+      // resolving against the plugin site.
+      baseUrl:
+        chapterBaseUrl({
+          novel,
+          chapter,
+          pluginSite: plugin?.site,
+          serverUrl: getLocalServerUrl(),
+        }) || undefined,
       headers: plugin?.imageRequestInit?.headers,
       method: plugin?.imageRequestInit?.method,
       body: plugin?.imageRequestInit?.body,

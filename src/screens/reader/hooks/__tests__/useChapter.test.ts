@@ -560,4 +560,34 @@ describe('useChapter', () => {
     );
     expect(mockFetchChapter).not.toHaveBeenCalled();
   });
+
+  it('reads a local novel chapter from the shared tree instead of the gone legacy folder', async () => {
+    // Given: a PDF/EPUB import that lives in the shared tree
+    // (`Novels/local/{novelId}/{chapterId}/index.html`) while the legacy
+    // app-private folder no longer exists.
+    (NativeFile.hasAllFilesAccess as jest.Mock).mockReturnValue(true);
+    (NativeFile.exists as jest.Mock).mockReturnValue(true);
+    (NativeFile.readFile as jest.Mock).mockReturnValue(
+      '<img class="pdf-page-image" src="0.b64.png"/>',
+    );
+    const store = createStore();
+    mockUseNovelActions.mockReturnValue(store.state);
+    const localNovel = { ...makeNovel(), pluginId: 'local', isLocal: true };
+
+    // When
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, localNovel),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Then the tree file wins and the legacy LocalPlugin read — which returns
+    // '' for a missing folder and renders as "Chapter is empty" — is skipped.
+    expect(NativeFile.readFile).toHaveBeenCalledWith(
+      '/mock/storage/SoraReader/Novels/local/7/1/index.html',
+    );
+    expect(mockFetchChapter).not.toHaveBeenCalled();
+    expect(result.current.chapterText).toBe(
+      'SANITIZED:<img class="pdf-page-image" src="0.b64.png"/>',
+    );
+  });
 });

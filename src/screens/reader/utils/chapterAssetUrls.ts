@@ -11,10 +11,14 @@ type ChapterBaseUrlOptions = {
 export const chapterBaseUrl = (options: ChapterBaseUrlOptions): string => {
   const { novel, chapter, pluginSite, serverUrl } = options;
   if (novel.isLocal) {
-    return `${serverUrl}/local/${novel.id}/`;
+    // Page images sit next to the chapter's own index.html, so the chapter
+    // directory — not the novel directory — is the anchor.
+    return `${serverUrl}/local/${novel.id}/${chapter.id}/`;
   }
   if (chapter.isDownloaded) {
-    return `${serverUrl}/Novels/${novel.pluginId}/${novel.id}/${chapter.id}/`;
+    // The local server serves SHARED_NOVELS itself, so server-relative URLs
+    // must NOT repeat the `Novels` segment.
+    return `${serverUrl}/${novel.pluginId}/${novel.id}/${chapter.id}/`;
   }
   return pluginSite ?? '';
 };

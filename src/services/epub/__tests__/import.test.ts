@@ -107,6 +107,13 @@ jest.mock('@database/db', () => ({
             run: async () => ({ insertId: mockNextInsertId++ }),
           }),
         }),
+        update: () => ({
+          set: () => ({
+            where: () => ({
+              run: async () => undefined,
+            }),
+          }),
+        }),
       }),
   },
 }));

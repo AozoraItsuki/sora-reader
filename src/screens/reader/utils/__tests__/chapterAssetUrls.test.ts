@@ -4,26 +4,31 @@ const SERVER = 'http://127.0.0.1:1234';
 const NOVEL = { id: 9, pluginId: 'local' };
 
 describe('chapterBaseUrl', () => {
-  it('serves a local novel from the local plugin directory', () => {
+  it('serves a local novel from its own chapter directory', () => {
+    // Page images sit next to the chapter's index.html, so the base URL must
+    // name the chapter — anchoring at the novel directory leaves `0.b64.png`
+    // pointing at a folder that has no such file.
     expect(
       chapterBaseUrl({
         novel: { ...NOVEL, isLocal: true },
         chapter: { id: 2, isDownloaded: true },
         serverUrl: SERVER,
       }),
-    ).toBe(`${SERVER}/local/9/`);
+    ).toBe(`${SERVER}/local/9/2/`);
   });
 
   it('serves a downloaded chapter from its own chapter directory', () => {
     // The chapter directory is what a downloaded chapter's `0.b64.png`
-    // references are anchored to, so this URL must name the chapter.
+    // references are anchored to, so this URL must name the chapter. The
+    // local server already serves the shared Novels root itself, so the
+    // `Novels` segment must NOT be repeated.
     expect(
       chapterBaseUrl({
         novel: { ...NOVEL, isLocal: false },
         chapter: { id: 4, isDownloaded: true },
         serverUrl: SERVER,
       }),
-    ).toBe(`${SERVER}/Novels/local/9/4/`);
+    ).toBe(`${SERVER}/local/9/4/`);
   });
 
   it('resolves a chapter that is neither local nor downloaded against its plugin site', () => {
@@ -39,7 +44,7 @@ describe('chapterBaseUrl', () => {
 });
 
 describe('absolutizeAssetRefs', () => {
-  const base = `${SERVER}/Novels/local/9/4/`;
+  const base = `${SERVER}/local/9/4/`;
 
   it('anchors a relative img src to the chapter base url', () => {
     expect(

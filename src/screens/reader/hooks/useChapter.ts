@@ -252,10 +252,24 @@ export default function useChapter(
     async (id: number, path: string) => {
       let text = '';
       if (novel.pluginId === LOCAL_PLUGIN_ID) {
-        // Local novels: always go through LocalPlugin.parseChapter()
-        // which reads the file and rewrites file:// URIs to http://localhost
-        const chapterDir = `${NOVEL_STORAGE}/local/${chapter.novelId}/${id}`;
-        text = await fetchChapter(novel.pluginId, chapterDir);
+        // Local novels live in the shared download tree now
+        // (`Novels/local/{novelId}/{chapterId}/index.html`); the legacy
+        // app-private path is only a fallback for installs that have not
+        // migrated yet. LocalPlugin.parseChapter() returns '' when the
+        // legacy folder is gone, which the reader renders as "Chapter is
+        // empty" — so the tree has to be tried first.
+        const relativePath = chapterIndexRel(
+          LOCAL_PLUGIN_ID,
+          chapter.novelId,
+          id,
+        );
+        const downloaded = await readDownloadedChapter(relativePath);
+        if (downloaded !== null) {
+          text = downloaded;
+        } else {
+          const chapterDir = `${NOVEL_STORAGE}/local/${chapter.novelId}/${id}`;
+          text = await fetchChapter(novel.pluginId, chapterDir);
+        }
       } else {
         // Online novels: check the downloaded chapter first, then fetch from
         // the source. Downloads now live in the SAF tree, so the relative path
