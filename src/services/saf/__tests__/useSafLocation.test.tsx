@@ -31,7 +31,8 @@ describe('syncSafTreeUriToServer', () => {
 
     // setSafTreeUri was deleted from the native spec with the tree path.
     expect(
-      'setSafTreeUri' in (nativeLocalServer as Record<string, unknown>),
+      'setSafTreeUri' in
+        (nativeLocalServer as unknown as Record<string, unknown>),
     ).toBe(false);
   });
 

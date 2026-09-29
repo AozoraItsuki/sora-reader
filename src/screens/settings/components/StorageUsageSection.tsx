@@ -2,9 +2,10 @@ import { List } from '@components';
 import { useTheme } from '@hooks/persisted';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
+import { OrphanEntry, scanOrphanDownloads } from '@utils/orphanDownloads';
 import { showToast } from '@utils/showToast';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { InteractionManager, StyleSheet, View } from 'react-native';
+import { Alert, InteractionManager, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 export default function StorageUsageSection() {
@@ -13,6 +14,7 @@ export default function StorageUsageSection() {
 
   const [cacheSize, setCacheSize] = useState<number>(0);
   const [freeSpace, setFreeSpace] = useState<number>(constants.FreeSpace);
+  const [orphans, setOrphans] = useState<readonly OrphanEntry[]>([]);
 
   const interactionTaskRef = useRef<ReturnType<
     typeof InteractionManager.runAfterInteractions
@@ -46,6 +48,8 @@ export default function StorageUsageSection() {
           if (free > 0) {
             setFreeSpace(free);
           }
+
+          setOrphans(scanOrphanDownloads());
         } catch (e) {
           // eslint-disable-next-line no-console
           console.error(e);
@@ -73,6 +77,40 @@ export default function StorageUsageSection() {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  };
+
+  const orphanBytes = orphans.reduce((total, o) => total + o.bytes, 0);
+
+  const handleCleanOrphans = () => {
+    if (orphans.length === 0) {
+      return;
+    }
+    Alert.alert(
+      getString('advancedSettingsScreen.cleanOrphansConfirmTitle'),
+      getString('advancedSettingsScreen.cleanOrphansConfirm', {
+        count: orphans.length,
+        size: formatBytes(orphanBytes, 2),
+      }),
+      [
+        { text: getString('common.cancel'), style: 'cancel' },
+        {
+          text: getString('common.delete'),
+          style: 'destructive',
+          onPress: () => {
+            try {
+              for (const orphan of orphans) {
+                NativeFile.unlink(orphan.path);
+              }
+              fetchStorageInfo();
+              showToast(getString('advancedSettingsScreen.orphansCleared'));
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.error(e);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleClearCache = () => {
@@ -134,6 +172,20 @@ export default function StorageUsageSection() {
           size: formatBytes(cacheSize, 2),
         })}
         onPress={handleClearCache}
+        theme={theme}
+      />
+      <List.Item
+        title={getString('advancedSettingsScreen.cleanOrphans')}
+        description={
+          orphans.length === 0
+            ? getString('advancedSettingsScreen.noOrphans')
+            : getString('advancedSettingsScreen.orphansFound', {
+                count: orphans.length,
+                size: formatBytes(orphanBytes, 2),
+              })
+        }
+        onPress={handleCleanOrphans}
+        disabled={orphans.length === 0}
         theme={theme}
       />
     </View>

@@ -17,8 +17,9 @@ import { CloudflareSolverOverlay } from '@plugins/helpers/CloudflareSolverOverla
 import { initLocalServer } from '@plugins/local/localServerManager';
 import AppLockOverlay, { useAppLock } from '@screens/more/AppLockScreen';
 import SetupStorageScreen from '@screens/setup/SetupStorageScreen';
-import { runSafMigration } from '@services/saf/migrateToSaf';
 import { ensureDirectStorage } from '@services/saf/directStorage';
+import { runSafMigration } from '@services/saf/migrateToSaf';
+import { isDirectStorageReady } from '@services/saf/safFile';
 import { ensureSharedDirs } from '@services/saf/sharedDirs';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
@@ -126,14 +127,10 @@ const AppContent = () => {
   // The probe is one synchronous native call; until it settles the gate is
   // unknown and the first frame stays blank rather than flashing setup.
   useEffect(() => {
-    void ensureDirectStorage().then(granted =>
-      setShowStorageSetup(!granted),
-    );
+    void ensureDirectStorage().then(granted => setShowStorageSetup(!granted));
   }, []);
   const recheckStorageSetup = useCallback(() => {
-    void ensureDirectStorage().then(granted =>
-      setShowStorageSetup(!granted),
-    );
+    void ensureDirectStorage().then(granted => setShowStorageSetup(!granted));
   }, []);
 
   useEffect(() => {

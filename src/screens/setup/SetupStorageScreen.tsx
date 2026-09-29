@@ -13,7 +13,6 @@ import {
 import { syncSafTreeUriToServer } from '@services/saf/useSafLocation';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';

@@ -33,6 +33,12 @@ export interface StringMap {
   'advancedSettingsScreen.cleanCache': 'string';
   'advancedSettingsScreen.cacheUsed': 'string';
   'advancedSettingsScreen.cacheCleared': 'string';
+  'advancedSettingsScreen.cleanOrphans': 'string';
+  'advancedSettingsScreen.noOrphans': 'string';
+  'advancedSettingsScreen.orphansFound': 'string';
+  'advancedSettingsScreen.cleanOrphansConfirmTitle': 'string';
+  'advancedSettingsScreen.cleanOrphansConfirm': 'string';
+  'advancedSettingsScreen.orphansCleared': 'string';
   'advancedSettingsScreen.importEpub': 'string';
   'advancedSettingsScreen.importNovel': 'string';
   'advancedSettingsScreen.importStaticFiles': 'string';
