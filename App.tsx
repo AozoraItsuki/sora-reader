@@ -16,15 +16,12 @@ import { ThemeProvider } from '@hooks/persisted/useTheme';
 import { CloudflareSolverOverlay } from '@plugins/helpers/CloudflareSolverOverlay';
 import { initLocalServer } from '@plugins/local/localServerManager';
 import AppLockOverlay, { useAppLock } from '@screens/more/AppLockScreen';
-import SetupStorageScreen, {
-  SETUP_STORAGE_DISMISSED,
-} from '@screens/setup/SetupStorageScreen';
+import SetupStorageScreen from '@screens/setup/SetupStorageScreen';
 import { runSafMigration } from '@services/saf/migrateToSaf';
-import { getSafTreeUri, isDirectStorageReady } from '@services/saf/safFile';
+import { ensureDirectStorage } from '@services/saf/directStorage';
 import { ensureSharedDirs } from '@services/saf/sharedDirs';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { restoreNativeProxyFromStorage } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
 import * as Notifications from 'expo-notifications';
@@ -111,30 +108,33 @@ const useCancelStuckBackupTasks = () => {
 };
 
 /**
- * Nothing can be downloaded until the user grants access to a download folder,
- * so setup blocks the library on the first run — until all-files access is
- * granted, until a tree is picked, or until the user explicitly skips it.
- * Synchronous on purpose: the gate is read during the first render. Independent
- * of the database: a failed init must still leave the setup screen reachable.
+ * Forced access gate (Mihon-style): nothing can be downloaded until all-files
+ * access is granted, so the setup screen owns the first frame whenever the
+ * grant is missing. Async on purpose: the cached readiness flag resets every
+ * process start, so the gate probes the OS once and renders blank meanwhile —
+ * a synchronous read here would flash setup on every cold start.
  */
-const needsStorageSetup = (): boolean =>
-  !isDirectStorageReady() &&
-  getSafTreeUri() === null &&
-  MMKVStorage.getString(SETUP_STORAGE_DISMISSED) !== '1';
-
 const AppContent = () => {
   const { isLocked, isCredentialsRevoked, authenticate, dismissRevoked } =
     useAppLock();
   useScreenProtection();
   useCancelStuckBackupTasks();
 
-  const [showStorageSetup, setShowStorageSetup] = useState(needsStorageSetup);
-  // Setup persists the answer, so the gate has to be re-read once it reports
-  // completion instead of waiting for the next mount.
-  const recheckStorageSetup = useCallback(
-    () => setShowStorageSetup(needsStorageSetup()),
-    [],
+  const [showStorageSetup, setShowStorageSetup] = useState<boolean | null>(
+    null,
   );
+  // The probe is one synchronous native call; until it settles the gate is
+  // unknown and the first frame stays blank rather than flashing setup.
+  useEffect(() => {
+    void ensureDirectStorage().then(granted =>
+      setShowStorageSetup(!granted),
+    );
+  }, []);
+  const recheckStorageSetup = useCallback(() => {
+    void ensureDirectStorage().then(granted =>
+      setShowStorageSetup(!granted),
+    );
+  }, []);
 
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
@@ -158,7 +158,7 @@ const AppContent = () => {
 
   return (
     <>
-      {showStorageSetup ? (
+      {showStorageSetup === null ? null : showStorageSetup ? (
         <SetupStorageScreen onDone={recheckStorageSetup} />
       ) : (
         <Main />

@@ -1,12 +1,15 @@
 import {
   _legacyAbsPath,
   collectLegacyCoverRefs,
+  DRAIN_TREE_URI_KEY,
   hasLegacyDownloads,
   reconcileDownloadFlags,
   relativizeCoverPath,
   rewriteChapterHtml,
   runSafMigration,
 } from '@services/saf/migrateToSaf';
+import NativeSaf from '@specs/NativeSaf';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 
 const OLD_ROOT = '/root/Novels';
 
@@ -26,9 +29,7 @@ let mockTree: Map<string, TreeEntry>;
 let mockNovels: NovelRow[];
 let mockDownloadedChapters: ChapterRow[];
 let mockCoverUpdates: Array<{ id: number; cover: string }>;
-let mockPermissionGranted: boolean;
 let mockDirectReady: boolean;
-let mockTreeUri: string | null;
 let mockMigrationDone: boolean;
 let mockLogEntries: string[];
 let mockFailWriteFor: (rel: string) => boolean;
@@ -43,9 +44,7 @@ const resetFakes = () => {
   mockNovels = [];
   mockDownloadedChapters = [];
   mockCoverUpdates = [];
-  mockPermissionGranted = true;
-  mockDirectReady = false;
-  mockTreeUri = 'content://downloads/tree';
+  mockDirectReady = true;
   mockMigrationDone = false;
   mockLogEntries = [];
   mockFailWriteFor = () => false;
@@ -118,9 +117,7 @@ jest.mock('@services/saf/safFile', () => ({
   markSafMigrationDone: () => {
     mockMigrationDone = true;
   },
-  ensureSafPermission: async () => mockPermissionGranted,
   ensureDirectStorage: async () => mockDirectReady,
-  getSafTreeUri: () => mockTreeUri,
   safExists: async (rel: string) => mockTree.has(rel),
   safMkdir: async () => true,
   safWriteFile: async (rel: string, data: string, encoding = 'utf8') => {
@@ -305,8 +302,8 @@ describe('runSafMigration', () => {
     expect(mockLegacyFiles.size).toBe(1);
   });
 
-  it('skips without marking done when SAF permission is missing', async () => {
-    mockPermissionGranted = false;
+  it('skips without marking done when direct storage is missing', async () => {
+    mockDirectReady = false;
     seedLegacyNovel(
       { id: 1, pluginId: 'p1', cover: `file://${OLD_ROOT}/p1/1/cover.png` },
       [{ id: 5, novelId: 1 }],
@@ -327,9 +324,6 @@ describe('runSafMigration', () => {
   });
 
   it('migrates into the shared root when no tree is picked at all', async () => {
-    mockDirectReady = true;
-    mockTreeUri = null;
-    mockPermissionGranted = false;
     seedLegacyNovel(
       { id: 1, pluginId: 'p1', cover: `file://${OLD_ROOT}/p1/1/cover.png` },
       [{ id: 5, novelId: 1 }],
@@ -580,8 +574,8 @@ describe('runSafMigration progress', () => {
     expect(calls).toEqual([{ done: 1, total: 1, label: 'Novels/p1/1/5' }]);
   });
 
-  it('reports no steps when the permission is missing', async () => {
-    mockPermissionGranted = false;
+  it('reports no steps when direct storage is missing', async () => {
+    mockDirectReady = false;
     seedLegacyNovel({ id: 1, pluginId: 'p1', cover: null }, [
       { id: 5, novelId: 1 },
     ]);
@@ -590,6 +584,94 @@ describe('runSafMigration progress', () => {
     await runSafMigration(onProgress);
 
     expect(calls).toEqual([]);
+  });
+
+  describe('drainSafTree', () => {
+    const TREE_NOVELS = 'Novels/wtr/9/3/index.html';
+
+    const treeDirEntries = (treeUri: string, relPath: string): string[] => {
+      if (treeUri !== 'content://drain-tree') {
+        return [];
+      }
+      if (relPath === 'Novels') {
+        return ['wtr'];
+      }
+      if (relPath === 'Novels/wtr') {
+        return ['9'];
+      }
+      if (relPath === 'Novels/wtr/9') {
+        return ['3'];
+      }
+      if (relPath === 'Novels/wtr/9/3') {
+        return ['index.html'];
+      }
+      return [];
+    };
+
+    beforeEach(() => {
+      MMKVStorage.clearAll();
+      MMKVStorage.set(DRAIN_TREE_URI_KEY, 'content://drain-tree');
+      (NativeSaf.readDir as jest.Mock).mockImplementation(treeDirEntries);
+      (NativeSaf.isDirectory as jest.Mock).mockImplementation(
+        (treeUri: string, relPath: string) => relPath !== TREE_NOVELS,
+      );
+    });
+
+    afterEach(() => {
+      MMKVStorage.clearAll();
+    });
+
+    it('drains files from a configured tree into the shared root', async () => {
+      (NativeSaf.readFile as jest.Mock).mockImplementation(
+        (treeUri: string, relPath: string) =>
+          treeUri === 'content://drain-tree' && relPath === TREE_NOVELS
+            ? '<html>tree chapter</html>'
+            : '',
+      );
+
+      await runSafMigration();
+
+      expect(NativeSaf.readFile).toHaveBeenCalledWith(
+        'content://drain-tree',
+        TREE_NOVELS,
+        'utf8',
+      );
+      expect(mockTree.get(TREE_NOVELS)?.data).toBe(
+        '<html>tree chapter</html>',
+      );
+    });
+
+    it('skips files already present in the shared root', async () => {
+      mockTree.set(TREE_NOVELS, { data: '<html>existing</html>', encoding: 'utf8' });
+      (NativeSaf.readFile as jest.Mock).mockImplementation(
+        () => '<html>tree chapter</html>',
+      );
+
+      await runSafMigration();
+
+      expect(NativeSaf.readFile).not.toHaveBeenCalledWith(
+        'content://drain-tree',
+        TREE_NOVELS,
+        expect.anything(),
+      );
+      expect(mockTree.get(TREE_NOVELS)?.data).toBe('<html>existing</html>');
+    });
+
+    it('skips the drain when no tree was ever configured', async () => {
+      MMKVStorage.clearAll();
+
+      await runSafMigration();
+
+      expect(NativeSaf.hasTreeAccess).not.toHaveBeenCalled();
+    });
+
+    it('never unlinks sources inside the configured tree', async () => {
+      await runSafMigration();
+
+      expect(
+        mockLegacyUnlinked.some(path => path.startsWith('content://')),
+      ).toBe(false);
+    });
   });
 });
 

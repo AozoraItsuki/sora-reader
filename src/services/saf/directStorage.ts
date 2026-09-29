@@ -14,11 +14,7 @@
  */
 import NativeFile from '@specs/NativeFile';
 import { SHARED_ROOT } from '@utils/Storages';
-import {
-  EncodingType,
-  readAsStringAsync,
-  writeAsStringAsync,
-} from 'expo-file-system/legacy';
+import { EncodingType, readAsStringAsync } from 'expo-file-system/legacy';
 
 export type DirectEncoding = 'utf8' | 'base64';
 
@@ -102,10 +98,9 @@ export const directWriteFile = async (
     NativeFile.writeFile(absPath, data);
     return;
   }
-  // `java.io.File` has no byte-level write, so expo decodes the base64 payload.
-  await writeAsStringAsync(fileUri(absPath), data, {
-    encoding: EncodingType.Base64,
-  });
+  // expo `writeAsStringAsync` rejects shared-storage destinations
+  // ("isn't writable"), so base64 payloads are decoded natively instead.
+  NativeFile.writeFileBase64(absPath, data);
 };
 
 /** Read `absPath` as `utf8` text or decoded `base64`, per `encoding`. */

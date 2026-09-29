@@ -19,9 +19,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
 
-/** Set to '1' once all-files access was granted or the user skipped setup. */
-export const SETUP_STORAGE_DISMISSED = 'SETUP_STORAGE_DISMISSED';
-
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -29,7 +26,7 @@ const errorMessage = (error: unknown): string =>
 type MigrationProgress = { done: number; total: number; label: string };
 
 interface SetupStorageScreenProps {
-  /** Called once access is granted or the user skipped setup. */
+  /** Called once all-files access is granted. */
   onDone: () => void;
 }
 
@@ -122,11 +119,6 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
     }
   }, [migrating]);
 
-  const handleSkip = useCallback(() => {
-    MMKVStorage.set(SETUP_STORAGE_DISMISSED, '1');
-    onDone();
-  }, [onDone]);
-
   return (
     <SafeAreaView>
       <ScrollView contentContainerStyle={styles.content}>
@@ -174,9 +166,6 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
         <View style={styles.actions}>
           <Button mode="contained" onPress={handleContinue}>
             {getString('setupStorage.continue')}
-          </Button>
-          <Button mode="text" onPress={handleSkip}>
-            {getString('setupStorage.skip')}
           </Button>
         </View>
       </ScrollView>

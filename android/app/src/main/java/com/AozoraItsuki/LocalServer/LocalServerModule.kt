@@ -1,6 +1,5 @@
 package com.AozoraItsuki.LocalServer
 
-import android.net.Uri
 import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -17,31 +16,11 @@ class LocalServerModule(context: ReactApplicationContext) : NativeLocalServerSpe
         @Volatile private var mAllowProxyAPI: Boolean = false
 
         /**
-         * Storage Access Framework tree selected by the user. Null until JS has
-         * ensured the persisted permission and pushed the uri in.
-         */
-        @Volatile private var mSafTreeUri: Uri? = null
-
-        /**
          * Absolute directory to serve from, set by the direct (all-files)
          * storage backend. Blank until JS pushes one, which keeps the legacy
          * app-private directory as the default.
          */
         @Volatile private var mDownloadRoot: String = ""
-    }
-
-    /**
-     * The SAF tree, or null to serve the legacy app-private directory.
-     * Read through a provider so ordering with [startServer] does not matter.
-     */
-    private val safSourceProvider: () -> LocalHttpServer.SafSource? = {
-        mSafTreeUri?.let { LocalHttpServer.SafSource(reactApplicationContext, it) }
-    }
-
-    @ReactMethod
-    override fun setSafTreeUri(uri: String) {
-        mSafTreeUri = if (uri.isBlank()) null else runCatching { Uri.parse(uri) }.getOrNull()
-        Log.i(TAG, "SAF tree ${mSafTreeUri ?: "unset (legacy fallback)"}")
     }
 
     @ReactMethod
@@ -69,7 +48,7 @@ class LocalServerModule(context: ReactApplicationContext) : NativeLocalServerSpe
             }
 
             // Use port 0 to let the OS assign a random available port
-            val httpServer = LocalHttpServer(0, novelsPath, safSourceProvider)
+            val httpServer = LocalHttpServer(0, novelsPath)
             httpServer.allowProxyAPI = mAllowProxyAPI
             httpServer.start()
 

@@ -8,6 +8,11 @@ interface ReadDirResult {
 
 export interface Spec extends TurboModule {
   writeFile: (path: string, content: string) => void;
+  /**
+   * @description decode base64 and write the raw bytes (expo writes fail
+   * outside app directories, so binary payloads go through here)
+   */
+  writeFileBase64: (path: string, base64: string) => void;
   readFile: (path: string) => string;
   copyFile: (sourcePath: string, destPath: string) => void;
   moveFile: (sourcePath: string, destPath: string) => void;

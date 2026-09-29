@@ -881,7 +881,6 @@
     "desc": "Downloaded chapters are always saved to a SoraReader folder on shared storage, so they stay outside the app data backup and are visible to any file manager. Android needs your permission for that.",
     "migrateFiles": "Migrate files",
     "migratingProgress": "Moved %{done} of %{total} files",
-    "skip": "Skip for now",
     "grantAccess": "Grant access",
     "grantAccessDesc": "Opens the Android setting that lets SoraReader use shared storage",
     "continue": "Continue",

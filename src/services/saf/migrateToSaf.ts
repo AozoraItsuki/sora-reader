@@ -1,15 +1,16 @@
 /**
- * One-shot migration: app-private NOVEL_STORAGE -> SAF download tree.
+ * One-shot migration: app-private NOVEL_STORAGE (and any leftover user-picked
+ * SAF tree) -> direct shared root (/sdcard/SoraReader).
  *
  * Old layout (app-private, absolute `file://` paths):
  *   {ROOT_STORAGE}/Novels/{pluginId}/{novelId}/cover.png
  *   {ROOT_STORAGE}/Novels/{pluginId}/{novelId}/{chapterId}/index.html
  *   {ROOT_STORAGE}/Novels/{pluginId}/{novelId}/{chapterId}/{i}.b64.png
  *
- * New layout (SAF tree, tree-relative paths, identical shape under `Novels/`):
- *   Novels/{pluginId}/{novelId}/cover.png
- *   Novels/{pluginId}/{novelId}/{chapterId}/index.html
- *   Novels/{pluginId}/{novelId}/{chapterId}/{i}.b64.png
+ * New layout (shared root, identical shape under `Novels/`):
+ *   {SHARED_ROOT}/Novels/{pluginId}/{novelId}/cover.png
+ *   {SHARED_ROOT}/Novels/{pluginId}/{novelId}/{chapterId}/index.html
+ *   {SHARED_ROOT}/Novels/{pluginId}/{novelId}/{chapterId}/{i}.b64.png
  *
  * Post-migration invariants:
  * - every `index.html` has its absolute `file://.../{i}.b64.png` img srcs
@@ -17,9 +18,9 @@
  *   them against a local-server baseUrl;
  * - every `novel.cover` is tree-relative (`Novels/{pluginId}/{novelId}/cover.png`).
  *
- * Guarded by SAF_MIGRATION_DONE and requires a live SAF permission. Never
+ * Guarded by SAF_MIGRATION_DONE and requires direct (all-files) access. Never
  * throws: the app must always boot. Failures are logged and the legacy tree is
- * left in place for the next attempt.
+ * left in place for the next attempt. Tree sources are never unlinked.
  */
 import { dbManager } from '@database/db';
 import {
@@ -30,8 +31,6 @@ import { chapterSchema, novelSchema } from '@database/schema';
 import DebugLogService from '@services/DebugLogService';
 import {
   ensureDirectStorage,
-  ensureSafPermission,
-  getSafTreeUri,
   isSafMigrationDone,
   markSafMigrationDone,
   safExists,
@@ -39,6 +38,7 @@ import {
   safMkdir,
   safWriteFile,
 } from '@services/saf/safFile';
+import NativeSaf from '@specs/NativeSaf';
 import {
   chapterIndexRel,
   chapterRel,
@@ -46,7 +46,8 @@ import {
   novelDirRel,
   NOVELS_ROOT,
 } from '@utils/DownloadPaths';
-import { NOVEL_STORAGE } from '@utils/Storages';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { NOVEL_STORAGE, SHARED_NOVELS } from '@utils/Storages';
 import { eq } from 'drizzle-orm';
 import { EncodingType, readAsStringAsync } from 'expo-file-system/legacy';
 
@@ -213,11 +214,16 @@ const migrateFile = async ({
   return true;
 };
 
-/** True when `absolutePath` already lives inside the SAF download tree. */
-const isInsideTree = (absolutePath: string): boolean => {
-  const treeRoot = getSafTreeUri();
-  return !!treeRoot && absolutePath.startsWith(`${treeRoot}/`);
-};
+/**
+ * MMKV key that once held the user-picked SAF tree uri. Read-only now: the
+ * forced drain below uses it as a SOURCE exactly once, then tree support is
+ * gone. Never write it — tree sources are drained, never unlinked.
+ */
+export const DRAIN_TREE_URI_KEY = 'SAF_DOWNLOAD_TREE_URI';
+
+/** True when `absolutePath` already lives inside the shared download root. */
+const isInsideTree = (absolutePath: string): boolean =>
+  absolutePath === SHARED_NOVELS || absolutePath.startsWith(`${SHARED_NOVELS}/`);
 
 type ChapterRow = { id: number; novelId: number };
 type NovelRow = { id: number; pluginId: string; cover: string | null };
@@ -560,12 +566,99 @@ export const reconcileDownloadFlags = async (): Promise<{
 };
 
 /**
- * Migrate legacy NOVEL_STORAGE downloads into the SAF tree exactly once.
+ * One-shot drain of a leftover user-picked SAF tree into the shared root.
  *
- * Requires a live SAF permission. Never throws. `force` re-runs a migration that
- * is already marked done, which is what the manual Migrate button needs.
- * `onProgress` is called once per migrated chapter and cover with the
- * tree-relative path it was working on.
+ * Tree files are read through NativeSaf and written through the direct-only
+ * saf* API (same `Novels/...` layout). Files already present-and-nonempty in
+ * the shared root are skipped, so re-runs — and trees that already point at
+ * the shared root — cost almost nothing. Tree sources are NEVER unlinked: the
+ * tree module stays only for this drain and is deleted next release. Never
+ * throws — failures retry on the next run.
+ */
+const drainSafTree = async (
+  onProgress?: (done: number, total: number, label: string) => void,
+): Promise<void> => {
+  let treeUri = '';
+  try {
+    treeUri = MMKVStorage.getString(DRAIN_TREE_URI_KEY)?.trim() ?? '';
+  } catch {
+    return;
+  }
+  if (!treeUri) {
+    return;
+  }
+  let access = false;
+  try {
+    access = await NativeSaf.hasTreeAccess(treeUri);
+  } catch {
+    access = false;
+  }
+  if (!access) {
+    log('log', `${BTAG} Previous download folder unreachable; will retry`);
+    return;
+  }
+  const files: string[] = [];
+  const walk = async (relDir: string): Promise<void> => {
+    let names: string[] = [];
+    try {
+      names = (await NativeSaf.readDir(treeUri, relDir)) ?? [];
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const rel = relDir ? `${relDir}/${name}` : name;
+      let isDir = false;
+      try {
+        isDir = await NativeSaf.isDirectory(treeUri, rel);
+      } catch {
+        continue;
+      }
+      if (isDir) {
+        await walk(rel);
+      } else {
+        files.push(rel);
+      }
+    }
+  };
+  await walk(NOVELS_ROOT);
+  let done = 0;
+  for (const rel of files) {
+    if (!rel.startsWith(`${NOVELS_ROOT}/`)) {
+      continue;
+    }
+    try {
+      const size = await safGetFileSize(rel).catch(() => -1);
+      if (size <= 0) {
+        const isText = rel.endsWith('.html');
+        const data = await NativeSaf.readFile(
+          treeUri,
+          rel,
+          isText ? 'utf8' : 'base64',
+        );
+        if (data) {
+          const parent = rel.slice(0, rel.lastIndexOf('/'));
+          if (parent) {
+            await safMkdir(parent);
+          }
+          await safWriteFile(rel, data, isText ? 'utf8' : 'base64');
+        }
+      }
+    } catch {
+      // Leave it for the next run.
+    }
+    done++;
+    onProgress?.(done, files.length, rel);
+  }
+};
+
+/**
+ * Migrate legacy NOVEL_STORAGE downloads into the shared root exactly once,
+ * then drain any leftover user-picked SAF tree (see drainSafTree).
+ *
+ * Requires direct (all-files) access. Never throws. `force` re-runs a
+ * migration that is already marked done, which is what the manual Migrate
+ * button needs. `onProgress` is called once per migrated chapter and cover
+ * with the tree-relative path it was working on.
  */
 export const runSafMigration = async (
   onProgress?: (done: number, total: number, label: string) => void,
@@ -576,18 +669,12 @@ export const runSafMigration = async (
   }
 
   try {
-    // Either backend can take the writes: the shared root when all-files access
-    // is granted, the picked tree otherwise. Probing the native permission
-    // keeps this correct after a reboot, when the cached flag starts empty.
+    // Direct (all-files) access is the only backend now. Probe the native
+    // permission to keep this correct after a reboot, when the cached flag
+    // starts empty. Without it there is nowhere to drain into — retry later.
     if (!(await ensureDirectStorage())) {
-      if (!(await ensureSafPermission())) {
-        log('log', `${BTAG} Skipped: SAF download tree permission not granted`);
-        return;
-      }
-      if (!getSafTreeUri()) {
-        log('log', `${BTAG} Skipped: no SAF download tree configured`);
-        return;
-      }
+      log('log', `${BTAG} Skipped: shared-storage access not granted yet`);
+      return;
     }
 
     // Heal flag/disk disagreements first: a restore or refresh may have left
@@ -600,6 +687,11 @@ export const runSafMigration = async (
         `${BTAG} Reconciled flags: ${healed} healed, ${cleared} cleared`,
       );
     }
+
+    // One-shot drain of any leftover user-picked SAF tree into the shared
+    // root. Tree sources are never unlinked. Skipped when the tree IS the
+    // shared root (files already in place) or when no tree was ever picked.
+    await drainSafTree(onProgress);
 
     const oldRoot = NOVEL_STORAGE;
     if (!nativeFileExists(oldRoot)) {

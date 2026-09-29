@@ -253,15 +253,6 @@ describe('SetupStorageScreen', () => {
 
     expect(removeListener).toHaveBeenCalled();
   });
-
-  it('dismisses the setup screen and reports completion on skip', async () => {
-    const onDone = jest.fn();
-    renderScreen(onDone);
-
-    fireEvent.press(screen.getByText(getString('setupStorage.skip')));
-
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
-  });
 });
 
 describe('SetupStorageScreen migration progress', () => {

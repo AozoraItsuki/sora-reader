@@ -1,8 +1,6 @@
 import { APP_SETTINGS } from '@hooks/persisted/useSettings';
 import {
   ensureDirectStorage,
-  ensureSafPermission,
-  getSafTreeUri,
   isDirectStorageReady,
 } from '@services/saf/safFile';
 import { syncSafTreeUriToServer } from '@services/saf/useSafLocation';
@@ -36,16 +34,13 @@ export const initLocalServer = async (): Promise<void> => {
 
     // The download location has to reach the native module before the server
     // starts, otherwise it would keep serving the legacy app-private
-    // directory. The direct backend is probed first because it needs no tree;
-    // a missing tree grant falls back to that same app-private directory.
+    // directory. Direct shared storage is the only backend: probe the
+    // all-files grant, then sync the server unconditionally.
     await ensureDirectStorage();
     if (!isDirectStorageReady()) {
-      const treeUri = getSafTreeUri();
-      if (treeUri && !(await ensureSafPermission())) {
-        console.warn(
-          '[LocalServer] SAF tree permission not granted, using fallback',
-        );
-      }
+      console.warn(
+        '[LocalServer] Direct storage not ready, server serves fallback',
+      );
     }
     syncSafTreeUriToServer();
 

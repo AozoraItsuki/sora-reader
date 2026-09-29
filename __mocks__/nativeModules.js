@@ -53,6 +53,7 @@ jest.mock('@specs/NativeFile', () => ({
   __esModule: true,
   default: {
     writeFile: jest.fn(),
+    writeFileBase64: jest.fn(),
     readFile: jest.fn(() => ''),
     copyFile: jest.fn(),
     moveFile: jest.fn(),
@@ -158,7 +159,6 @@ jest.mock('@specs/NativeLocalServer', () => ({
     stopServer: jest.fn().mockResolvedValue(undefined),
     getServerUrl: jest.fn(() => 'http://127.0.0.1:8080'),
     setAllowProxyAPI: jest.fn(),
-    setSafTreeUri: jest.fn(),
     setDownloadRoot: jest.fn(),
   },
 }));

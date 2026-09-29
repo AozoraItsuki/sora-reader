@@ -881,7 +881,6 @@
     "desc": "Bab yang diunduh selalu disimpan ke folder SoraReader di penyimpanan bersama, sehingga tetap berada di luar cadangan data aplikasi dan terlihat oleh pengelola berkas mana pun. Android memerlukan izin Anda untuk itu.",
     "migrateFiles": "Pindahkan berkas",
     "migratingProgress": "Memindahkan %{done} dari %{total} berkas",
-    "skip": "Lewati sekarang",
     "grantAccess": "Beri izin",
     "grantAccessDesc": "Membuka pengaturan Android yang mengizinkan SoraReader memakai penyimpanan bersama",
     "continue": "Lanjutkan",

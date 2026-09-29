@@ -758,7 +758,6 @@ export interface StringMap {
   'setupStorage.desc': 'string';
   'setupStorage.migrateFiles': 'string';
   'setupStorage.migratingProgress': 'string';
-  'setupStorage.skip': 'string';
   'setupStorage.grantAccess': 'string';
   'setupStorage.grantAccessDesc': 'string';
   'setupStorage.continue': 'string';

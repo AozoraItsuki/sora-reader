@@ -14,30 +14,20 @@ import {
 import {
   ensureDirectStorage,
   isDirectStorageReady,
-  SAF_TREE_ROOT,
-  safMkdir,
-  setSafTreeUri,
 } from '@services/saf/safFile';
-import { syncSafTreeUriToServer } from '@services/saf/useSafLocation';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { applyNativeProxy, clearNativeProxy } from '@utils/nativeProxy';
 import { showToast } from '@utils/showToast';
-import { SHARED_ROOT } from '@utils/Storages';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
-import { openDocumentTree } from 'react-native-saf-x';
 
 import SettingSwitch from '../components/SettingSwitch';
 import ChapterDelayModal from './modals/ChapterDelayModal';
 import ParallelChaptersCountModal from './modals/ParallelChaptersCountModal';
 import ProxySettingsModal from './modals/ProxySettingsModal';
 import RetryDelayModal from './modals/RetryDelayModal';
-
-/** Display name of the picked download folder (the tree URI has no label). */
-const DOWNLOAD_FOLDER_NAME_KEY = 'SAF_TREE_DISPLAY_NAME';
 
 /** How far the migration has got: files moved, files to move, current one. */
 type MigrationProgress = { done: number; total: number; label: string };
@@ -73,20 +63,12 @@ const SettingsDownloadScreen = ({
   const retryDelayModal = useBoolean();
   const chapterDelayModal = useBoolean();
 
-  // A tree URI carries no readable label, so the picked folder's display name is
-  // kept next to it for this row. Irrelevant in direct mode, where the folder is
-  // fixed and the only question is whether access is still granted.
-  const [downloadFolderName, setDownloadFolderName] = useState(
-    () => MMKVStorage.getString(DOWNLOAD_FOLDER_NAME_KEY) || '',
-  );
+  // The all-files grant survives reboots but not a revoke from system
+  // settings, so it is re-probed on every visit.
   const [directAccess, setDirectAccess] = useState(isDirectStorageReady);
   const [legacyDetected, setLegacyDetected] = useState(false);
   const [migrating, setMigrating] = useState(false);
   const [progress, setProgress] = useState<MigrationProgress | null>(null);
-
-  // The device can host the plain shared download root at all. When it cannot,
-  // the picked tree stays the only backend and the row keeps its picker.
-  const sharedRootAvailable = SHARED_ROOT !== '';
 
   useEffect(() => {
     setLegacyDetected(hasLegacyDownloads());
@@ -101,32 +83,6 @@ const SettingsDownloadScreen = ({
       setDirectAccess(await ensureDirectStorage());
     } catch (error: any) {
       showToast(error?.message || String(error));
-    }
-  }, []);
-
-  const handlePickDownloadFolder = useCallback(async () => {
-    try {
-      const picked = await openDocumentTree(true);
-      if (!picked) {
-        return;
-      }
-      setSafTreeUri(picked.uri);
-      syncSafTreeUriToServer();
-      MMKVStorage.set(DOWNLOAD_FOLDER_NAME_KEY, picked.name);
-      setDownloadFolderName(picked.name);
-      // Make sure the tree the server walks into exists, then move whatever is
-      // still in the old app-private location into it.
-      await safMkdir(SAF_TREE_ROOT);
-      setMigrating(true);
-      await runSafMigration((done, total, label) =>
-        setProgress({ done, total, label }),
-      );
-      setLegacyDetected(hasLegacyDownloads());
-    } catch (error: any) {
-      showToast(error?.message || String(error));
-    } finally {
-      setMigrating(false);
-      setProgress(null);
     }
   }, []);
 
@@ -181,30 +137,18 @@ const SettingsDownloadScreen = ({
           </List.SubHeader>
           <List.Item
             title={getString('downloadSettingsScreen.downloadFolder')}
-            description={
-              sharedRootAvailable
-                ? `${getString(
-                    'downloadSettingsScreen.downloadFolderDesc',
-                  )}\n${getString(
-                    'downloadSettingsScreen.downloadFolderShared',
-                  )}${
-                    directAccess
-                      ? ''
-                      : ` — ${getString(
-                          'downloadSettingsScreen.downloadFolderAccessLost',
-                        )}`
-                  }`
-                : downloadFolderName
-                ? `${getString(
-                    'downloadSettingsScreen.downloadFolderDesc',
-                  )}\n${downloadFolderName}`
-                : getString('downloadSettingsScreen.downloadFolderNotSet')
-            }
-            onPress={
-              sharedRootAvailable
-                ? handleGrantDirectAccess
-                : handlePickDownloadFolder
-            }
+            description={`${getString(
+              'downloadSettingsScreen.downloadFolderDesc',
+            )}\n${getString(
+              'downloadSettingsScreen.downloadFolderShared',
+            )}${
+              directAccess
+                ? ''
+                : ` — ${getString(
+                    'downloadSettingsScreen.downloadFolderAccessLost',
+                  )}`
+            }`}
+            onPress={handleGrantDirectAccess}
             theme={theme}
           />
           <List.InfoItem

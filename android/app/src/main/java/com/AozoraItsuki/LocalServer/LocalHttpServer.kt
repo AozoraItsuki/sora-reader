@@ -1,10 +1,8 @@
 package com.AozoraItsuki.LocalServer
 
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.webkit.MimeTypeMap
-import androidx.documentfile.provider.DocumentFile
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
 import java.io.FileInputStream
@@ -20,24 +18,18 @@ import java.io.FilterInputStream
 /**
  * A lightweight HTTP server that serves the downloads tree.
  *
- * When [safSourceProvider] yields a user-picked SAF tree, requests are resolved
- * by traversing that tree; otherwise the legacy app-private `NOVEL_STORAGE`
- * directory is served. Both backends expose the same URLs, so nothing above
- * this class has to care where the files physically live.
+ * Direct-only: requests are resolved against the absolute download root
+ * (the shared folder in direct mode, the legacy app-private directory
+ * otherwise). The SAF-tree backend is deleted.
  */
 class LocalHttpServer(
     port: Int,
     private val basePath: String,
-    private val safSourceProvider: () -> SafSource? = { null },
 ) : NanoHTTPD("127.0.0.1", port) {
     companion object {
         private const val TAG = "LocalHttpServer"
-        private const val NOVELS_DIR = "Novels"
         private val EMPTY_BYTE_ARRAY = ByteArray(0)
     }
-
-    /** A user-picked Storage Access Framework tree to serve from. */
-    class SafSource(val context: Context, val treeUri: Uri)
 
     var allowProxyAPI: Boolean = false
 
@@ -76,7 +68,7 @@ class LocalHttpServer(
             )
         }
 
-        // Reject traversal before either backend is touched. The disk backend
+        // Reject traversal before serving. The disk backend
         // additionally re-verifies with a canonical-path check.
         val segments = requestedPath.split('/')
         if (segments.any { it.isEmpty() || it == "." || it == ".." }) {
@@ -86,11 +78,6 @@ class LocalHttpServer(
             )
         }
 
-        val safSource = safSourceProvider()
-        if (safSource != null) {
-            return serveFromSaf(safSource, segments, requestedPath)
-        }
-
         return serveFromDisk(requestedPath)
     }
 
@@ -98,66 +85,6 @@ class LocalHttpServer(
         newFixedLengthResponse(
             Response.Status.NOT_FOUND, "text/plain", "File not found: $requestedPath"
         )
-
-    /**
-     * Resolve `segments` inside the picked tree and stream the bytes back.
-     *
-     * Both `/<plugin>/<novel>/<chapter>/index.html` and
-     * `/Novels/<plugin>/<novel>/<chapter>/index.html` are accepted, so URLs
-     * built with and without the `Novels` prefix keep working.
-     */
-    private fun serveFromSaf(
-        source: SafSource,
-        segments: List<String>,
-        requestedPath: String,
-    ): Response {
-        val tree = DocumentFile.fromTreeUri(source.context, source.treeUri)
-        if (tree == null || !tree.isDirectory) {
-            Log.w(TAG, "SAF tree unavailable: ${source.treeUri}")
-            return notFound(requestedPath)
-        }
-
-        val relative = if (segments.first() == NOVELS_DIR) segments.drop(1) else segments
-        if (relative.isEmpty()) {
-            return notFound(requestedPath)
-        }
-
-        var dir: DocumentFile = tree
-        if (relative.first() != NOVELS_DIR) {
-            val novels = tree.findFile(NOVELS_DIR)
-            if (novels == null || !novels.isDirectory) {
-                return notFound(requestedPath)
-            }
-            dir = novels
-        }
-
-        for (segment in relative.drop(1)) {
-            val child = dir.findFile(segment)
-            if (child == null || !child.isDirectory) {
-                return notFound(requestedPath)
-            }
-            dir = child
-        }
-
-        val file = dir.findFile(relative.last())
-        if (file == null || !file.isFile) {
-            return notFound(requestedPath)
-        }
-
-        val mimeType = getMimeType(file.name ?: relative.last())
-        val fileLength = file.length()
-
-        return try {
-            val input = source.context.contentResolver.openInputStream(file.uri)
-                ?: return notFound(requestedPath)
-            newFixedLengthResponse(Response.Status.OK, mimeType, input, fileLength)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error serving SAF file: ${file.uri}", e)
-            newFixedLengthResponse(
-                Response.Status.INTERNAL_ERROR, "text/plain", "Internal server error"
-            )
-        }
-    }
 
     private fun serveFromDisk(requestedPath: String): Response {
         val file = File(basePath, requestedPath)

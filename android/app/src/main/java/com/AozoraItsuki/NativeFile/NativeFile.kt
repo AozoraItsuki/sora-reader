@@ -3,6 +3,7 @@ package com.AozoraItsuki.NativeFile
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.util.Base64
 import android.os.Environment
 import android.provider.Settings
 import com.facebook.react.bridge.Promise
@@ -92,6 +93,15 @@ class NativeFile(context: ReactApplicationContext) :
             fw.close()
         } catch (e: IOException) {
             throw Exception("Failed to write file '$path': ${e.message}")
+        }
+    }
+
+    override fun writeFileBase64(path: String, base64: String) {
+        try {
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            FileOutputStream(path).use { it.write(bytes) }
+        } catch (e: Exception) {
+            throw Exception("Failed to write base64 file '$path': ${e.message}")
         }
     }
 

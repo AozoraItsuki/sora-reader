@@ -1,6 +1,5 @@
 import { ThemeProvider } from '@hooks/persisted/useTheme';
 import type { DownloadSettingsScreenProps } from '@navigators/types';
-import NativeLocalServer from '@specs/NativeLocalServer';
 import { getString } from '@strings/translations';
 import {
   act,
@@ -57,27 +56,13 @@ jest.mock('@utils/Storages', () => ({
   SHARED_NOVELS: '',
 }));
 jest.mock('@utils/showToast', () => ({ showToast: jest.fn() }));
-jest.mock('react-native-saf-x', () => ({
-  __esModule: true,
-  openDocumentTree: jest.fn(),
-  default: {},
-}));
 
-const { openDocumentTree } = jest.requireMock('react-native-saf-x') as {
-  openDocumentTree: jest.Mock;
-};
 const { runSafMigration, hasLegacyDownloads } = jest.requireMock(
   '@services/saf/migrateToSaf',
 ) as { runSafMigration: jest.Mock; hasLegacyDownloads: jest.Mock };
 const { showToast } = jest.requireMock('@utils/showToast') as {
   showToast: jest.Mock;
 };
-const nativeLocalServer = NativeLocalServer as jest.Mocked<
-  typeof NativeLocalServer
->;
-
-const TREE_URI =
-  'content://com.android.externalstorage.documents/tree/primary%3ADownload';
 
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -128,25 +113,6 @@ const renderScreen = () => {
     </GestureHandlerRootView>,
   );
 };
-
-describe('SettingsDownloadScreen download folder', () => {
-  beforeEach(() => {
-    MMKVStorage.clearAll();
-    openDocumentTree.mockResolvedValue({ uri: TREE_URI, name: 'Download' });
-  });
-
-  it('hands the newly picked tree to the local server without a restart', async () => {
-    renderScreen();
-
-    fireEvent.press(
-      screen.getByText(getString('downloadSettingsScreen.downloadFolder')),
-    );
-
-    await waitFor(() =>
-      expect(nativeLocalServer.setSafTreeUri).toHaveBeenCalledWith(TREE_URI),
-    );
-  });
-});
 
 describe('SettingsDownloadScreen migrate button', () => {
   beforeEach(() => {
