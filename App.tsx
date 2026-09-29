@@ -21,6 +21,7 @@ import SetupStorageScreen, {
 } from '@screens/setup/SetupStorageScreen';
 import { runSafMigration } from '@services/saf/migrateToSaf';
 import { getSafTreeUri, isDirectStorageReady } from '@services/saf/safFile';
+import { ensureSharedDirs } from '@services/saf/sharedDirs';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
@@ -187,6 +188,12 @@ const App = () => {
       void (async () => {
         await initLocalServer();
         await runSafMigration();
+        // The direct backend never creates the download roots itself and
+        // `mkdir` on a deep path is a no-op while an ancestor is missing, so a
+        // fresh install would fail every download. Best effort, no prompt.
+        if (isDirectStorageReady()) {
+          ensureSharedDirs();
+        }
       })();
     }
   }, [state.success]);

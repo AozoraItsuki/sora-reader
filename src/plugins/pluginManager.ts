@@ -17,6 +17,7 @@ import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js';
 import CookieManager from '@preeternal/react-native-cookie-manager';
 import NativeFile from '@specs/NativeFile';
 import { newer } from '@utils/compareVersion';
+import { languagesMapping } from '@utils/constants/languages';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
 import { PLUGIN_STORAGE } from '@utils/Storages';
@@ -50,6 +51,25 @@ import { FilterTypes } from './types/filterTypes';
 
 const getBypassCacheUrl = (url: string) => {
   return `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+};
+
+/**
+ * Manifests disagree on language form: some send filter codes (`id`), others
+ * full names (`Bahasa Indonesia`). The language filter stores codes, so names
+ * must be mapped back at this fetch boundary or every plugin gets filtered
+ * out of the menu. Unknown values pass through untouched.
+ */
+export const normalizePluginLang = (lang: string): string => {
+  if (!lang || languagesMapping[lang]) {
+    return lang;
+  }
+  const lower = lang.toLocaleLowerCase();
+  for (const [code, name] of Object.entries(languagesMapping)) {
+    if (name.toLocaleLowerCase() === lower) {
+      return code;
+    }
+  }
+  return lang;
 };
 
 const packages: Record<string, any> = {
@@ -232,7 +252,13 @@ const fetchPlugins = async (): Promise<PluginItem[]> => {
 
   repoPluginsRes.forEach(repoPlugins => {
     if (repoPlugins.status === 'fulfilled') {
-      allPlugins.push(...repoPlugins.value);
+      const items = Array.isArray(repoPlugins.value) ? repoPlugins.value : [];
+      allPlugins.push(
+        ...items.map(item => ({
+          ...item,
+          lang: normalizePluginLang(item.lang),
+        })),
+      );
     } else {
       showToast(repoPlugins.reason.toString());
     }

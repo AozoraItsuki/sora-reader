@@ -36,14 +36,27 @@ let lastKnownDirectAccess: boolean | null = null;
 export const isDirectStorageReady = (): boolean =>
   lastKnownDirectAccess === true && SHARED_ROOT !== '';
 
-/** Re-read the all-files permission and cache the answer. */
-export const ensureDirectStorage = async (): Promise<boolean> => {
+/**
+ * Re-read the all-files permission and cache the answer.
+ *
+ * Synchronous because `NativeFile.hasAllFilesAccess()` is: a download read that
+ * runs before the boot-time [ensureDirectStorage] settles must not be told "no"
+ * by a still-`null` cache — that sends it to a legacy path that is empty and
+ * from there to a source fetch that fails with no network.
+ */
+export const probeDirectStorage = (): boolean => {
   try {
     lastKnownDirectAccess = NativeFile.hasAllFilesAccess();
   } catch (error) {
     console.warn('[saf] Could not read the all-files permission', error);
     lastKnownDirectAccess = false;
   }
+  return isDirectStorageReady();
+};
+
+/** Boot-time permission probe; the asynchronous face of [probeDirectStorage]. */
+export const ensureDirectStorage = async (): Promise<boolean> => {
+  probeDirectStorage();
   return isDirectStorageReady();
 };
 

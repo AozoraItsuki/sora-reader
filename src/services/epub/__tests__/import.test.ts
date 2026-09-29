@@ -91,9 +91,11 @@ jest.mock('@plugins/pluginManager', () => ({
 
 jest.mock('@database/queries/NovelQueries', () => ({
   updateNovelCategoryById: jest.fn().mockResolvedValue(undefined),
-  updateNovelInfo: jest.fn().mockImplementation(async (values: { id: number; cover: string }) => {
-    mockCoverUpdates.push({ id: values.id, cover: values.cover });
-  }),
+  updateNovelInfo: jest
+    .fn()
+    .mockImplementation(async (values: { id: number; cover: string }) => {
+      mockCoverUpdates.push({ id: values.id, cover: values.cover });
+    }),
 }));
 
 jest.mock('@database/db', () => ({
@@ -139,8 +141,9 @@ jest.mock('@specs/NativeFile', () => ({
     unlink: jest.fn(),
     exists: (path: string) => mockNativeFiles.has(path),
     readFile: (path: string) => {
-      const chapter = (mockNovel.chapters as Array<{ path: string; html: string }>)
-        .find(c => c.path === path);
+      const chapter = (
+        mockNovel.chapters as Array<{ path: string; html: string }>
+      ).find(c => c.path === path);
       return chapter ? chapter.html : '';
     },
   },
@@ -148,7 +151,14 @@ jest.mock('@specs/NativeFile', () => ({
 
 jest.mock('expo-file-system/legacy', () => ({
   EncodingType: { UTF8: 'utf8', Base64: 'base64' },
-  readAsStringAsync: async (path: string) => `base64(${path})`,
+  // The real module rejects a bare path with "Unsupported scheme", so an
+  // importer that forgets the `file://` prefix fails here instead of on device.
+  readAsStringAsync: async (uri: string) => {
+    if (!uri.startsWith('file://')) {
+      throw new Error(`Unsupported scheme: ${uri}`);
+    }
+    return `base64(${uri})`;
+  },
 }));
 
 beforeEach(() => {
@@ -180,9 +190,7 @@ describe('importEpub asset placement', () => {
     expect(
       mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_ONE}/index.html`)
         ?.data,
-    ).toBe(
-      '<html><body><img src="a.png"><link href="main.css"></body></html>',
-    );
+    ).toBe('<html><body><img src="a.png"><link href="main.css"></body></html>');
   });
 
   it('places each referenced asset next to its own index.html', async () => {
@@ -191,19 +199,19 @@ describe('importEpub asset placement', () => {
     expect(
       mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_ONE}/a.png`),
     ).toEqual({
-      data: 'base64(/epub/OEBPS/images/a.png)',
+      data: 'base64(file:///epub/OEBPS/images/a.png)',
       encoding: 'base64',
     });
     expect(
       mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_ONE}/main.css`),
     ).toEqual({
-      data: 'base64(/epub/OEBPS/style/main.css)',
+      data: 'base64(file:///epub/OEBPS/style/main.css)',
       encoding: 'base64',
     });
     expect(
       mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_TWO}/b.png`),
     ).toEqual({
-      data: 'base64(/epub/OEBPS/images/b.png)',
+      data: 'base64(file:///epub/OEBPS/images/b.png)',
       encoding: 'base64',
     });
   });
@@ -247,19 +255,19 @@ describe('importEpub responsive and lazy references', () => {
     expect(
       mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_THREE}/hero@2x.png`),
     ).toEqual({
-      data: 'base64(/epub/OEBPS/images/hero@2x.png)',
+      data: 'base64(file:///epub/OEBPS/images/hero@2x.png)',
       encoding: 'base64',
     });
     expect(
       mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_THREE}/lazy.png`),
     ).toEqual({
-      data: 'base64(/epub/OEBPS/images/lazy.png)',
+      data: 'base64(file:///epub/OEBPS/images/lazy.png)',
       encoding: 'base64',
     });
     expect(
       mockTree.get(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_THREE}/hero.png`),
     ).toEqual({
-      data: 'base64(/epub/OEBPS/images/hero.png)',
+      data: 'base64(file:///epub/OEBPS/images/hero.png)',
       encoding: 'base64',
     });
   });
@@ -282,7 +290,9 @@ describe('importEpub references that already carry a scheme', () => {
     await runImport();
 
     expect(
-      mockTree.has(`Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_FOUR}/remote.png?v=2`),
+      mockTree.has(
+        `Novels/${PLUGIN}/${NOVEL_ID}/${CHAPTER_FOUR}/remote.png?v=2`,
+      ),
     ).toBe(false);
   });
 });

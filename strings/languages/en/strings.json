@@ -112,6 +112,11 @@
       "title": "Select Language",
       "restartNote": "You will need to restart the app for the language change to take full effect."
     },
+    "createTheme": {
+      "colorInvalidError": "Enter a hex (#f00) or RGB (255,0,0) color",
+      "customBackground": "Custom background",
+      "customPrimary": "Custom primary"
+    },
     "appLanguageDefault": "Default",
     "appTheme": "App theme",
     "darkTheme": "Dark Theme",
@@ -188,6 +193,7 @@
     "repositoryFileNotFound": "Repository backup file not found",
     "repositoryRestoreFailed": "Failed to restore repository %{repositoryUrl}: %{error}",
     "repositoryFileReadFailed": "Failed to read repository file: %{error}",
+    "pluginRestoreFailed": "Failed to restore plugin files: %{error}",
     "repositoryFileWriteFailed": "Failed to write repository file: %{error}",
     "drive": {
       "backup": "Drive Backup",
@@ -506,8 +512,7 @@
     },
     "empty": "Your library is empty. Add series to your library from Browse.",
     "extraMenu": {
-      "importEpub": "Import Epub",
-      "importPdf": "Import PDF",
+      "importLocal": "Import from Local Files",
       "openRandom": "Open Random Entry",
       "updateCategory": "Update Category",
       "updateLibrary": "Update Library"
@@ -879,6 +884,7 @@
     "skip": "Skip for now",
     "grantAccess": "Grant access",
     "grantAccessDesc": "Opens the Android setting that lets SoraReader use shared storage",
+    "continue": "Continue",
     "accessMissing": "Access is not granted yet, so chapters cannot be downloaded."
   },
   "tracking": "Tracking",

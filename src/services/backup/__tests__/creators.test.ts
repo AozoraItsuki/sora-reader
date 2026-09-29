@@ -5,7 +5,7 @@ import { saveDocuments } from '@react-native-documents/picker';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { ROOT_STORAGE } from '@utils/Storages';
+import { NOVEL_STORAGE, ROOT_STORAGE, SHARED_NOVELS } from '@utils/Storages';
 
 import { createDriveBackup } from '../drive';
 import { createBackup } from '../local';
@@ -55,6 +55,38 @@ const createMetaRecorder = () => {
 const progresses = (states: BackgroundTaskMetadata[]) =>
   states.map(state => state.progress ?? 0);
 
+/**
+ * Roots that hold user-library file bytes. A backup may reference a novel, its
+ * chapters and its cover, but the chapter blobs themselves are re-downloadable
+ * and must never travel in an archive — so none of these roots may be an input
+ * to the zip or the upload, at any nesting level.
+ */
+const NOVEL_CONTENT_ROOTS = [ROOT_STORAGE, NOVEL_STORAGE, SHARED_NOVELS];
+
+/**
+ * Every string an archive-producing call was handed, one level into arrays so
+ * `saveDocuments({ sourceUris })` is covered as well as `zip(dir, file)`.
+ */
+const stringArgumentsOf = (mock: jest.Mock): string[] =>
+  mock.mock.calls.flatMap((args: unknown[]) =>
+    args.flatMap(arg => {
+      if (typeof arg === 'string') {
+        return [arg];
+      }
+      return Array.isArray(arg)
+        ? arg.filter((value): value is string => typeof value === 'string')
+        : [];
+    }),
+  );
+
+const expectNoNovelContentIn = (mock: jest.Mock) => {
+  stringArgumentsOf(mock).forEach(argument => {
+    NOVEL_CONTENT_ROOTS.forEach(root => {
+      expect(argument.startsWith(root)).toBe(false);
+    });
+  });
+};
+
 const expectMonotonicProgress = (states: BackgroundTaskMetadata[]) => {
   const values = progresses(states);
   const wentBackwards = values.some(
@@ -97,7 +129,23 @@ describe('createBackup (local)', () => {
     );
   });
 
+  it('puts no Novels-tree file bytes in the archive', async () => {
+    const { setMeta } = createMetaRecorder();
+
+    await createBackup(setMeta);
+
+    // Exactly one archive, built from the prepared data directory alone.
+    expect(NativeZipArchive.zip).toHaveBeenCalledTimes(1);
+    expect(NativeZipArchive.zip).toHaveBeenCalledWith(
+      CACHE_DIR_PATH,
+      `${CACHE_DIR_PATH}.zip`,
+    );
+    expectNoNovelContentIn(NativeZipArchive.zip as unknown as jest.Mock);
+    expectNoNovelContentIn(saveDocuments as unknown as jest.Mock);
+  });
+
   it('keeps progress monotonic', async () => {
+    expect.hasAssertions();
     const { states, setMeta } = createMetaRecorder();
 
     await createBackup(setMeta);
@@ -132,7 +180,17 @@ describe('createDriveBackup', () => {
     expect(uploadMedia).not.toHaveBeenCalledWith(ROOT_STORAGE);
   });
 
+  it('uploads no Novels-tree file bytes', async () => {
+    const { setMeta } = createMetaRecorder();
+
+    await createDriveBackup(backupFolder, setMeta);
+
+    expect(uploadMedia).toHaveBeenCalledTimes(1);
+    expectNoNovelContentIn(uploadMedia as unknown as jest.Mock);
+  });
+
   it('keeps progress monotonic', async () => {
+    expect.hasAssertions();
     const { states, setMeta } = createMetaRecorder();
 
     await createDriveBackup(backupFolder, setMeta);
@@ -183,7 +241,20 @@ describe('createSelfHostBackup', () => {
     );
   });
 
+  it('uploads no Novels-tree file bytes', async () => {
+    const { setMeta } = createMetaRecorder();
+
+    await createSelfHostBackup(
+      { host: 'https://example.com', backupFolder: 'backup' },
+      setMeta,
+    );
+
+    expect(upload).toHaveBeenCalledTimes(1);
+    expectNoNovelContentIn(upload as unknown as jest.Mock);
+  });
+
   it('keeps progress monotonic', async () => {
+    expect.hasAssertions();
     const { states, setMeta } = createMetaRecorder();
 
     await createSelfHostBackup(

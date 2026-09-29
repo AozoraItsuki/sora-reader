@@ -49,11 +49,20 @@ export const pathBasename = (filePath: string): string =>
   filePath.split(/[/\\]/).pop() || filePath;
 
 /**
- * Copy a scratch-space file into the SAF tree as base64.
+ * expo-file-system only addresses `file://` URIs: handing it a bare absolute
+ * path throws "Unsupported scheme". [NativeFile] is the opposite — it wraps
+ * `java.io.File` and needs the path bare — so the prefix is added for the expo
+ * read alone and never leaks into the existence probe or the destination.
+ */
+const fileUri = (absPath: string): string =>
+  absPath.startsWith('file://') ? absPath : `file://${absPath}`;
+
+/**
+ * Copy a scratch-space file into the download tree as base64.
  *
  * Extracted/rasterized assets live in app-private cache space; they are read
- * from there and re-written into the SAF tree. Returns false when the source
- * is gone, so a page whose render failed does not abort the whole import.
+ * from there and re-written into the download tree. Returns false when the
+ * source is gone, so a page whose render failed does not abort the whole import.
  */
 export const importAssetIntoTree = async (
   sourcePath: string,
@@ -63,7 +72,7 @@ export const importAssetIntoTree = async (
   if (!NativeFile.exists(decodedPath)) {
     return false;
   }
-  const base64 = await readAsStringAsync(decodedPath, {
+  const base64 = await readAsStringAsync(fileUri(decodedPath), {
     encoding: EncodingType.Base64,
   });
   await safWriteFile(destinationRel, base64, 'base64');

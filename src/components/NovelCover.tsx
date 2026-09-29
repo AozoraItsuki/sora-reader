@@ -7,10 +7,10 @@ import { ImageRequestInit, NovelItem } from '@plugins/types';
 import SourceScreenSkeletonLoading from '@screens/browse/loadingAnimation/SourceScreenSkeletonLoading';
 import { DisplayModes } from '@screens/library/constants/constants';
 import { getString } from '@strings/translations';
-import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { ThemeColors } from '@theme/types';
+import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -23,6 +23,7 @@ import { ActivityIndicator } from 'react-native-paper';
 
 import { coverPlaceholderColor } from '../theme/colors';
 import ListView from './ListView';
+import { localCoverFileUri, type LocalCoverSource } from './novelCoverUri';
 
 interface UnreadBadgeProps {
   showDownloadBadges: boolean;
@@ -90,6 +91,20 @@ function isFromDB(
   item: CoverItemLibrary | CoverItemPlugin | CoverItemDB,
 ): item is CoverItemDB {
   return 'chaptersDownloaded' in item;
+}
+
+/**
+ * Where this novel's cover is filed on disk, or null when the novel has no
+ * library row yet (a plugin listing has no database id to build the path from).
+ */
+function localCoverSource(
+  item: CoverItemLibrary | CoverItemPlugin | CoverItemDB,
+): LocalCoverSource | null {
+  if (isFromDB(item) || (item as CoverItemLibrary).id !== undefined) {
+    const { id, pluginId } = item as CoverItemLibrary;
+    return pluginId ? { pluginId, novelId: id } : null;
+  }
+  return null;
 }
 
 /**
@@ -169,7 +184,19 @@ function NovelCover<
 
   const selectNovel = () => onLongPress(item);
 
-  const uri = resolveDownloadUrl(item.cover) || defaultCover;
+  // A cover already on disk is cheaper and survives a local server that has not
+  // finished starting; the served/remote url stays as the fallback. `brokenLocal`
+  // holds the uri that failed, so the fallback only kicks in for that one and
+  // resets by itself when the row changes.
+  const localUri = localCoverFileUri(item.cover, localCoverSource(item));
+  const [brokenLocal, setBrokenLocal] = useState<string | null>(null);
+  const useLocal = localUri !== null && localUri !== brokenLocal;
+  const uri = useLocal
+    ? localUri
+    : resolveDownloadUrl(item.cover) || defaultCover;
+  const handleCoverError = useLocal
+    ? () => setBrokenLocal(localUri)
+    : undefined;
   const requestInit = useMemo(() => {
     const init = imageRequestInit || ({} as ImageRequestInit);
     if (init.headers) {
@@ -247,6 +274,7 @@ function NovelCover<
         </View>
         <Image
           source={{ uri, ...requestInit }}
+          onError={handleCoverError}
           style={[
             {
               height: coverHeight,

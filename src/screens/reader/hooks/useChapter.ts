@@ -28,13 +28,17 @@ import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { useNovelActions } from '@screens/novel/NovelContext';
 import { fetchChapter, fetchPage } from '@services/plugin/fetch';
 import {
+  isSafReady,
+  probeDirectStorage,
+  safReadFile,
+} from '@services/saf/safFile';
+import {
   TranslateConfig,
   TranslateManager,
 } from '@services/translate/TranslateManager';
 import NativeFile from '@specs/NativeFile';
 import NativeSPenRemote from '@specs/NativeSPenRemote';
 import NativeVolumeButtonListener from '@specs/NativeVolumeButtonListener';
-import { isSafReady, safReadFile } from '@services/saf/safFile';
 import { getString } from '@strings/translations';
 import { chapterIndexRel, legacyDownloadPath } from '@utils/DownloadPaths';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
@@ -77,15 +81,18 @@ const sPenEmitter = NativeSPenRemote
 /**
  * Read a downloaded chapter from its tree-relative path.
  *
- * SAF is the source of truth as soon as a download folder is picked; the legacy
+ * The download tree is the source of truth as soon as it is readable; the legacy
  * app-private path stays as a fallback so installs that have not migrated yet
- * keep resolving their downloads. Returns `null` when the chapter is not
- * downloaded at all, so the caller can fall back to the source.
+ * keep resolving their downloads. Readiness is re-probed rather than read from
+ * the cache, because a read on the first frames after boot would otherwise skip
+ * the tree, miss the legacy path too, and fall through to a source fetch that
+ * fails with no network. Returns `null` when the chapter is not downloaded at
+ * all, so the caller can fall back to the source.
  */
 const readDownloadedChapter = async (
   relativePath: string,
 ): Promise<string | null> => {
-  if (isSafReady()) {
+  if (isSafReady() || probeDirectStorage()) {
     try {
       return await safReadFile(relativePath);
     } catch {

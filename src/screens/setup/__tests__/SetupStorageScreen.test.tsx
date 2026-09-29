@@ -8,6 +8,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import React from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -72,7 +73,7 @@ const initialMetrics = {
   insets: { top: 0, left: 0, right: 0, bottom: 0 },
 };
 
-const renderScreen = (onDone: () => void) => {
+const renderScreen = (onDone: () => void) =>
   render(
     <GestureHandlerRootView>
       <SafeAreaProvider initialMetrics={initialMetrics}>
@@ -84,12 +85,44 @@ const renderScreen = (onDone: () => void) => {
       </SafeAreaProvider>
     </GestureHandlerRootView>,
   );
-};
 
 /** Answer the settings round-trip with the given grant state. */
 const answerGrantWith = (granted: boolean) => {
   ensureDirectStorage.mockImplementation(async () => granted);
   isDirectStorageReady.mockReturnValue(granted);
+};
+
+const { showToast } = jest.requireMock('@utils/showToast') as {
+  showToast: jest.Mock;
+};
+
+/**
+ * The screen watches for the return from the system grant screen, which is the
+ * only moment the permission can have changed. The real listener is replaced by
+ * a handle the test can fire, and the subscription is observed so cleanup can be
+ * asserted.
+ */
+let returnToApp: (state: AppStateStatus) => void;
+let removeListener: jest.Mock;
+
+const interceptAppState = () => {
+  removeListener = jest.fn();
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((event, handler) => {
+      if (event === 'change') {
+        returnToApp = handler as (state: AppStateStatus) => void;
+      }
+      return { remove: removeListener } as never;
+    });
+};
+
+/** Simulate the user coming back from the system grant screen. */
+const returnFromSettings = async (granted: boolean) => {
+  answerGrantWith(granted);
+  await act(async () => {
+    returnToApp('active');
+  });
 };
 
 describe('SetupStorageScreen', () => {
@@ -106,9 +139,11 @@ describe('SetupStorageScreen', () => {
       syncSafTreeUriToServer,
     ].forEach(mock => mock.mockClear());
     nativeFile.openAllFilesAccessSettings.mockClear();
-    hasLegacyDownloads.mockReturnValue(false);
     nativeFile.hasAllFilesAccess.mockReturnValue(false);
+    showToast.mockClear();
+    hasLegacyDownloads.mockReturnValue(false);
     answerGrantWith(false);
+    interceptAppState();
   });
 
   it('hides the migration action when the legacy folder is empty', () => {
@@ -138,16 +173,19 @@ describe('SetupStorageScreen', () => {
     await waitFor(() =>
       expect(nativeFile.openAllFilesAccessSettings).toHaveBeenCalled(),
     );
-    expect(ensureDirectStorage).toHaveBeenCalled();
+    // The grant screen is a separate activity: probing before the user has had
+    // a chance to flip the switch can only ever answer "no", which is what left
+    // this screen permanently stuck in the first place.
+    expect(ensureDirectStorage).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
   });
 
-  it('reports completion once the grant is in place', async () => {
-    answerGrantWith(true);
+  it('reports completion once the user comes back with the grant in place', async () => {
     const onDone = jest.fn();
     renderScreen(onDone);
 
     fireEvent.press(screen.getByText(getString('setupStorage.grantAccess')));
+    await returnFromSettings(true);
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(safMkdir).toHaveBeenCalledWith('Novels');
@@ -155,14 +193,65 @@ describe('SetupStorageScreen', () => {
   });
 
   it('stays on the setup screen while access is still refused', async () => {
-    answerGrantWith(false);
     const onDone = jest.fn();
     renderScreen(onDone);
 
     fireEvent.press(screen.getByText(getString('setupStorage.grantAccess')));
+    await returnFromSettings(false);
 
-    await waitFor(() => expect(ensureDirectStorage).toHaveBeenCalled());
+    expect(ensureDirectStorage).toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
+    expect(syncSafTreeUriToServer).not.toHaveBeenCalled();
+  });
+
+  it('does not finish on app states other than the return from settings', async () => {
+    const onDone = jest.fn();
+    renderScreen(onDone);
+
+    answerGrantWith(true);
+    await act(async () => {
+      returnToApp('background');
+    });
+
+    expect(ensureDirectStorage).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('re-probes and completes when the user presses continue', async () => {
+    const onDone = jest.fn();
+    renderScreen(onDone);
+
+    // The user granted access outside the app and confirms it here.
+    answerGrantWith(true);
+    fireEvent.press(screen.getByText(getString('setupStorage.continue')));
+
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(ensureDirectStorage).toHaveBeenCalled();
+    expect(safMkdir).toHaveBeenCalledWith('Novels');
+    expect(syncSafTreeUriToServer).toHaveBeenCalled();
+  });
+
+  it('explains the blocker when continue is pressed without the grant', async () => {
+    const onDone = jest.fn();
+    renderScreen(onDone);
+
+    fireEvent.press(screen.getByText(getString('setupStorage.continue')));
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith(
+        getString('setupStorage.accessMissing'),
+      ),
+    );
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('stops watching the app state once the screen is gone', () => {
+    const { unmount } = renderScreen(jest.fn());
+    expect(removeListener).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(removeListener).toHaveBeenCalled();
   });
 
   it('dismisses the setup screen and reports completion on skip', async () => {

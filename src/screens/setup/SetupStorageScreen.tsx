@@ -15,8 +15,8 @@ import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
-import React, { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
 
 /** Set to '1' once all-files access was granted or the user skipped setup. */
@@ -48,13 +48,15 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
   const [migrating, setMigrating] = useState(false);
   const [progress, setProgress] = useState<MigrationProgress | null>(null);
 
-  const handleGrantAccess = useCallback(async () => {
+  /**
+   * Re-read the permission and, once it is really granted, finish setup. This is
+   * the only place that decides the screen is done, so the automatic and the
+   * manual path cannot disagree.
+   */
+  const finishIfGranted = useCallback(async (): Promise<boolean> => {
     try {
-      // Android shows its own screen; the probe afterwards is what tells us
-      // whether the user actually flipped the switch.
-      NativeFile.openAllFilesAccessSettings();
       if (!(await ensureDirectStorage())) {
-        return;
+        return false;
       }
       // Make sure the root the server walks into exists before it is told to
       // serve from it, then move whatever is still in the old app-private
@@ -62,10 +64,42 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
       await safMkdir(SAF_TREE_ROOT);
       syncSafTreeUriToServer();
       onDone();
+      return true;
+    } catch (error) {
+      showToast(errorMessage(error));
+      return false;
+    }
+  }, [onDone]);
+
+  const handleGrantAccess = useCallback(() => {
+    // The grant screen is a separate activity, so probing here would always
+    // answer "no": the user has not had a chance to flip the switch yet. The
+    // AppState listener below re-checks once they come back.
+    try {
+      NativeFile.openAllFilesAccessSettings();
     } catch (error) {
       showToast(errorMessage(error));
     }
-  }, [onDone]);
+  }, []);
+
+  // Returning from the grant screen is the one moment the permission can have
+  // changed, so the screen finishes itself instead of trapping the user on a
+  // dead button. The subscription is dropped on unmount so a late event cannot
+  // call into a screen that is gone.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        void finishIfGranted();
+      }
+    });
+    return () => subscription.remove();
+  }, [finishIfGranted]);
+
+  const handleContinue = useCallback(async () => {
+    if (!(await finishIfGranted())) {
+      showToast(getString('setupStorage.accessMissing'));
+    }
+  }, [finishIfGranted]);
 
   const handleMigrateFiles = useCallback(async () => {
     if (migrating) {
@@ -137,9 +171,14 @@ const SetupStorageScreen = ({ onDone }: SetupStorageScreenProps) => {
             </View>
           )}
         </List.Section>
-        <Button mode="text" onPress={handleSkip} style={styles.skip}>
-          {getString('setupStorage.skip')}
-        </Button>
+        <View style={styles.actions}>
+          <Button mode="contained" onPress={handleContinue}>
+            {getString('setupStorage.continue')}
+          </Button>
+          <Button mode="text" onPress={handleSkip}>
+            {getString('setupStorage.skip')}
+          </Button>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -159,7 +198,10 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 12,
   },
-  skip: {
+  actions: {
+    gap: 8,
     marginTop: 'auto',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
 });

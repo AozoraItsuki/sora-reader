@@ -20,6 +20,7 @@ import SetCategoryModal from '@screens/novel/components/SetCategoriesModal';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
+import { EPUB_MIME, PDF_MIME, routeImportAssets } from '@utils/localImport';
 import Color from 'color';
 import * as DocumentPicker from 'expo-document-picker';
 import { xor } from 'lodash-es';
@@ -191,13 +192,29 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
     }).then(importNovel);
   }, [importNovel]);
 
-  const pickAndImportPdf = useCallback(() => {
+  /**
+   * One entry for both supported formats: the picker hands back a mixed list and
+   * each file goes to the importer that can read it. Cancelled and unsupported
+   * picks queue nothing.
+   */
+  const pickAndImportLocal = useCallback(() => {
     DocumentPicker.getDocumentAsync({
-      type: 'application/pdf',
+      type: [EPUB_MIME, PDF_MIME],
       copyToCacheDirectory: true,
       multiple: true,
-    }).then(importPdfNovel);
-  }, [importPdfNovel]);
+    }).then(result => {
+      if (result.canceled) {
+        return;
+      }
+      const routes = routeImportAssets(result.assets);
+      if (routes.epub.length) {
+        importNovel({ canceled: false, assets: routes.epub });
+      }
+      if (routes.pdf.length) {
+        importPdfNovel({ canceled: false, assets: routes.pdf });
+      }
+    });
+  }, [importNovel, importPdfNovel]);
 
   const searchLower = useMemo(() => searchText.toLowerCase(), [searchText]);
 
@@ -405,19 +422,15 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
           }),
       },
       {
-        title: getString('libraryScreen.extraMenu.importEpub'),
-        onPress: pickAndImport,
-      },
-      {
-        title: getString('libraryScreen.extraMenu.importPdf'),
-        onPress: pickAndImportPdf,
+        title: getString('libraryScreen.extraMenu.importLocal'),
+        onPress: pickAndImportLocal,
       },
       {
         title: getString('libraryScreen.extraMenu.openRandom'),
         onPress: openRandom,
       },
     ],
-    [categories, index, pickAndImport, pickAndImportPdf, openRandom],
+    [categories, index, pickAndImportLocal, openRandom],
   );
 
   const handleFABPress = useCallback(() => {

@@ -112,6 +112,11 @@
       "title": "Pilih Bahasa",
       "restartNote": "Anda perlu memulai ulang aplikasi agar perubahan bahasa berlaku sepenuhnya."
     },
+    "createTheme": {
+      "colorInvalidError": "Masukkan warna heks (#f00) atau RGB (255,0,0)",
+      "customBackground": "Latar khusus",
+      "customPrimary": "Warna utama khusus"
+    },
     "appLanguageDefault": "Bawaan",
     "appTheme": "Tema aplikasi",
     "darkTheme": "Tema Gelap",
@@ -188,6 +193,7 @@
     "repositoryFileNotFound": "File cadangan repositori tidak ditemukan",
     "repositoryRestoreFailed": "Gagal memulihkan repositori %{repositoryUrl}: %{error}",
     "repositoryFileReadFailed": "Gagal membaca file repositori: %{error}",
+    "pluginRestoreFailed": "Gagal memulihkan file plugin: %{error}",
     "repositoryFileWriteFailed": "Gagal menulis file repositori: %{error}",
     "drive": {
       "backup": "Cadangan Drive",
@@ -506,8 +512,7 @@
     },
     "empty": "Perpustakaan Anda kosong. Tambahkan seri ke perpustakaan dari Jelajahi.",
     "extraMenu": {
-      "importEpub": "Impor Epub",
-      "importPdf": "Impor PDF",
+      "importLocal": "Impor dari File Lokal",
       "openRandom": "Buka Entri Acak",
       "updateCategory": "Perbarui Kategori",
       "updateLibrary": "Perbarui Perpustakaan"
@@ -879,6 +884,7 @@
     "skip": "Lewati sekarang",
     "grantAccess": "Beri izin",
     "grantAccessDesc": "Membuka pengaturan Android yang mengizinkan SoraReader memakai penyimpanan bersama",
+    "continue": "Lanjutkan",
     "accessMissing": "Izin belum diberikan, jadi bab tidak dapat diunduh."
   },
   "tracking": "Pelacakan",

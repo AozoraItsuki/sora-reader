@@ -1,4 +1,9 @@
-import { isSafReady, safExists, safReadFile } from '@services/saf/safFile';
+import {
+  isSafReady,
+  probeDirectStorage,
+  safExists,
+  safReadFile,
+} from '@services/saf/safFile';
 import NativeFile from '@specs/NativeFile';
 import {
   chapterRel,
@@ -12,6 +17,17 @@ const IMAGE_EXT_REGEX = /\.(?:png|jpe?g|gif|webp|svg|bmp|avif)$/i;
 const IMG_TAG_REGEX = /<img\b[^>]*>/gi;
 
 const SRC_ATTR_REGEX = /\bsrc\s*=\s*["']([^"']*)["']/i;
+
+/**
+ * `true` when the download tree is readable right now.
+ *
+ * The cached flag alone is not enough: a read that runs before the boot-time
+ * permission probe settles would skip the tree, miss the legacy location too and
+ * fall through to a source fetch that fails with no network. Re-probing is
+ * cheap (a synchronous native call) and self-heals the flag.
+ */
+const downloadTreeIsReadable = (): boolean =>
+  isSafReady() || probeDirectStorage();
 
 /** Every `src` referenced by an `<img>` tag, in document order. */
 const collectImageSources = (html: string): string[] => {
@@ -52,9 +68,7 @@ const chapterImageRel = (
       return null;
     }
     const name = bare.slice(at + legacyDir.length);
-    return name && IMAGE_EXT_REGEX.test(name)
-      ? `${chapterDir}/${name}`
-      : null;
+    return name && IMAGE_EXT_REGEX.test(name) ? `${chapterDir}/${name}` : null;
   }
 
   if (!IMAGE_EXT_REGEX.test(bare)) {
@@ -65,7 +79,7 @@ const chapterImageRel = (
 
 /** `true` when a tree-relative download asset is present in the SAF tree. */
 const chapterAssetExists = async (relativePath: string): Promise<boolean> => {
-  if (isSafReady()) {
+  if (downloadTreeIsReadable()) {
     try {
       if (await safExists(relativePath)) {
         return true;
@@ -81,7 +95,7 @@ const chapterAssetExists = async (relativePath: string): Promise<boolean> => {
 export const readDownloadedChapterHtml = async (
   relativePath: string,
 ): Promise<string | null> => {
-  if (isSafReady()) {
+  if (downloadTreeIsReadable()) {
     try {
       return await safReadFile(relativePath);
     } catch {

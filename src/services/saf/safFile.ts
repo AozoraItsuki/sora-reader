@@ -41,9 +41,15 @@ import {
   ensureDirectStorage,
   getDirectRootAbsolute,
   isDirectStorageReady,
+  probeDirectStorage,
 } from './directStorage';
 
-export { ensureDirectStorage, getDirectRootAbsolute, isDirectStorageReady };
+export {
+  ensureDirectStorage,
+  getDirectRootAbsolute,
+  isDirectStorageReady,
+  probeDirectStorage,
+};
 
 /** MMKV key holding the persisted `content://` tree uri. */
 export const SAF_DOWNLOAD_TREE_URI = 'SAF_DOWNLOAD_TREE_URI';
@@ -94,8 +100,11 @@ export const setSafTreeUri = (uri: string | null): void => {
 /**
  * True when downloads can be read and written: the shared root is granted, or a
  * tree is configured and was not found to be inaccessible.
- * Synchronous by design — call [ensureDirectStorage] or [ensureSafPermission]
- * for the authoritative answer, which re-takes the grant after a reboot.
+ *
+ * Synchronous by design — this only reports the last probe, so a read on the
+ * first frames after boot (before [ensureDirectStorage] has settled) has to ask
+ * `isSafReady() || probeDirectStorage()` instead of trusting the cache alone.
+ * `ensureSafPermission` re-takes the tree grant after a reboot.
  */
 export const isSafReady = (): boolean =>
   isDirectStorageReady() ||

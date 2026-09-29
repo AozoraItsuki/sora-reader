@@ -1,13 +1,15 @@
-import type { ReactNode } from 'react';
-
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import type { History } from '@database/types';
 import type { LibraryScreenProps } from '@navigators/types';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import type { ReactNode } from 'react';
 
 import LibraryScreen from '../LibraryScreen';
 
 const mockNavigate = jest.fn();
+const mockImportNovel = jest.fn();
+const mockImportPdfNovel = jest.fn();
 let mockHistory: History[] = [];
 
 jest.mock('@react-navigation/native', () => ({
@@ -44,13 +46,32 @@ jest.mock('@components/Context/LibraryContext', () => ({
 
 jest.mock('@components/index', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { Pressable, Text, View } = require('react-native');
 
   return {
     Button: () => null,
     SafeAreaView: ({ children }: { children?: ReactNode }) =>
       React.createElement(View, null, children),
-    SearchbarV2: () => null,
+    SearchbarV2: ({
+      menuButtons,
+    }: {
+      menuButtons: { title: string; onPress: () => void }[];
+    }) =>
+      React.createElement(
+        View,
+        { testID: 'library-menu' },
+        menuButtons.map(button =>
+          React.createElement(
+            Pressable,
+            {
+              key: button.title,
+              testID: `menu-${button.title}`,
+              onPress: button.onPress,
+            },
+            React.createElement(Text, null, button.title),
+          ),
+        ),
+      ),
   };
 });
 
@@ -94,7 +115,10 @@ jest.mock('@hooks/persisted', () => ({
 
 jest.mock('@hooks/persisted/useImport', () => ({
   __esModule: true,
-  default: () => ({ importNovel: jest.fn() }),
+  default: () => ({
+    importNovel: mockImportNovel,
+    importPdfNovel: mockImportPdfNovel,
+  }),
 }));
 
 jest.mock('@plugins/pluginManager', () => ({ LOCAL_PLUGIN_ID: 'local' }));
@@ -242,5 +266,73 @@ describe('LibraryScreen resume consumer', () => {
         chapter: targetChapter,
       },
     });
+  });
+});
+
+describe('LibraryScreen import from local files', () => {
+  const epubAsset = { name: 'Novel.epub', uri: 'content://a/Novel.epub' };
+  const pdfAsset = { name: 'Comic.pdf', uri: 'content://a/Comic.pdf' };
+
+  const pressImport = async (assets: unknown[] | null) => {
+    (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue(
+      assets === null ? { canceled: true } : { canceled: false, assets },
+    );
+    render(<LibraryHarness />);
+    fireEvent.press(
+      screen.getByTestId('menu-libraryScreen.extraMenu.importLocal'),
+    );
+    // The picker result is handled in a promise continuation.
+    await act(async () => undefined);
+  };
+
+  beforeEach(() => {
+    mockHistory = [];
+    mockImportNovel.mockClear();
+    mockImportPdfNovel.mockClear();
+    (DocumentPicker.getDocumentAsync as jest.Mock).mockReset();
+  });
+
+  it('offers a single import entry', () => {
+    render(<LibraryHarness />);
+
+    expect(
+      screen.getByTestId('menu-libraryScreen.extraMenu.importLocal'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('menu-libraryScreen.extraMenu.importEpub'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('menu-libraryScreen.extraMenu.importPdf'),
+    ).toBeNull();
+  });
+
+  it('opens one picker that accepts both formats', async () => {
+    await pressImport([epubAsset, pdfAsset]);
+
+    expect(DocumentPicker.getDocumentAsync).toHaveBeenCalledWith({
+      type: ['application/epub+zip', 'application/pdf'],
+      copyToCacheDirectory: true,
+      multiple: true,
+    });
+  });
+
+  it('routes each picked file to the importer that can read it', async () => {
+    await pressImport([epubAsset, pdfAsset]);
+
+    expect(mockImportNovel).toHaveBeenCalledWith({
+      canceled: false,
+      assets: [epubAsset],
+    });
+    expect(mockImportPdfNovel).toHaveBeenCalledWith({
+      canceled: false,
+      assets: [pdfAsset],
+    });
+  });
+
+  it('queues nothing when the user cancels the picker', async () => {
+    await pressImport(null);
+
+    expect(mockImportNovel).not.toHaveBeenCalled();
+    expect(mockImportPdfNovel).not.toHaveBeenCalled();
   });
 });

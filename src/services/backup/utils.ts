@@ -25,6 +25,7 @@ import {
 } from '@hooks/persisted/useAIProviders';
 import { getBackupOptions } from '@hooks/persisted/useBackupOptions';
 import { DISABLED_REPOSITORIES } from '@hooks/persisted/useDisabledRepositories';
+import { INSTALLED_PLUGINS } from '@hooks/persisted/usePlugins';
 import { SELF_HOST_BACKUP } from '@hooks/persisted/useSelfHost';
 import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
 import {
@@ -32,13 +33,14 @@ import {
   NOVEL_UPDATE_RANDOM_KEY,
 } from '@hooks/persisted/useUpdates';
 import { CUSTOM_USER_AGENT } from '@hooks/persisted/useUserAgent';
+import { PluginItem } from '@plugins/types';
 import DebugLogService from '@services/DebugLogService';
 import ServiceManager from '@services/ServiceManager';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { getMMKVObject, MMKVStorage } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
-import { ROOT_STORAGE } from '@utils/Storages';
+import { PLUGIN_STORAGE, ROOT_STORAGE } from '@utils/Storages';
 
 import { version } from '../../../package.json';
 import { BackupEntryName } from './types';
@@ -113,6 +115,7 @@ export const prepareBackupData = async (cacheDirPath: string) => {
   removeIfExists(novelDirPath);
   removeIfExists(cacheDirPath + '/' + BackupEntryName.CATEGORY);
   removeIfExists(cacheDirPath + '/' + BackupEntryName.REPOSITORY);
+  removeIfExists(cacheDirPath + '/' + BackupEntryName.PLUGINS);
   removeIfExists(cacheDirPath + '/' + BackupEntryName.SETTING);
   removeIfExists(cacheDirPath + '/' + BackupEntryName.API_KEYS);
 
@@ -239,6 +242,40 @@ export const prepareBackupData = async (cacheDirPath: string) => {
       NativeFile.writeFile(
         cacheDirPath + '/' + BackupEntryName.REPOSITORY,
         JSON.stringify(repositories),
+      );
+      // Installed plugin code lives outside the database: without these files
+      // a restored novel dangles as "Unknown plugin". They are tiny text
+      // files (not downloads), so they travel with the repositories section.
+      const pluginsDirPath = cacheDirPath + '/' + BackupEntryName.PLUGINS;
+      const installedPlugins =
+        getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) ?? [];
+      const PLUGIN_FILES = ['index.js', 'custom.js', 'custom.css'];
+      let backedUpPluginFiles = 0;
+      for (const plugin of installedPlugins) {
+        for (const file of PLUGIN_FILES) {
+          const sourcePath = `${PLUGIN_STORAGE}/${plugin.id}/${file}`;
+          try {
+            if (NativeFile.exists(sourcePath)) {
+              NativeFile.mkdir(`${pluginsDirPath}/${plugin.id}`);
+              NativeFile.copyFile(
+                sourcePath,
+                `${pluginsDirPath}/${plugin.id}/${file}`,
+              );
+              backedUpPluginFiles++;
+            }
+          } catch (error) {
+            DebugLogService.addEntry(
+              'log',
+              `${BTAG} Skipping plugin file ${sourcePath}: ${
+                (error as Error)?.message ?? String(error)
+              }`,
+            );
+          }
+        }
+      }
+      DebugLogService.addEntry(
+        'log',
+        `${BTAG} Backed up ${backedUpPluginFiles} plugin files.`,
       );
     } catch (error: any) {
       showToast(
@@ -483,6 +520,36 @@ export const restoreData = async (cacheDirPath: string) => {
       } catch (error: any) {
         showToast(
           getString('backupScreen.repositoryFileReadFailed', {
+            error: error?.message || String(error),
+          }),
+        );
+      }
+    }
+
+    // Installed plugin code saved alongside the repositories section: copy
+    // it back so restored novels resolve instead of dangling as unknown.
+    const backupPluginsDirPath = cacheDirPath + '/' + BackupEntryName.PLUGINS;
+    if (NativeFile.exists(backupPluginsDirPath)) {
+      try {
+        const pluginDirs = NativeFile.readDir(backupPluginsDirPath) ?? [];
+        for (const pluginDir of pluginDirs) {
+          if (!pluginDir.isDirectory) {
+            continue;
+          }
+          NativeFile.mkdir(`${PLUGIN_STORAGE}/${pluginDir.name}`);
+          const pluginFiles = NativeFile.readDir(pluginDir.path) ?? [];
+          for (const pluginFile of pluginFiles) {
+            if (!pluginFile.isDirectory) {
+              NativeFile.copyFile(
+                pluginFile.path,
+                `${PLUGIN_STORAGE}/${pluginDir.name}/${pluginFile.name}`,
+              );
+            }
+          }
+        }
+      } catch (error: any) {
+        showToast(
+          getString('backupScreen.pluginRestoreFailed', {
             error: error?.message || String(error),
           }),
         );

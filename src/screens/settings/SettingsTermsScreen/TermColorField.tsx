@@ -7,19 +7,34 @@ interface Props {
   value: string;
   error: 'empty' | 'invalid' | null;
   onChange: (value: string) => void;
+  /** Overrides the generic "Custom color" caption (e.g. per theme role). */
+  label?: string;
+  /** Overrides the term-scoped error copy (e.g. per theme role). */
+  errorMessage?: string;
+  testID?: string;
 }
 
 /**
  * Free-text color field. The user may type either notation, so the value is
  * kept verbatim and the error carries the verdict until the term is saved.
+ *
+ * Validation lives in [parseTermColor]; this component only renders whatever
+ * the owner decided, which is why the owner — not the field — owns the copy.
  */
-const TermColorField: React.FC<Props> = ({ value, error, onChange }) => {
+const TermColorField: React.FC<Props> = ({
+  value,
+  error,
+  onChange,
+  label,
+  errorMessage,
+  testID = 'term-color-input',
+}) => {
   const theme = useTheme();
 
   return (
     <View>
       <Text style={[styles.label, { color: theme.onSurface }]}>
-        {getString('termsSettingsScreen.customColor')}
+        {label ?? getString('termsSettingsScreen.customColor')}
       </Text>
       <TextInput
         style={[
@@ -36,18 +51,19 @@ const TermColorField: React.FC<Props> = ({ value, error, onChange }) => {
         placeholderTextColor={theme.onSurfaceVariant}
         autoCapitalize="none"
         autoCorrect={false}
-        testID="term-color-input"
+        testID={testID}
       />
       {error && (
         <Text
           style={[styles.error, { color: theme.error }]}
           testID="term-color-error"
         >
-          {getString(
-            error === 'empty'
-              ? 'termsSettingsScreen.colorEmptyError'
-              : 'termsSettingsScreen.colorInvalidError',
-          )}
+          {errorMessage ??
+            getString(
+              error === 'empty'
+                ? 'termsSettingsScreen.colorEmptyError'
+                : 'termsSettingsScreen.colorInvalidError',
+            )}
         </Text>
       )}
     </View>

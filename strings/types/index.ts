@@ -105,6 +105,9 @@ export interface StringMap {
   'appearanceScreen.appLanguage': 'string';
   'appearanceScreen.languagePickerModal.title': 'string';
   'appearanceScreen.languagePickerModal.restartNote': 'string';
+  'appearanceScreen.createTheme.colorInvalidError': 'string';
+  'appearanceScreen.createTheme.customBackground': 'string';
+  'appearanceScreen.createTheme.customPrimary': 'string';
   'appearanceScreen.appLanguageDefault': 'string';
   'appearanceScreen.appTheme': 'string';
   'appearanceScreen.darkTheme': 'string';
@@ -177,6 +180,7 @@ export interface StringMap {
   'backupScreen.repositoryFileNotFound': 'string';
   'backupScreen.repositoryRestoreFailed': 'string';
   'backupScreen.repositoryFileReadFailed': 'string';
+  'backupScreen.pluginRestoreFailed': 'string';
   'backupScreen.repositoryFileWriteFailed': 'string';
   'backupScreen.drive.backup': 'string';
   'backupScreen.drive.backupInterruped': 'string';
@@ -448,8 +452,7 @@ export interface StringMap {
   'libraryScreen.bottomSheet.sortOrders.totalChapters': 'string';
   'libraryScreen.bottomSheet.sortOrders.unread': 'string';
   'libraryScreen.empty': 'string';
-  'libraryScreen.extraMenu.importEpub': 'string';
-  'libraryScreen.extraMenu.importPdf': 'string';
+  'libraryScreen.extraMenu.importLocal': 'string';
   'libraryScreen.extraMenu.openRandom': 'string';
   'libraryScreen.extraMenu.updateCategory': 'string';
   'libraryScreen.extraMenu.updateLibrary': 'string';
@@ -758,6 +761,7 @@ export interface StringMap {
   'setupStorage.skip': 'string';
   'setupStorage.grantAccess': 'string';
   'setupStorage.grantAccessDesc': 'string';
+  'setupStorage.continue': 'string';
   'setupStorage.accessMissing': 'string';
   'tracking': 'string';
   'trackingScreen.logOutMessage': 'string';

@@ -141,6 +141,9 @@ describe('useChapter', () => {
     jest.clearAllMocks();
     (NativeFile.exists as jest.Mock).mockReturnValue(false);
     (NativeFile.readFile as jest.Mock).mockReturnValue('');
+    // Direct storage is off unless a test grants it, so the reader takes the
+    // legacy/source path exactly like an unconfigured install.
+    (NativeFile.hasAllFilesAccess as jest.Mock).mockReturnValue(false);
 
     mockUseChapterGeneralSettings.mockReturnValue({
       autoScroll: false,
@@ -534,5 +537,27 @@ describe('useChapter', () => {
     await waitFor(() =>
       expect(store.state.setLastRead).toHaveBeenCalledWith(nextChapter),
     );
+  });
+
+  it('reads a downloaded chapter off shared storage before the boot probe settles', async () => {
+    // Given: all-files access is granted but the boot-time async probe has not
+    // run, so the cached readiness flag is still unset.
+    (NativeFile.hasAllFilesAccess as jest.Mock).mockReturnValue(true);
+    (NativeFile.readFile as jest.Mock).mockReturnValue('<html>on disk</html>');
+    const store = createStore();
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    // When
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Then the chapter comes from the shared download root, not from the
+    // network — which is the whole point for an offline reader.
+    expect(NativeFile.readFile).toHaveBeenCalledWith(
+      '/mock/storage/SoraReader/Novels/plugin.reader/7/1/index.html',
+    );
+    expect(mockFetchChapter).not.toHaveBeenCalled();
   });
 });

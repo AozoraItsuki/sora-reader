@@ -134,7 +134,14 @@ jest.mock('@specs/NativeFile', () => ({
 
 jest.mock('expo-file-system/legacy', () => ({
   EncodingType: { UTF8: 'utf8', Base64: 'base64' },
-  readAsStringAsync: async (path: string) => `base64(${path})`,
+  // The real module rejects a bare path with "Unsupported scheme", so an
+  // importer that forgets the `file://` prefix fails here instead of on device.
+  readAsStringAsync: async (uri: string) => {
+    if (!uri.startsWith('file://')) {
+      throw new Error(`Unsupported scheme: ${uri}`);
+    }
+    return `base64(${uri})`;
+  },
 }));
 
 beforeEach(() => {
@@ -178,10 +185,16 @@ describe('importPdf page placement', () => {
 
     expect(
       mockTree.get(`${chapterDir(PAGE_ONE_CHAPTER)}/${PAGE_IMAGE}`),
-    ).toEqual({ data: 'base64(/cache/pdf/page-1.png)', encoding: 'base64' });
+    ).toEqual({
+      data: 'base64(file:///cache/pdf/page-1.png)',
+      encoding: 'base64',
+    });
     expect(
       mockTree.get(`${chapterDir(PAGE_TWO_CHAPTER)}/${PAGE_IMAGE}`),
-    ).toEqual({ data: 'base64(/cache/pdf/page-2.png)', encoding: 'base64' });
+    ).toEqual({
+      data: 'base64(file:///cache/pdf/page-2.png)',
+      encoding: 'base64',
+    });
   });
 
   it('does not hoist page images into the novel root', async () => {
@@ -264,7 +277,7 @@ describe('importPdf metadata', () => {
     await runImport();
 
     expect(mockTree.get(`${novelDir}/cover.png`)).toEqual({
-      data: 'base64(/cache/pdf/page-1.png)',
+      data: 'base64(file:///cache/pdf/page-1.png)',
       encoding: 'base64',
     });
   });

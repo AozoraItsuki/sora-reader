@@ -119,6 +119,11 @@ describe('prepareBackupData', () => {
     existsMock.mockReturnValue(false);
     mkdirMock.mockClear();
     unlinkMock.mockClear();
+    (NativeFile.readFile as jest.Mock).mockClear();
+    (NativeFile.copyFile as jest.Mock).mockClear();
+    (NativeFile.moveFile as jest.Mock).mockClear();
+    (NativeFile.downloadFile as jest.Mock).mockClear();
+    (NativeFile.getFileSize as jest.Mock).mockClear();
   });
 
   it('writes every section when no preference was stored', async () => {
@@ -162,6 +167,40 @@ describe('prepareBackupData', () => {
 
     expect(hasWritten(BackupEntryName.REPOSITORY)).toBe(false);
     expect(hasWritten(BackupEntryName.CATEGORY)).toBe(true);
+  });
+
+  it('backs up installed plugin files with the repositories section', async () => {
+    // Key mirrors INSTALLED_PLUGINS from usePlugins without pulling the
+    // plugin runtime into this suite.
+    MMKVStorage.set(
+      'INSTALL_PLUGINS',
+      JSON.stringify([{ id: 'WTRLAB', name: 'WTR-LAB' }]),
+    );
+    existsMock.mockImplementation(
+      (path: string) => path === '/mock/external/Plugins/WTRLAB/index.js',
+    );
+
+    await prepareBackupData(CACHE_DIR);
+
+    expect(NativeFile.copyFile).toHaveBeenCalledWith(
+      '/mock/external/Plugins/WTRLAB/index.js',
+      `${CACHE_DIR}/${BackupEntryName.PLUGINS}/WTRLAB/index.js`,
+    );
+    expect(createdPaths()).toContain(
+      `${CACHE_DIR}/${BackupEntryName.PLUGINS}/WTRLAB`,
+    );
+  });
+
+  it('skips plugin files when the repositories section is disabled', async () => {
+    setOptions({ backupRepositories: false });
+    MMKVStorage.set(
+      'INSTALL_PLUGINS',
+      JSON.stringify([{ id: 'WTRLAB', name: 'WTR-LAB' }]),
+    );
+
+    await prepareBackupData(CACHE_DIR);
+
+    expect(NativeFile.copyFile).not.toHaveBeenCalled();
   });
 
   it('skips the settings section when it is disabled', async () => {
@@ -234,6 +273,7 @@ describe('prepareBackupData', () => {
       `${CACHE_DIR}/${BackupEntryName.NOVEL_AND_CHAPTERS}`,
       `${CACHE_DIR}/${BackupEntryName.CATEGORY}`,
       `${CACHE_DIR}/${BackupEntryName.REPOSITORY}`,
+      `${CACHE_DIR}/${BackupEntryName.PLUGINS}`,
       `${CACHE_DIR}/${BackupEntryName.SETTING}`,
       `${CACHE_DIR}/${BackupEntryName.API_KEYS}`,
     ]);
@@ -250,6 +290,82 @@ describe('prepareBackupData', () => {
 
     expect(getAllNovels).not.toHaveBeenCalled();
     expect(getAllHistoryRaw).not.toHaveBeenCalled();
+  });
+
+  it('keeps every byte it produces inside the prepared data directory', async () => {
+    await prepareBackupData(CACHE_DIR);
+
+    // The only inputs are DB rows and MMKV, so the only output is the archive
+    // directory — a chapter blob could only appear if a tree path was written.
+    expect(writtenPaths().length).toBeGreaterThan(0);
+    writtenPaths().forEach(path => {
+      expect(path.startsWith(`${CACHE_DIR}/`)).toBe(true);
+    });
+    createdPaths().forEach(path => {
+      expect(path.startsWith(CACHE_DIR)).toBe(true);
+    });
+  });
+
+  it('never reads, copies or moves a file out of the novels tree', async () => {
+    await prepareBackupData(CACHE_DIR);
+
+    // Chapter content is re-downloadable: backing it up would have to pull the
+    // bytes, and no filesystem read of library content happens here.
+    expect(NativeFile.readFile).not.toHaveBeenCalled();
+    expect(NativeFile.copyFile).not.toHaveBeenCalled();
+    expect(NativeFile.moveFile).not.toHaveBeenCalled();
+    expect(NativeFile.downloadFile).not.toHaveBeenCalled();
+    expect(NativeFile.getFileSize).not.toHaveBeenCalled();
+  });
+
+  it('records a cover as a path string and keeps no cover bytes', async () => {
+    const { getAllNovels: novelsQuery } = jest.requireMock(
+      '@database/queries/NovelQueries',
+    );
+    novelsQuery.mockResolvedValue([
+      {
+        id: 1,
+        name: 'Mock Novel',
+        inLibrary: true,
+        isLocal: false,
+        cover: 'Novels/local/1/cover.png?cache=1',
+      },
+    ]);
+    const { getNovelChapters } = jest.requireMock(
+      '@database/queries/ChapterQueries',
+    );
+    getNovelChapters.mockResolvedValue([
+      {
+        id: 10,
+        novelId: 1,
+        name: 'Chapter 1',
+        path: 'Novels/local/1/10/index.html',
+        isDownloaded: true,
+      },
+    ]);
+
+    await prepareBackupData(CACHE_DIR);
+
+    const payload = JSON.parse(
+      writeFileMock.mock.calls.find(call =>
+        call[0].startsWith(
+          `${CACHE_DIR}/${BackupEntryName.NOVEL_AND_CHAPTERS}/`,
+        ),
+      )?.[1] as string,
+    );
+
+    // References only: the tree path survives so a restore can find the file,
+    // the cache-buster is dropped, and the html itself is not embedded.
+    expect(payload.cover).toBe('Novels/local/1/cover.png');
+    expect(payload.chapters).toEqual([
+      expect.objectContaining({
+        id: 10,
+        path: 'Novels/local/1/10/index.html',
+        readDuration: 0,
+      }),
+    ]);
+    expect(JSON.stringify(payload)).not.toContain('<html');
+    expect(NativeFile.readFile).not.toHaveBeenCalled();
   });
 });
 
@@ -297,5 +413,35 @@ describe('restoreData with missing sections', () => {
     expect(_restoreCategory).toHaveBeenCalledTimes(1);
     expect(_restoreNovelAndChapters).not.toHaveBeenCalled();
     expect(assignOrphanedNovelsToDefaultCategory).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores backed-up plugin files into plugin storage', async () => {
+    const copyFileMock = NativeFile.copyFile as jest.Mock;
+    const mkdirMockLocal = NativeFile.mkdir as jest.Mock;
+    copyFileMock.mockClear();
+    mkdirMockLocal.mockClear();
+    const pluginsDir = `${CACHE_DIR}/${BackupEntryName.PLUGINS}`;
+    existsMock.mockImplementation((path: string) => path === pluginsDir);
+    (NativeFile.readDir as jest.Mock).mockImplementation((dir: string) => {
+      if (dir === pluginsDir) {
+        return [
+          { name: 'WTRLAB', path: `${pluginsDir}/WTRLAB`, isDirectory: true },
+        ];
+      }
+      return [
+        {
+          name: 'index.js',
+          path: `${pluginsDir}/WTRLAB/index.js`,
+          isDirectory: false,
+        },
+      ];
+    });
+
+    await restoreData(CACHE_DIR);
+
+    expect(copyFileMock).toHaveBeenCalledWith(
+      `${pluginsDir}/WTRLAB/index.js`,
+      '/mock/external/Plugins/WTRLAB/index.js',
+    );
   });
 });
