@@ -324,11 +324,14 @@ export interface StringMap {
   'downloadScreen.chapterName': 'string';
   'downloadScreen.completed': 'string';
   'downloadScreen.dbInfo': 'string';
+  'downloadScreen.downloaded': 'string';
   'downloadScreen.downloading': 'string';
   'downloadScreen.downloadingNovel': 'string';
   'downloadScreen.downloadsLower': 'string';
   'downloadScreen.noDownloads': 'string';
+  'downloadScreen.noQueuedDownloads': 'string';
   'downloadScreen.pluginNotFound': 'string';
+  'downloadScreen.queue': 'string';
   'downloadScreen.removeDownloadsWarning': 'string';
   'downloadSettings': 'string';
   'downloadSettingsScreen.title': 'string';
