@@ -1,5 +1,6 @@
 export { default as Appbar } from './Appbar/Appbar';
 export { default as BottomTabBar } from './BottomTabBar';
+export { default as NavbarRestoreFab } from './BottomTabBar/NavbarRestoreFab';
 export { default as Button } from './Button/Button';
 export { Checkbox } from './Checkbox/Checkbox';
 export { default as Chip } from './Chip/Chip';

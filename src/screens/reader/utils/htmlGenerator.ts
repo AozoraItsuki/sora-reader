@@ -271,10 +271,11 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
 
         /* Term marks map onto the app's own roles instead of a fixed palette, so
            the wtr-lab term blue (the app primary) and its two siblings follow
-           the active theme. */
+           the active theme. Patch terms keep the reference reader's green,
+           picked per color scheme so they stay legible on dark and light. */
         --reader-termUser: ${theme.primary};
         --reader-termSystem: ${theme.tertiary};
-        --reader-termPatch: ${theme.onSurfaceVariant};
+        --reader-termPatch: ${theme.isDark ? '#8fd694' : '#2e7d32'};
       }
 
       img {

@@ -163,9 +163,12 @@ describe('generateReaderHtml reading layout', () => {
     // user-picked color still arrives as an inline style on top of that.
     expect(readCssVar(html, '--reader-termUser')).toBe(theme.primary);
     expect(html).toContain('.lnr-term {');
-    // System and patch marks must not collapse onto the user color.
+    // System and patch marks must not collapse onto the user color. Patch
+    // terms keep the reference reader's green, picked per color scheme.
     expect(readCssVar(html, '--reader-termSystem')).toBe(theme.tertiary);
-    expect(readCssVar(html, '--reader-termPatch')).toBe(theme.onSurfaceVariant);
+    expect(readCssVar(html, '--reader-termPatch')).toBe(
+      theme.isDark ? '#8fd694' : '#2e7d32',
+    );
     expect(html).toContain(".lnr-term[data-kind='system']");
     expect(html).toContain(".lnr-term[data-kind='patch']");
     // The color rules match any element, so the reader's own marks have to

@@ -1,4 +1,4 @@
-import { BottomTabBar } from '@components';
+import { BottomTabBar, NavbarRestoreFab } from '@components';
 import {
   type NavbarLayout,
   NavbarLayoutContext,
@@ -81,14 +81,17 @@ const BottomNavigator = () => {
 
   const renderTabBar = useCallback(
     (props: any) => (
-      <BottomTabBar
-        {...props}
-        theme={theme}
-        showLabelsInNav={showLabelsInNav}
-        position={navbarPosition}
-        visible={navbarVisible}
-        renderIcon={renderIcon}
-      />
+      <>
+        <BottomTabBar
+          {...props}
+          theme={theme}
+          showLabelsInNav={showLabelsInNav}
+          position={navbarPosition}
+          visible={navbarVisible}
+          renderIcon={renderIcon}
+        />
+        <NavbarRestoreFab position={navbarPosition} />
+      </>
     ),
     [theme, showLabelsInNav, navbarPosition, navbarVisible, renderIcon],
   );
