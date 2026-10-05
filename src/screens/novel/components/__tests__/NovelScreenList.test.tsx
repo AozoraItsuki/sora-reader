@@ -112,12 +112,6 @@ jest.mock('../NovelBottomSheet', () => {
     React.createElement(Text, { testID: 'novel-bottom-sheet' }, 'nbs');
 });
 
-jest.mock('../Tracker/TrackSheet', () => {
-  const React = require('react');
-  const { Text } = require('react-native');
-  return () => React.createElement(Text, { testID: 'track-sheet' }, 'track');
-});
-
 jest.mock('../PageNavigationBottomSheet', () => {
   const React = require('react');
   const { Text } = require('react-native');

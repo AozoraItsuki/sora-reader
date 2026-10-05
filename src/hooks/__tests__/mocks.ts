@@ -15,7 +15,6 @@ jest.mock('@utils/Storages', () => ({
 }));
 
 jest.mock('@hooks/persisted/usePlugins');
-jest.mock('@hooks/persisted/useTracker');
 jest.mock('@hooks/persisted/useDownload');
 jest.mock('@hooks/persisted/useUserAgent');
 jest.mock('@hooks/persisted/useSettings');
@@ -25,7 +24,6 @@ jest.mock('@hooks/persisted/useHistory');
 jest.mock('@hooks/persisted/useImport');
 jest.mock('@hooks/persisted/useSelfHost');
 jest.mock('@hooks/persisted/useTheme');
-jest.mock('@hooks/persisted/useTrackedNovel');
 jest.mock('@hooks/persisted/useUpdates');
 jest.mock('@services/plugin/fetch');
 jest.mock('@components/Context/LibraryContext');

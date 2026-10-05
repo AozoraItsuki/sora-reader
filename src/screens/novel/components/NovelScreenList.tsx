@@ -35,7 +35,6 @@ import NovelInfoHeader from './Info/NovelInfoHeader';
 import NovelBottomSheet from './NovelBottomSheet';
 import PageNavigationBottomSheet from './PageNavigationBottomSheet';
 import PagePaginationControl from './PagePaginationControl';
-import TrackSheet from './Tracker/TrackSheet';
 
 type NovelScreenListProps = {
   headerOpacity: SharedValue<number>;
@@ -140,7 +139,6 @@ const NovelScreenList = ({
   const showScrollToTopRef = useRef(false);
 
   const novelBottomSheetRef = useRef<BottomSheetModalMethods>(null);
-  const trackerSheetRef = useRef<BottomSheetModalMethods>(null);
   const pageNavigationSheetRef = useRef<BottomSheetModalMethods>(null);
 
   // Derive selectedIds Set for O(1) lookups
@@ -481,7 +479,6 @@ const NovelScreenList = ({
           saveNovelCover={saveNovelCover}
           theme={theme}
           totalChapters={batchInformation.totalChapters}
-          trackerSheetRef={trackerSheetRef}
         />
         {paginationControl}
       </>
@@ -607,7 +604,6 @@ const NovelScreenList = ({
             bottomSheetRef={novelBottomSheetRef}
             theme={theme}
           />
-          <TrackSheet bottomSheetRef={trackerSheetRef} novel={novel} />
           {(novel.totalPages ?? 0) > 1 || pages.length > 1 ? (
             <PageNavigationBottomSheet
               bottomSheetRef={pageNavigationSheetRef}

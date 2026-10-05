@@ -1,11 +1,8 @@
 import { SegmentedControl } from '@components';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
 import Switch from '@components/Switch/Switch';
-import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import { useTheme } from '@hooks/persisted';
-import { LegendList } from '@legendapp/list';
 import { getString } from '@strings/translations';
-import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
 import React, { useMemo } from 'react';
 import {
@@ -13,14 +10,9 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import {
-  useMMKVBoolean,
-  useMMKVNumber,
-  useMMKVString,
-} from 'react-native-mmkv';
+import { useMMKVBoolean, useMMKVString } from 'react-native-mmkv';
 import switchTheme from 'react-native-theme-switch-animation';
 
 type ThemeMode = 'light' | 'dark' | 'system';
@@ -53,33 +45,20 @@ const AmoledToggle: React.FC<AmoledToggleProps> = ({ theme }) => {
   );
 };
 
-const COLUMNS = 3;
-const COLUMN_GAP = 10;
-const CARD_ASPECT_RATIO = 140 / 95;
-
+/**
+ * Onboarding only asks for the mode, not a palette: the app ships a single
+ * seed theme and everything else is built from it in Settings. Keeping this to
+ * one decision also means the very first launch cannot end up pointing at a
+ * stored theme id that no longer exists.
+ */
 export default function ThemeSelectionStep() {
   const theme = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
   const [themeMode = 'system', setThemeMode] = useMMKVString('THEME_MODE');
-  const [, setThemeId] = useMMKVNumber('APP_THEME_ID');
 
   const currentMode = themeMode as ThemeMode;
 
-  const cardWidth = Math.floor(
-    (screenWidth - 32 - (COLUMNS - 1) * COLUMN_GAP) / COLUMNS,
-  );
-  const cardHeight = Math.round(cardWidth * CARD_ASPECT_RATIO);
-
-  const availableThemes = useMemo(() => {
-    return theme.isDark ? darkThemes : lightThemes;
-  }, [theme.isDark]);
-
   const themeModeOptions: SegmentedControlOption<ThemeMode>[] = useMemo(
     () => [
-      {
-        value: 'system',
-        label: getString('onboardingScreen.system'),
-      },
       {
         value: 'light',
         label: getString('onboardingScreen.light'),
@@ -87,6 +66,10 @@ export default function ThemeSelectionStep() {
       {
         value: 'dark',
         label: getString('onboardingScreen.dark'),
+      },
+      {
+        value: 'system',
+        label: getString('onboardingScreen.system'),
       },
     ],
     [],
@@ -109,29 +92,8 @@ export default function ThemeSelectionStep() {
     });
   };
 
-  const handleThemeSelect = (
-    selectedTheme: ThemeColors,
-    event: GestureResponderEvent,
-  ) => {
-    setThemeId(selectedTheme.id);
-    event.currentTarget.measure((_x1, _y1, width, height, px, py) => {
-      switchTheme({
-        switchThemeFunction: () => {},
-        animationConfig: {
-          type: 'circular',
-          duration: 400,
-          startingPoint: {
-            cy: py + height / 2,
-            cx: px + width / 2,
-          },
-        },
-      });
-    });
-  };
-
   return (
     <View style={styles.container}>
-      {/* Segmented Control */}
       <View style={styles.segmentedControlContainer}>
         <SegmentedControl
           options={themeModeOptions}
@@ -140,26 +102,6 @@ export default function ThemeSelectionStep() {
           theme={theme}
         />
       </View>
-      {/* Theme List */}
-      <LegendList
-        style={styles.themeList}
-        numColumns={COLUMNS}
-        showsHorizontalScrollIndicator={false}
-        data={availableThemes}
-        extraData={theme}
-        keyExtractor={item => 'theme-' + item.id}
-        contentContainerStyle={styles.themeListContent}
-        columnWrapperStyle={styles.columnWrapper}
-        renderItem={({ item }) => (
-          <ThemePicker
-            currentTheme={theme}
-            theme={item}
-            cardWidth={cardWidth}
-            cardHeight={cardHeight}
-            onPress={e => handleThemeSelect(item, e)}
-          />
-        )}
-      />
       {/* AMOLED Toggle */}
       <AmoledToggle theme={theme} />
     </View>
@@ -169,51 +111,23 @@ export default function ThemeSelectionStep() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
     paddingHorizontal: 16,
   },
   segmentedControlContainer: {
     marginBottom: 12,
   },
-  themeList: {
-    flex: 1,
-  },
-  themeListContent: {
-    paddingBottom: 8,
-    rowGap: 4,
-  },
-  columnWrapper: {
-    columnGap: COLUMN_GAP,
-  },
   amoledContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 12,
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-    marginTop: 'auto',
+    marginTop: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   amoledLabel: {
     fontSize: 16,
     fontWeight: '400',
-  },
-  toggle: {
-    width: 52,
-    height: 32,
-    borderRadius: 16,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  toggleThumbActive: {
-    alignSelf: 'flex-end',
   },
 });

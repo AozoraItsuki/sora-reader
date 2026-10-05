@@ -4,10 +4,10 @@ import ColorPickerModal from '@components/ColorPickerModal/ColorPickerModal';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import { useAppSettings, useTheme } from '@hooks/persisted';
+import type { NavbarPosition } from '@hooks/persisted/useSettings';
 import { useCustomThemes } from '@hooks/persisted/useCustomThemes';
 import { AppearanceSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
-import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
 import Color from 'color';
 import React, { useMemo, useState } from 'react';
@@ -51,6 +51,8 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     showHistoryTab,
     showUpdatesTab,
     showLabelsInNav,
+    navbarPosition,
+    navbarVisible,
     hideBackdrop,
     useFabForContinueReading,
     setAppSettings,
@@ -121,6 +123,29 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     });
   };
 
+  const navbarPositionOptions: SegmentedControlOption<NavbarPosition>[] =
+    useMemo(
+      () => [
+        {
+          value: 'bottom',
+          label: getString('appearanceScreen.navbarPositionBottom'),
+        },
+        {
+          value: 'left',
+          label: getString('appearanceScreen.navbarPositionLeft'),
+        },
+        {
+          value: 'right',
+          label: getString('appearanceScreen.navbarPositionRight'),
+        },
+      ],
+      [],
+    );
+
+  const handleNavbarPositionChange = (position: NavbarPosition) => {
+    setAppSettings({ navbarPosition: position });
+  };
+
   const handleThemeSelect = (
     selectedTheme: ThemeColors,
     event: GestureResponderEvent,
@@ -160,8 +185,6 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     t => t.isDark === (actualThemeMode === 'dark'),
   );
 
-  const builtInThemes = actualThemeMode === 'light' ? lightThemes : darkThemes;
-
   return (
     <SafeAreaView excludeTop>
       <Appbar
@@ -187,32 +210,8 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
             />
           </View>
 
-          {/* Built-in Themes */}
-          <View style={styles.scrollViewContainer}>
-            <ScrollView
-              contentContainerStyle={[
-                styles.themePickerRow,
-                { backgroundColor: theme.surfaceVariant },
-              ]}
-              horizontal={true}
-              showsHorizontalScrollIndicator={false}
-            >
-              {builtInThemes.map(item => (
-                <ThemePicker
-                  horizontal
-                  key={item.id}
-                  currentTheme={theme}
-                  theme={item}
-                  onPress={e => handleThemeSelect(item, e)}
-                />
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Custom Themes */}
-          <List.SubHeader theme={theme}>
-            Tema Kustom
-          </List.SubHeader>
+          {/* Custom Themes: the bundled palette is only a seed, so this
+              carousel is the whole theme list. */}
           <View style={styles.scrollViewContainer}>
             <ScrollView
               contentContainerStyle={[
@@ -295,6 +294,23 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
             {getString('appearanceScreen.navbar')}
           </List.SubHeader>
           <SettingSwitch
+            label={getString('appearanceScreen.showNavbar')}
+            value={navbarVisible}
+            onPress={() => setAppSettings({ navbarVisible: !navbarVisible })}
+            theme={theme}
+          />
+          <List.SubHeader theme={theme}>
+            {getString('appearanceScreen.navbarPosition')}
+          </List.SubHeader>
+          <View style={styles.navbarPositionControl}>
+            <SegmentedControl
+              options={navbarPositionOptions}
+              value={navbarPosition}
+              onChange={handleNavbarPositionChange}
+              theme={theme}
+            />
+          </View>
+          <SettingSwitch
             label={getString('appearanceScreen.showUpdatesInTheNav')}
             value={showUpdatesTab}
             onPress={() => setAppSettings({ showUpdatesTab: !showUpdatesTab })}
@@ -362,6 +378,10 @@ const styles = StyleSheet.create({
   segmentedControlContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  navbarPositionControl: {
+    paddingBottom: 8,
+    paddingHorizontal: 16,
   },
   addThemeBtn: {
     width: 95,

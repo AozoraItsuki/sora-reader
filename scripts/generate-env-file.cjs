@@ -89,8 +89,6 @@ const args = parseArgs(process.argv);
 const projectRoot = path.join(__dirname, '..');
 
 const buildType = args['build-type'] || 'Beta';
-const myanimelistClientId = args['myanimelist-client-id'];
-const anilistClientId = args['anilist-client-id'];
 
 const gitHash = args['git-hash'] || getGitHash();
 const releaseDate = args['release-date'] || formatUtcDate(new Date());
@@ -103,8 +101,6 @@ const generatedEnvContent = [
   `GIT_HASH=${JSON.stringify(gitHash)}`,
   `RELEASE_DATE=${JSON.stringify(releaseDate)}`,
   `NODE_ENV=${JSON.stringify(nodeEnv)}`,
-  `MYANIMELIST_CLIENT_ID=${JSON.stringify(myanimelistClientId)}`,
-  `ANILIST_CLIENT_ID=${JSON.stringify(anilistClientId)}`,
   '',
 ].join('\n');
 
@@ -128,16 +124,12 @@ export const BUILD_TYPE: string = ${JSON.stringify(buildType)};
 export const GIT_HASH = ${JSON.stringify(gitHash)};
 export const RELEASE_DATE = ${JSON.stringify(releaseDate)};
 export const NODE_ENV = ${JSON.stringify(nodeEnv)};
-export const MYANIMELIST_CLIENT_ID = ${JSON.stringify(myanimelistClientId)};
-export const ANILIST_CLIENT_ID = ${JSON.stringify(anilistClientId)};
 
 export default {
   BUILD_TYPE,
   GIT_HASH,
   RELEASE_DATE,
   NODE_ENV,
-  MYANIMELIST_CLIENT_ID,
-  ANILIST_CLIENT_ID,
 };
 `;
 

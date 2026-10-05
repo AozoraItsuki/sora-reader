@@ -10,6 +10,10 @@ export const initialAppSettings = {
   showHistoryTab: true,
   showUpdatesTab: true,
   showLabelsInNav: true,
+  // Without these the navigator passes `position: undefined` down, which reads as
+  // "not bottom" and flips the bar into a vertical rail in every test.
+  navbarPosition: 'bottom',
+  navbarVisible: true,
   useFabForContinueReading: false,
   disableLoadingAnimations: false,
   downloadedOnlyMode: false,
@@ -23,8 +27,6 @@ export const initialAppSettings = {
 };
 
 export const initialBrowseSettings = {
-  showMyAnimeList: true,
-  showAniList: true,
   globalSearchConcurrency: 3,
 };
 

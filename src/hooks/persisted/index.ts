@@ -10,6 +10,26 @@ export { default as useDisabledRepositories } from './useDisabledRepositories';
 export { default as useDownload } from './useDownload';
 export { default as useHistory } from './useHistory';
 export { deleteCachedNovels } from './useNovel';
+export type {
+  ReadingProgressEntry,
+  ReadingProgressMap,
+} from './useReadingProgress';
+export {
+  clearAllReadingProgress,
+  deleteReadingProgress,
+  getReadingProgress,
+  markReadingProgressMigrated,
+  mergeReadingProgress,
+  parseReadingProgressMap,
+  READING_PROGRESS_KEY,
+  READING_PROGRESS_MIGRATED_KEY,
+  readReadingProgressMap,
+  readingProgressKey,
+  saveReadingProgress,
+  sortReadingProgressEntries,
+  toReadingProgressEntries,
+  useReadingProgress,
+} from './useReadingProgress';
 export { default as usePlugins } from './usePlugins';
 export {
   ENABLE_SEARCH_HISTORY_KEY,
@@ -27,7 +47,5 @@ export {
 } from './useSettings';
 export { useTheme } from './useTheme';
 export { ThemeProvider } from './useTheme';
-export { useTrackedNovel } from './useTrackedNovel';
-export { getTracker, useTracker } from './useTracker';
 export { useLastUpdate, useUpdates } from './useUpdates';
 export { default as useUserAgent } from './useUserAgent';

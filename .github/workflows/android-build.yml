@@ -87,9 +87,7 @@ jobs:
           if [[ "$VARIANT" == "release" ]]; then
             pnpm run generate:env:release \
               --build-type "Release" \
-              --node-env "production" \
-              --myanimelist-client-id "${{ vars.MYANIMELIST_CLIENT_ID }}" \
-              --anilist-client-id "${{ vars.ANILIST_CLIENT_ID }}"
+              --node-env "production"
           else
             pnpm run generate:env:debug
           fi

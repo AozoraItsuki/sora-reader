@@ -11,14 +11,13 @@ import { useFullscreenMode } from '@hooks';
 import {
   useChapterGeneralSettings,
   useLibrarySettings,
-  useTrackedNovel,
-  useTracker,
 } from '@hooks/persisted';
 import {
   ACTIVE_AI_PROVIDER_KEY,
   AI_PROVIDERS_KEY,
   AIProvider,
 } from '@hooks/persisted/useAIProviders';
+import { saveReadingProgress } from '@hooks/persisted/useReadingProgress';
 import {
   initialTranslateSettings,
   TRANSLATE_SETTINGS,
@@ -42,7 +41,6 @@ import NativeVolumeButtonListener from '@specs/NativeVolumeButtonListener';
 import { getString } from '@strings/translations';
 import { chapterIndexRel, legacyDownloadPath } from '@utils/DownloadPaths';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
-import { parseChapterNumber } from '@utils/parseChapterNumber';
 import { showToast } from '@utils/showToast';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import { load } from 'cheerio';
@@ -166,8 +164,6 @@ export default function useChapter(
   const { incognitoMode } = useLibrarySettings();
   const [error, setError] = useState<string>();
   const { height: windowHeight } = useWindowDimensions();
-  const { tracker } = useTracker();
-  const { trackedNovel, updateAllTrackedNovels } = useTrackedNovel(novel.id);
   const { setImmersiveMode, showStatusAndNavBar } = useFullscreenMode();
 
   const connectVolumeButton = useCallback(() => {
@@ -232,11 +228,25 @@ export default function useChapter(
     };
   }, []);
 
+  /**
+   * Chapter HTML for the infinite-scroll append path.
+   *
+   * Returns an EMPTY string when the chapter resolves to no content, which is
+   * deliberately different from the chapter view's behaviour: `getChapter` lets
+   * `sanitizeChapterText` substitute the localized "Chapter is empty" notice so
+   * the reader shows something actionable. On the append path that substitution
+   * would be inserted as the chapter's body and the walk would advance past a
+   * chapter nobody read — so emptiness is reported as emptiness and the caller
+   * leaves the walk parked on this chapter.
+   */
   const fetchChapterHtmlForInfiniteScroll = useCallback(
     async (chap: ChapterInfo): Promise<string> => {
       const rawText = await Promise.resolve(
         chapterTextCache.read(chap.id) ?? loadChapterText(chap.id, chap.path),
       );
+      if (typeof rawText !== 'string' || rawText.trim().length === 0) {
+        return '';
+      }
       return sanitizeChapterText(
         novel.pluginId,
         novel.name,
@@ -693,13 +703,6 @@ export default function useChapter(
     windowHeight,
   ]);
 
-  const updateTracker = useCallback(() => {
-    const chapterNumber = parseChapterNumber(novel.name, chapter.name);
-    if (tracker && trackedNovel && chapterNumber > trackedNovel.progress) {
-      updateAllTrackedNovels({ progress: chapterNumber });
-    }
-  }, [chapter.name, novel.name, trackedNovel, tracker, updateAllTrackedNovels]);
-
   const saveProgress = useCallback(
     async (
       percentage: number,
@@ -741,6 +744,27 @@ export default function useChapter(
         readSession === chapterSessionRef.current;
       const isTargetChapter =
         targetChapterId !== undefined && targetChapterId !== chapter.id;
+
+      // Mirror the position into the independent progress store first: the DB
+      // write below is still needed for read state (history, unread counts,
+      // continue reading), but it is the row that cache cleanup can delete.
+      // Saving the newer position first also means a crash between the two
+      // writes leaves the durable copy ahead, never behind.
+      const knownChapterName = [chapter, nextChapter, prevChapter].find(
+        candidate => candidate?.id === chapId,
+      )?.name;
+      saveReadingProgress({
+        pluginId: novel.pluginId,
+        novelId: chapter.novelId,
+        novelPath: novel.path,
+        novelName: novel.name,
+        cover: novel.cover ?? null,
+        chapterId: chapId,
+        chapterName: knownChapterName ?? '',
+        position: clampedPct,
+        charOffset: normalizedCharOffset,
+      });
+
       const persistence =
         charOffset === undefined
           ? updateChapterProgress(chapId, clampedPct)
@@ -749,9 +773,6 @@ export default function useChapter(
       if (clampedPct >= 97) {
         // a relative number
         markChapterRead(chapId);
-        if (!isTargetChapter) {
-          updateTracker();
-        }
       }
 
       await Promise.resolve(persistence);
@@ -769,11 +790,18 @@ export default function useChapter(
     },
     [
       chapter.id,
+      chapter.novelId,
+      chapter.name,
+      nextChapter,
+      prevChapter,
       incognitoMode,
       markChapterRead,
+      novel.cover,
+      novel.name,
+      novel.path,
+      novel.pluginId,
       setLastRead,
       updateChapterProgress,
-      updateTracker,
     ],
   );
 

@@ -129,9 +129,14 @@
     "hideBackdrop": "Sembunyikan latar",
     "lightTheme": "Tema Terang",
     "navbar": "Bilah navigasi",
+    "navbarPosition": "Posisi bilah navigasi",
+    "navbarPositionBottom": "Bawah",
+    "navbarPositionLeft": "Kiri",
+    "navbarPositionRight": "Kanan",
     "novelInfo": "Info novel",
     "pureBlackDarkMode": "Mode gelap hitam pekat",
     "showHistoryInTheNav": "Tampilkan riwayat di navigasi",
+    "showNavbar": "Tampilkan bilah navigasi",
     "showUpdatesInTheNav": "Tampilkan pembaruan di navigasi",
     "themeMode": "Mode tema",
     "themeModeLight": "Terang",
@@ -234,7 +239,6 @@
     "addedToLibrary": "Ditambahkan ke perpustakaan",
     "available": "Tersedia",
     "deletePluginMessage": "Apakah Anda yakin ingin menghapus %{name}?",
-    "discover": "Temukan",
     "globalSearch": "Pencarian global",
     "installFailed": "Instalasi gagal: %{name}",
     "installed": "Terpasang",
@@ -697,8 +701,6 @@
       "publishingFinished": "Penerbitan Selesai",
       "unknown": "Tidak Diketahui"
     },
-    "tracked": "Dilacak",
-    "tracking": "Pelacakan",
     "unknownStatus": "Status tidak diketahui",
     "updatedToast": "Memperbarui %{name}"
   },
@@ -848,27 +850,12 @@
     "preview": "Pratinjau"
   },
   "securitySettingsScreen": {
-    "appLockSection": "Kunci Aplikasi",
-    "appLock": "Kunci aplikasi",
-    "appLockDesc": "Memerlukan biometrik atau kata sandi perangkat untuk dibuka",
-    "lockOnBackground": "Kunci saat di latar belakang",
     "always": "Selalu",
-    "after1Min": "Setelah 1 menit",
-    "after2Min": "Setelah 2 menit",
-    "after5Min": "Setelah 5 menit",
-    "after10Min": "Setelah 10 menit",
     "never": "Tidak pernah",
     "privacySection": "Privasi",
     "screenProtection": "Perlindungan layar",
     "screenProtectionDesc": "Sembunyikan konten di multitasking dan blokir tangkapan layar",
-    "incognitoOnly": "Hanya mode penyamaran",
-    "appLocked": "Aplikasi Terkunci",
-    "appLockedDesc": "Autentikasi untuk melanjutkan",
-    "unlock": "Buka kunci",
-    "authPrompt": "Autentikasi untuk membuka kunci",
-    "authFallback": "Gunakan kata sandi perangkat",
-    "credentialsRevokedTitle": "Kunci Aplikasi Dinonaktifkan",
-    "credentialsRevokedDesc": "Biometrik atau kata sandi perangkat telah diubah atau dihapus. Kunci aplikasi telah dinonaktifkan secara otomatis demi keamanan Anda."
+    "incognitoOnly": "Hanya mode penyamaran"
   },
   "debugLogScreen": {
     "title": "Log Debug",
@@ -894,12 +881,6 @@
     "grantAccessDesc": "Membuka pengaturan Android yang mengizinkan SoraReader memakai penyimpanan bersama",
     "continue": "Lanjutkan",
     "accessMissing": "Izin belum diberikan, jadi bab tidak dapat diunduh."
-  },
-  "tracking": "Pelacakan",
-  "trackingScreen": {
-    "logOutMessage": "Keluar dari %{name}?",
-    "revalidate": "Validasi ulang",
-    "services": "Layanan"
   },
   "updates": "Pembaruan",
   "updatesScreen": {
@@ -945,31 +926,19 @@
   "swipeActionBookmark": "Tandai bab",
   "swipeActionMarkAsRead": "Tandai sudah dibaca",
   "swipeActionDownload": "Unduh bab",
-  "discord": {
-    "openApp": "Menjelajahi Aplikasi",
-    "browseSource": "Menjelajahi Sumber",
-    "browseNovel": "Menjelajahi Novel",
-    "readChapter": "Sedang Membaca",
-    "title": "Discord Rich Presence",
-    "login": "Masuk dengan Discord",
-    "logout": "Keluar",
-    "notConnected": "Tidak terhubung ke Discord",
-    "connectedAs": "Terhubung sebagai: %{name}",
-    "rpcSettings": "Pengaturan RPC",
-    "enableRPC": "Aktifkan Rich Presence",
-    "enableRPCDesc": "Tampilkan aktivitas Anda di Discord",
-    "showAppOpen": "Tampilkan Aplikasi Dibuka",
-    "showAppOpenDesc": "Tampilkan saat Anda membuka aplikasi atau menjelajahi perpustakaan",
-    "showBrowsing": "Tampilkan Penjelajahan",
-    "showBrowsingDesc": "Tampilkan saat Anda menjelajahi sumber",
-    "showReading": "Tampilkan Membaca",
-    "showReadingDesc": "Tampilkan saat Anda membaca novel atau bab",
-    "timeout": "Login habis waktu",
-    "btnReadOnApp": "Baca di Aplikasi",
-    "btnSource": "Sumber",
-    "btnViewNovel": "Lihat Novel",
-    "btnReadChapter": "Baca Bab",
-    "error": "Error"
-  },
-  "termsSettings": "Istilah Pembaca"
+  "termsSettings": "Istilah Pembaca",
+  "progressScreen": {
+    "title": "Progres membaca",
+    "description": "Posisi bacaan yang tersimpan",
+    "empty": "Belum ada progres membaca",
+    "emptyDesc": "Mulai membaca sebuah chapter untuk menyimpan posisimu",
+    "clearAll": "Hapus semua progres",
+    "clearAllConfirmTitle": "Hapus semua progres membaca?",
+    "clearAllConfirmMessage": "Semua posisi bacaan yang tersimpan akan dihapus. Tindakan ini tidak dapat dibatalkan.",
+    "deleteEntry": "Hapus progres",
+    "deleteConfirmTitle": "Hapus progres membaca?",
+    "deleteConfirmMessage": "Posisi tersimpanmu di %{name} akan terlupakan.",
+    "entryDeleted": "Progres dihapus",
+    "allCleared": "Semua progres membaca dihapus"
+  }
 }

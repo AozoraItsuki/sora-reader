@@ -94,6 +94,7 @@ export const testModules = {
       'getNovelDownloadedChapters',
       'getUpdatedOverviewFromDb',
       'getDetailedUpdatesFromDb',
+      'getNovelProgressSnapshots',
       'isChapterDownloaded',
     ],
   },

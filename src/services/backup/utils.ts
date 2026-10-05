@@ -17,7 +17,6 @@ import {
 import { RepositoryRow } from '@database/schema';
 import { BackupCategory, BackupNovel } from '@database/types';
 import { SEARCH_HISTORY_KEY } from '@hooks/persisted';
-import { OLD_TRACKED_NOVEL_PREFIX } from '@hooks/persisted/migrations/trackerMigration';
 import {
   AI_PROVIDERS_KEY,
   getApiKey,
@@ -68,7 +67,7 @@ const removeIfExists = (path: string) => {
 const backupMMKVData = () => {
   const excludeKeys = [
     ServiceManager.manager.STORE_KEY,
-    OLD_TRACKED_NOVEL_PREFIX,
+    'TRACKED_NOVEL_PREFIX',
     SELF_HOST_BACKUP,
     LAST_UPDATE_TIME,
     NOVEL_UPDATE_RANDOM_KEY,

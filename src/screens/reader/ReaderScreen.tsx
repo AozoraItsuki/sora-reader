@@ -2,13 +2,10 @@ import { ErrorScreenV2 } from '@components';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { useBackHandler } from '@hooks/index';
 import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
-import { discordRPC } from '@modules/discord/DiscordRPC';
 import { ChapterScreenProps } from '@navigators/types';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { resolveUrl } from '@services/plugin/fetch';
 import { getString } from '@strings/translations';
-import { buildApplyTermsJs,getAllTermsForNovel } from '@utils/readerTerms';
+import { buildApplyTermsJs, getAllTermsForNovel } from '@utils/readerTerms';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
@@ -83,8 +80,15 @@ export const ChapterContent = ({
     setBookmarked(chapter.bookmark ?? false);
   }, [chapter]);
 
-  const { hidden, loading, error, webViewRef, hideHeader, refetch, novel: ctxNovel } =
-    useChapterContext();
+  const {
+    hidden,
+    loading,
+    error,
+    webViewRef,
+    hideHeader,
+    refetch,
+    novel: ctxNovel,
+  } = useChapterContext();
 
   useBackHandler(() => {
     if (locked) {
@@ -94,7 +98,10 @@ export const ChapterContent = ({
         return true;
       }
       lastBackPressRef.current = now;
-      ToastAndroid.show(getString('readerScreen.lockScreen.tapBackToExit'), ToastAndroid.SHORT);
+      ToastAndroid.show(
+        getString('readerScreen.lockScreen.tapBackToExit'),
+        ToastAndroid.SHORT,
+      );
       return true;
     }
     return false;
@@ -107,22 +114,6 @@ export const ChapterContent = ({
     webViewRef?.current?.injectJavaScript(js);
   }, [ctxNovel?.id, webViewRef]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (novel && chapter) {
-        const url = resolveUrl(novel.pluginId, chapter.path);
-        discordRPC.setReadingChapter(
-          novel.name,
-          chapter.name,
-          getString('discord.readChapter'),
-          novel?.cover,
-          url,
-          chapter.page,
-        );
-      }
-    }, [novel, chapter]),
-  );
-
   const openDrawerI = useCallback(() => {
     openDrawer();
     hideHeader();
@@ -131,7 +122,10 @@ export const ChapterContent = ({
   const handleUnlock = useCallback(() => {
     setLocked(false);
     setLockBtnVisible(false);
-    ToastAndroid.show(getString('readerScreen.lockScreen.screenUnlocked'), ToastAndroid.SHORT);
+    ToastAndroid.show(
+      getString('readerScreen.lockScreen.screenUnlocked'),
+      ToastAndroid.SHORT,
+    );
   }, []);
 
   const handleToggleLock = useCallback(() => {
@@ -141,10 +135,16 @@ export const ChapterContent = ({
       setLockBtnVisible(true);
       lastBackPressRef.current = 0;
       hideHeader();
-      ToastAndroid.show(getString('readerScreen.lockScreen.screenLocked'), ToastAndroid.SHORT);
+      ToastAndroid.show(
+        getString('readerScreen.lockScreen.screenLocked'),
+        ToastAndroid.SHORT,
+      );
     } else {
       setLockBtnVisible(false);
-      ToastAndroid.show(getString('readerScreen.lockScreen.screenUnlocked'), ToastAndroid.SHORT);
+      ToastAndroid.show(
+        getString('readerScreen.lockScreen.screenUnlocked'),
+        ToastAndroid.SHORT,
+      );
     }
   }, [locked, hideHeader]);
 
@@ -221,9 +221,17 @@ export const ChapterContent = ({
           <Pressable
             style={[styles.unlockBtn, { backgroundColor: theme.surface }]}
             onPress={handleUnlock}
-            android_ripple={{ color: theme.rippleColor, borderless: true, radius: 28 }}
+            android_ripple={{
+              color: theme.rippleColor,
+              borderless: true,
+              radius: 28,
+            }}
           >
-            <MaterialCommunityIcons name="lock" size={22} color={theme.primary} />
+            <MaterialCommunityIcons
+              name="lock"
+              size={22}
+              color={theme.primary}
+            />
           </Pressable>
         </View>
       )}

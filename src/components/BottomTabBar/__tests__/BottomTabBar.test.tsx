@@ -1,14 +1,22 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ThemeColors } from '@theme/types';
 import React from 'react';
 import { StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 
 import BottomTabBar, { CustomBottomTabBarProps } from '../index';
 
+// The bar animates with Reanimated shared values; the mock resolves them to
+// their target state so the assertions read the settled layout.
 jest.mock('react-native-reanimated', () => {
   const { View } = require('react-native');
 
-  return { __esModule: true, default: { View } };
+  return {
+    __esModule: true,
+    default: { View },
+    useSharedValue: (initial: number) => ({ value: initial }),
+    useAnimatedStyle: <T,>(factory: () => T) => factory(),
+    withTiming: (value: number) => value,
+  };
 });
 
 let mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -19,6 +27,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 const TOUCH_TARGET_MIN = 48;
 const SLIM_CONTENT_HEIGHT = 56;
+const RAIL_CONTENT_WIDTH = 72;
 
 const theme: ThemeColors = {
   id: 0,
@@ -76,17 +85,22 @@ const makeProps = (
       'Library-1': { options: { title: 'Library' } },
       'Browse-1': { options: { title: 'Browse' } },
     },
-    navigation: { emit: jest.fn(), navigate: jest.fn() },
+    navigation: {
+      emit: jest.fn(() => ({ defaultPrevented: false })),
+      navigate: jest.fn(),
+    },
     insets: { top: 0, right: 0, bottom: 0, left: 0 },
     theme,
     showLabelsInNav: true,
+    position: 'bottom',
+    visible: true,
     renderIcon: () => React.createElement(Text, null, 'icon'),
     ...overrides,
   } as unknown as CustomBottomTabBarProps);
 
 interface RenderedNode {
   type: string;
-  props: { style?: StyleProp<ViewStyle> };
+  props: { style?: StyleProp<ViewStyle>; pointerEvents?: string };
   children: RenderedNode[] | null;
 }
 
@@ -158,5 +172,142 @@ describe('BottomTabBar', () => {
     view.rerender(<BottomTabBar {...makeProps()} />);
 
     expect(styleOf(barContainer()).paddingBottom).toBe(8);
+  });
+
+  describe('position', () => {
+    it('lays the bar out horizontally when it is anchored to the bottom', () => {
+      // Given: the default position
+      // When: the bar renders
+      // Then: the tabs share one horizontal row
+      render(<BottomTabBar {...makeProps({ position: 'bottom' })} />);
+
+      const content = styleOf(contentRow());
+
+      expect(content.flexDirection).toBe('row');
+      expect(content.height).toBe(SLIM_CONTENT_HEIGHT);
+    });
+
+    it.each(['left', 'right'] as const)(
+      'stacks the tabs vertically when the bar is anchored to the %s edge',
+      position => {
+        // Given: a side rail position
+        // When: the bar renders
+        // Then: the tabs stack in a column instead of a row
+        render(<BottomTabBar {...makeProps({ position })} />);
+
+        const content = styleOf(contentRow());
+
+        expect(content.flexDirection).toBe('column');
+        expect(content.width).toBe(RAIL_CONTENT_WIDTH);
+      },
+    );
+
+    it('keeps every rail tab at a valid touch target size', () => {
+      // Given: a side rail
+      // When: the tabs are laid out
+      // Then: each one still spans the full rail width and a 48dp+ touch target
+      render(<BottomTabBar {...makeProps({ position: 'left' })} />);
+
+      const pressables = (screen.toJSON() as unknown as RenderedNode)
+        .children![0].children!;
+      const style = StyleSheet.flatten(pressables[0].props.style) as ViewStyle;
+
+      expect(style.width).toBe('100%');
+      expect(style.height).toBe(SLIM_CONTENT_HEIGHT);
+      expect(style.height).toBeGreaterThanOrEqual(TOUCH_TARGET_MIN);
+    });
+
+    it('insets a left rail by the left safe area and leaves the right edge alone', () => {
+      // Given: a screen cutout on the left edge
+      // When: a left rail renders
+      // Then: the rail is padded clear of the cutout
+      mockSafeAreaInsets = { top: 24, right: 0, bottom: 48, left: 16 };
+      render(<BottomTabBar {...makeProps({ position: 'left' })} />);
+
+      const container = styleOf(barContainer());
+
+      expect(container.paddingStart).toBe(16);
+      expect(container.paddingTop).toBe(24);
+      expect(container.paddingBottom).toBe(48);
+    });
+
+    it('insets a right rail by the right safe area and leaves the left edge alone', () => {
+      // Given: a screen cutout on the right edge
+      // When: a right rail renders
+      // Then: the rail is padded clear of the cutout
+      mockSafeAreaInsets = { top: 24, right: 16, bottom: 48, left: 0 };
+      render(<BottomTabBar {...makeProps({ position: 'right' })} />);
+
+      const container = styleOf(barContainer());
+
+      expect(container.paddingStart).toBe(0);
+      expect(container.paddingTop).toBe(24);
+      expect(container.paddingBottom).toBe(48);
+    });
+  });
+
+  describe('visibility', () => {
+    it('collapses the bar and stops it taking touches when it is hidden', () => {
+      // Given: the user turned the navbar off
+      // When: the bar renders
+      // Then: it animates to no height and stops intercepting touches
+      mockSafeAreaInsets = { top: 0, right: 0, bottom: 48, left: 0 };
+      render(<BottomTabBar {...makeProps({ visible: false })} />);
+
+      const container = barContainer();
+
+      expect(styleOf(container).height).toBe(0);
+      expect(styleOf(container).paddingBottom).toBe(0);
+      expect(container.props.pointerEvents).toBe('none');
+    });
+
+    it('expands the bar back over the safe area when it is shown again', () => {
+      // Given: a bar hidden by the setting
+      // When: the setting flips back on
+      // Then: the bar animates back to its full height and takes touches again
+      mockSafeAreaInsets = { top: 0, right: 0, bottom: 48, left: 0 };
+      render(<BottomTabBar {...makeProps({ visible: false })} />);
+
+      screen.rerender(<BottomTabBar {...makeProps({ visible: true })} />);
+
+      const container = barContainer();
+
+      expect(styleOf(container).height).toBe(SLIM_CONTENT_HEIGHT + 48);
+      expect(styleOf(container).paddingBottom).toBe(48);
+      expect(container.props.pointerEvents).toBe('auto');
+    });
+
+    it('collapses a side rail to no width when it is hidden', () => {
+      // Given: a side rail hidden by the setting
+      // When: the bar renders
+      // Then: it animates to no width, releasing the column for the screen
+      render(
+        <BottomTabBar {...makeProps({ position: 'left', visible: false })} />,
+      );
+
+      const container = styleOf(barContainer());
+
+      expect(container.width).toBe(0);
+      expect(container.paddingStart).toBe(0);
+    });
+  });
+
+  it('keeps the tabs tappable after being repositioned', () => {
+    // Given: a rail with two tabs
+    // When: the inactive tab is pressed
+    // Then: navigation still runs, so the rail does not break touch input
+    const navigation = {
+      emit: jest.fn(() => ({ defaultPrevented: false })),
+      navigate: jest.fn(),
+    };
+    render(
+      <BottomTabBar
+        {...makeProps({ position: 'left', navigation: navigation as never })}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('Browse'));
+
+    expect(navigation.navigate).toHaveBeenCalledWith('Browse', undefined);
   });
 });

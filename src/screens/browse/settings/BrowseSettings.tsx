@@ -1,10 +1,6 @@
 import { Appbar, List, SwitchItem } from '@components';
 import { useBoolean } from '@hooks';
-import {
-  useBrowseSettings,
-  usePlugins,
-  useTheme,
-} from '@hooks/persisted/index';
+import { useBrowseSettings, usePlugins, useTheme } from '@hooks/persisted/index';
 import { BrowseSettingsScreenProp } from '@navigators/types/index';
 import ConcurrentSearchesModal from '@screens/browse/settings/modals/ConcurrentSearchesModal';
 import { getString } from '@strings/translations';
@@ -17,12 +13,7 @@ const BrowseSettings = ({ navigation }: BrowseSettingsScreenProp) => {
   const { goBack } = navigation;
 
   const { languagesFilter, toggleLanguageFilter } = usePlugins();
-  const {
-    showMyAnimeList,
-    showAniList,
-    globalSearchConcurrency,
-    setBrowseSettings,
-  } = useBrowseSettings();
+  const { globalSearchConcurrency } = useBrowseSettings();
 
   const globalSearchConcurrencyModal = useBoolean();
 
@@ -53,25 +44,6 @@ const BrowseSettings = ({ navigation }: BrowseSettingsScreenProp) => {
               theme={theme}
             />
             <List.Divider theme={theme} />
-            <List.SubHeader theme={theme}>
-              {getString('browseScreen.discover')}
-            </List.SubHeader>
-            <SwitchItem
-              label={`${getString('common.show')} AniList`}
-              value={showAniList}
-              onPress={() => setBrowseSettings({ showAniList: !showAniList })}
-              theme={theme}
-              style={styles.item}
-            />
-            <SwitchItem
-              label={`${getString('common.show')} MyAnimeList`}
-              value={showMyAnimeList}
-              onPress={() =>
-                setBrowseSettings({ showMyAnimeList: !showMyAnimeList })
-              }
-              theme={theme}
-              style={styles.item}
-            />
             <List.Divider theme={theme} />
             <List.SubHeader theme={theme}>
               {getString('browseSettingsScreen.languages')}

@@ -71,7 +71,6 @@ interface NovelInfoHeaderProps {
   saveNovelCover: () => Promise<void>;
   theme: ThemeColors;
   totalChapters?: number;
-  trackerSheetRef: React.RefObject<BottomSheetModalMethods | null>;
 }
 
 const getStatusIcon = (status?: string) => {
@@ -228,7 +227,6 @@ const NovelInfoHeader = ({
   saveNovelCover,
   theme,
   totalChapters,
-  trackerSheetRef,
 }: NovelInfoHeaderProps) => {
   const { hideBackdrop = false } = useAppSettings();
   const followNovel = useNovelAction('followNovel');
@@ -289,11 +287,6 @@ const NovelInfoHeader = ({
     chapters,
     deleteDownloadSnackbar,
   ]);
-
-  const handleTrackerSheet = useCallback(
-    () => trackerSheetRef.current?.present(),
-    [trackerSheetRef],
-  );
 
   const handleOpenBottomSheet = useCallback(
     () => novelBottomSheetRef.current?.present(),
@@ -364,7 +357,6 @@ const NovelInfoHeader = ({
           <NovelScreenButtonGroup
             novel={novel}
             handleFollowNovel={handleFollowNovel}
-            handleTrackerSheet={handleTrackerSheet}
             theme={theme}
           />
         )}

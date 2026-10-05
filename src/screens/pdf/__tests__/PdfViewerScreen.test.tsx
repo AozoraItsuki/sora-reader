@@ -31,11 +31,19 @@ jest.mock('react-native-file-viewer', () => ({
 
 jest.mock('@hooks/persisted', () => {
   // The real settings barrel drags in the tracker services, which need a
-  // generated env file. A stock light theme is all the shared screens read.
+  // generated env file. The bundled seed theme is all the shared screens read,
+  // and the app ships exactly one, so it is read explicitly rather than picked
+  // out of a catalogue: an empty seed must fail here, not render `undefined`.
   const { lightThemes } = jest.requireActual(
     '@theme/md3',
   ) as typeof import('@theme/md3');
-  return { useTheme: () => lightThemes[0] };
+  const seedTheme = lightThemes[0];
+
+  if (!seedTheme) {
+    throw new Error('Expected @theme/md3 to export a bundled seed theme');
+  }
+
+  return { useTheme: () => seedTheme };
 });
 
 jest.mock('@components/Appbar/Appbar', () => () => null);

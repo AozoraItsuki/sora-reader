@@ -1,24 +1,35 @@
 /* eslint-disable react-native/no-inline-styles */
+import { NavbarPosition } from '@hooks/persisted/useSettings';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { ThemeColors } from '@theme/types';
 import Color from 'color';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_BAR_CONTENT_HEIGHT = 56;
+const TAB_BAR_CONTENT_WIDTH = 72;
 const TAB_ICON_CONTAINER_HEIGHT = 32;
 const TAB_ICON_ACTIVE_WIDTH = 64;
 const TAB_ICON_INACTIVE_WIDTH = 40;
 const TAB_ICON_SLOT_SIZE = 24;
 const TAB_LABEL_HEIGHT = 16;
 const TAB_ICON_LABEL_GAP = 4;
+const NAVBAR_ANIMATION_DURATION = 220;
 
 interface CustomBottomTabBarProps extends BottomTabBarProps {
   theme: ThemeColors;
   showLabelsInNav: boolean;
+  /** Screen edge the bar is anchored to. `left`/`right` render a vertical rail. */
+  position: NavbarPosition;
+  /** Whether the bar is shown. Toggling animates its size in/out. */
+  visible: boolean;
   renderIcon: ({
     color,
     route,
@@ -37,11 +48,17 @@ function CustomBottomTabBar({
   insets,
   theme,
   showLabelsInNav,
+  position,
+  visible,
   renderIcon,
 }: CustomBottomTabBarProps) {
   const safeAreaInsets = useSafeAreaInsets();
   const safeAreaBottom = Math.max(insets?.bottom ?? 0, safeAreaInsets.bottom);
+  const safeAreaLeft = Math.max(insets?.left ?? 0, safeAreaInsets.left);
+  const safeAreaRight = Math.max(insets?.right ?? 0, safeAreaInsets.right);
+  const safeAreaTop = Math.max(insets?.top ?? 0, safeAreaInsets.top);
   const activeRouteKey = state.routes[state.index]?.key;
+  const isVertical = position !== 'bottom';
 
   const visibleRoutes = useMemo(
     () =>
@@ -77,17 +94,63 @@ function CustomBottomTabBar({
     [activeRouteKey, descriptors, showLabelsInNav],
   );
 
+  const progress = useSharedValue(visible ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(visible ? 1 : 0, {
+      duration: NAVBAR_ANIMATION_DURATION,
+    });
+  }, [progress, visible]);
+
+  // The navigator sizes the bar as a flex sibling of the screens, so collapsing
+  // the animated axis (rather than overlaying the bar) is what keeps the
+  // content unobscured while it animates in or out.
+  const animatedStyle = useAnimatedStyle(() => {
+    const p = progress.value;
+
+    if (isVertical) {
+      const sideInset = position === 'left' ? safeAreaLeft : safeAreaRight;
+
+      return {
+        opacity: p,
+        paddingBottom: safeAreaBottom * p,
+        paddingStart: (position === 'left' ? sideInset : 0) * p,
+        paddingTop: safeAreaTop * p,
+        width: TAB_BAR_CONTENT_WIDTH * p,
+        transform: [
+          {
+            translateX:
+              (position === 'left' ? -1 : 1) * (1 - p) * TAB_BAR_CONTENT_WIDTH,
+          },
+        ],
+      };
+    }
+
+    const barHeight = TAB_BAR_CONTENT_HEIGHT + safeAreaBottom;
+
+    return {
+      opacity: p,
+      paddingBottom: safeAreaBottom * p,
+      height: barHeight * p,
+      transform: [{ translateY: (1 - p) * barHeight }],
+    };
+  });
+
   return (
-    <View
+    <Animated.View
+      pointerEvents={visible ? 'auto' : 'none'}
       style={[
         styles.container,
         {
           backgroundColor: theme.surface2 || theme.surface,
-          paddingBottom: safeAreaBottom,
         },
+        animatedStyle,
       ]}
     >
-      <View style={styles.contentRow}>
+      <View
+        style={isVertical ? styles.contentColumn : styles.contentRow}
+        testID={isVertical ? 'navbar-rail' : 'navbar-bar'}
+      >
         {visibleRoutes.map(route => {
           const label = getLabelText(route);
           const isFocused = route.key === activeRouteKey;
@@ -121,7 +184,7 @@ function CustomBottomTabBar({
               key={route.key}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={styles.pressable}
+              style={isVertical ? styles.pressableVertical : styles.pressable}
             >
               <View style={styles.itemContent}>
                 <Animated.View
@@ -168,7 +231,7 @@ function CustomBottomTabBar({
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -177,6 +240,7 @@ export type { CustomBottomTabBarProps };
 
 const styles = StyleSheet.create({
   container: {
+    overflow: 'hidden',
     paddingHorizontal: 0,
   },
   contentRow: {
@@ -187,11 +251,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     height: TAB_BAR_CONTENT_HEIGHT,
   },
+  contentColumn: {
+    alignItems: 'stretch',
+    flex: 1,
+    flexDirection: 'column',
+    width: TAB_BAR_CONTENT_WIDTH,
+  },
   pressable: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 4,
+  },
+  pressableVertical: {
+    alignItems: 'center',
+    flexGrow: 0,
+    flexShrink: 0,
+    height: TAB_BAR_CONTENT_HEIGHT,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    width: '100%',
   },
   itemContent: {
     alignItems: 'center',

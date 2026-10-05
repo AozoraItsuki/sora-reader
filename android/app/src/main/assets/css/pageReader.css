@@ -31,7 +31,19 @@ body.page-reader > #SoraReader-chapter {
   height: var(--reader-pageHeight);
   column-width: calc(100vw - var(--readerSettings-padding) * 2);
   column-gap: calc(var(--readerSettings-padding) * 2);
+  /* Paged mode owns the column geometry, so the narrow centered measure that
+     the continuous reader uses must not cap the page frame here. */
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   transition: 200ms;
+}
+
+body.page-reader .sorareader-chapter-block,
+body.page-reader #SoraReader-next-chapter-seamless {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 body.page-reader .transition-chapter {

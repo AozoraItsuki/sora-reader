@@ -17,7 +17,6 @@ import {
   type NovelPersistenceInput,
 } from './useNovel/store-helper/contracts';
 import type { BatchInfo, NovelSettings } from './useNovel/types';
-import { TRACKED_NOVEL_PREFIX } from './useTrackedNovel';
 
 export { LAST_READ_PREFIX, NOVEL_PAGE_INDEX_PREFIX, NOVEL_SETTINGS_PREFIX };
 export { defaultNovelSettings, defaultPageIndex };
@@ -42,11 +41,21 @@ const clearNovelPersistence = ({
   MMKVStorage.remove(novelPersistence.keys.lastRead({ pluginId, novelPath }));
 };
 
+/**
+ * Drop cached (non-library) novels: their download tree, their persisted novel
+ * preferences and their DB rows.
+ *
+ * Reading progress is deliberately NOT touched. It lives in its own MMKV map
+ * (`useReadingProgress`) precisely so that this cleanup — and every other
+ * cache-clearing path — cannot take it away; the only way to remove a progress
+ * entry is the Progress screen. Novel-scoped preferences *are* per-novel
+ * settings rather than progress, so they still go.
+ */
 export const deleteCachedNovels = async () => {
   const cachedNovels = await getCachedNovels();
 
   for (const novel of cachedNovels) {
-    MMKVStorage.remove(`${TRACKED_NOVEL_PREFIX}_${novel.id}`);
+    MMKVStorage.remove(`TRACKED_NOVEL_PREFIX_${novel.id}`);
     clearNovelPersistence({
       pluginId: novel.pluginId,
       novelPath: novel.path,

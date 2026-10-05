@@ -1,7 +1,6 @@
 # Codemagic CI for SoraReader (release only).
 #
 # Setup sekali di dashboard Codemagic (App settings -> Environment variable groups):
-#   - sora_env: MYANIMELIST_CLIENT_ID, ANILIST_CLIENT_ID
 #   - android_keystore: KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
 #   - github_publish: GH_PAT (token dengan akses Contents Read & Write ke repo ini)
 
@@ -39,9 +38,7 @@ workflows:
         script: |
           pnpm run generate:env:release \
             --build-type "Release" \
-            --node-env "production" \
-            --myanimelist-client-id "$MYANIMELIST_CLIENT_ID" \
-            --anilist-client-id "$ANILIST_CLIENT_ID"
+            --node-env "production"
       - name: Install Android SDK components
         script: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"

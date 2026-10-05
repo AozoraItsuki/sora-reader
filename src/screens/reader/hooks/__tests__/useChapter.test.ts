@@ -1,13 +1,13 @@
+import { getReadingProgress } from '@hooks/persisted/useReadingProgress';
 import NativeFile from '@specs/NativeFile';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 
 import useChapter from '../useChapter';
 
 const mockUseNovelActions = jest.fn();
 const mockUseChapterGeneralSettings = jest.fn();
 const mockUseLibrarySettings = jest.fn();
-const mockUseTracker = jest.fn();
-const mockUseTrackedNovel = jest.fn();
 const mockUseFullscreenMode = jest.fn();
 
 const mockGetDbChapter = jest.fn();
@@ -19,7 +19,6 @@ const mockInsertHistory = jest.fn();
 const mockFetchChapter = jest.fn();
 const mockFetchPage = jest.fn();
 const mockSanitizeChapterText = jest.fn();
-const mockParseChapterNumber = jest.fn();
 
 jest.mock('@screens/novel/NovelContext', () => ({
   useNovelActions: () => mockUseNovelActions(),
@@ -28,8 +27,6 @@ jest.mock('@screens/novel/NovelContext', () => ({
 jest.mock('@hooks/persisted', () => ({
   useChapterGeneralSettings: () => mockUseChapterGeneralSettings(),
   useLibrarySettings: () => mockUseLibrarySettings(),
-  useTracker: () => mockUseTracker(),
-  useTrackedNovel: (...args: unknown[]) => mockUseTrackedNovel(...args),
 }));
 
 jest.mock('@hooks', () => ({
@@ -55,10 +52,6 @@ jest.mock('@services/plugin/fetch', () => ({
 
 jest.mock('../../utils/sanitizeChapterText', () => ({
   sanitizeChapterText: (...args: unknown[]) => mockSanitizeChapterText(...args),
-}));
-
-jest.mock('@utils/parseChapterNumber', () => ({
-  parseChapterNumber: (...args: unknown[]) => mockParseChapterNumber(...args),
 }));
 
 jest.mock('expo-speech', () => ({
@@ -153,11 +146,6 @@ describe('useChapter', () => {
       volumeButtonsOffset: 100,
     });
     mockUseLibrarySettings.mockReturnValue({ incognitoMode: false });
-    mockUseTracker.mockReturnValue({ tracker: { id: 'tracker' } });
-    mockUseTrackedNovel.mockReturnValue({
-      trackedNovel: { progress: 1 },
-      updateAllTrackedNovels: jest.fn(),
-    });
     mockUseFullscreenMode.mockReturnValue({
       setImmersiveMode: jest.fn(),
       showStatusAndNavBar: jest.fn(),
@@ -179,7 +167,6 @@ describe('useChapter', () => {
         text: string,
       ) => `SANITIZED:${text}`,
     );
-    mockParseChapterNumber.mockReturnValue(5);
   });
 
   it('uses chapterTextCache on initial load and avoids duplicate fetch for cached chapter text', async () => {
@@ -231,13 +218,8 @@ describe('useChapter', () => {
     expect(result.current.chapter.progress).toBe(12);
   });
 
-  it('updates chapter progress, caps at 100, and marks chapter read/tracker progress near completion', async () => {
+  it('updates chapter progress, caps at 100, and marks chapter read near completion', async () => {
     const store = createStore();
-    const updateAllTrackedNovels = jest.fn();
-    mockUseTrackedNovel.mockReturnValue({
-      trackedNovel: { progress: 2 },
-      updateAllTrackedNovels,
-    });
     mockUseNovelActions.mockReturnValue(store.state);
 
     const { result } = renderHook(() =>
@@ -273,11 +255,6 @@ describe('useChapter', () => {
     expect(store.state.updateChapterProgress).toHaveBeenCalledTimes(3);
     expect(store.state.markChapterRead).toHaveBeenCalledTimes(1);
     expect(store.state.markChapterRead).toHaveBeenCalledWith(initialChapter.id);
-    expect(mockParseChapterNumber).toHaveBeenCalledWith(
-      novel.name,
-      initialChapter.name,
-    );
-    expect(updateAllTrackedNovels).toHaveBeenCalledWith({ progress: 5 });
   });
 
   it('skips redundant persistence writes for repeated identical progress saves', async () => {
@@ -323,6 +300,74 @@ describe('useChapter', () => {
     );
     expect(store.state.markChapterRead).toHaveBeenCalledTimes(1);
     expect(store.state.markChapterRead).toHaveBeenCalledWith(initialChapter.id);
+  });
+
+  it('mirrors every save into the independent reading-progress store', async () => {
+    // The DB row is what cache cleanup deletes, so the reader must also write
+    // through to the MMKV store, including the novel snapshot the Progress
+    // screen renders once those rows are gone.
+    MMKVStorage.clearAll();
+    const store = createStore();
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.saveProgress(40);
+    });
+
+    expect(getReadingProgress(novel.pluginId, novel.id)).toEqual(
+      expect.objectContaining({
+        pluginId: novel.pluginId,
+        novelId: novel.id,
+        novelPath: novel.path,
+        novelName: novel.name,
+        chapterId: initialChapter.id,
+        chapterName: initialChapter.name,
+        position: 40,
+        charOffset: 0,
+      }),
+    );
+    expect(
+      getReadingProgress(novel.pluginId, novel.id)?.updatedAt,
+    ).toBeGreaterThan(0);
+
+    act(() => {
+      result.current.saveProgress(90, initialChapter.id, 512);
+    });
+
+    expect(getReadingProgress(novel.pluginId, novel.id)).toEqual(
+      expect.objectContaining({ position: 90, charOffset: 512 }),
+    );
+
+    MMKVStorage.clearAll();
+  });
+
+  it('does not record reading progress in incognito mode', async () => {
+    MMKVStorage.clearAll();
+    mockUseLibrarySettings.mockReturnValue({ incognitoMode: true });
+    const store = createStore();
+    mockUseNovelActions.mockReturnValue(store.state);
+
+    const { result } = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.saveProgress(40);
+    });
+
+    expect(getReadingProgress(novel.pluginId, novel.id)).toBeUndefined();
+    expect(store.state.updateChapterProgress).not.toHaveBeenCalled();
+
+    mockUseLibrarySettings.mockReturnValue({ incognitoMode: false });
+    MMKVStorage.clearAll();
   });
 
   it('sets error and remains stable when chapter fetch fails', async () => {
@@ -589,5 +634,124 @@ describe('useChapter', () => {
     expect(result.current.chapterText).toBe(
       'SANITIZED:<img class="pdf-page-image" src="0.b64.png"/>',
     );
+  });
+});
+
+describe('useChapter infinite-scroll html', () => {
+  const initialChapter = makeChapter(1, '1');
+  const nextChapter = makeChapter(2, '1');
+  const novel = makeNovel();
+
+  const renderReadyHook = async (
+    seed: Record<number, string | Promise<string>> = {},
+  ) => {
+    const store = createStore(seed);
+    mockUseNovelActions.mockReturnValue(store.state);
+    const view = renderHook(() =>
+      useChapter({ current: null }, initialChapter, novel),
+    );
+    await waitFor(() => expect(view.result.current.loading).toBe(false));
+    return view;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (NativeFile.exists as jest.Mock).mockReturnValue(false);
+    (NativeFile.readFile as jest.Mock).mockReturnValue('');
+    (NativeFile.hasAllFilesAccess as jest.Mock).mockReturnValue(false);
+    mockUseChapterGeneralSettings.mockReturnValue({
+      autoScroll: false,
+      autoScrollInterval: 1,
+      autoScrollOffset: 100,
+      useVolumeButtons: false,
+      volumeButtonsOffset: 100,
+    });
+    mockUseLibrarySettings.mockReturnValue({ incognitoMode: false });
+    mockUseFullscreenMode.mockReturnValue({
+      setImmersiveMode: jest.fn(),
+      showStatusAndNavBar: jest.fn(),
+    });
+    mockGetDbChapter.mockResolvedValue(initialChapter);
+    mockGetChapterCount.mockResolvedValue(1);
+    mockGetNextChapter.mockResolvedValue(undefined);
+    mockGetPrevChapter.mockResolvedValue(undefined);
+    mockInsertChapters.mockResolvedValue(undefined);
+    mockInsertHistory.mockResolvedValue(undefined);
+    mockFetchChapter.mockResolvedValue('chapter body');
+    mockFetchPage.mockResolvedValue({ chapters: [] });
+    mockSanitizeChapterText.mockImplementation(
+      (
+        _pluginId: string,
+        _novelName: string,
+        _chapterName: string,
+        text: string,
+      ) => `SANITIZED:${text}`,
+    );
+  });
+
+  it('returns sanitized html for the chapter it is asked to append', async () => {
+    const { result } = await renderReadyHook({
+      [initialChapter.id]: 'base body',
+      [nextChapter.id]: '<p>next body</p>',
+    });
+
+    await expect(
+      result.current.fetchChapterHtmlForInfiniteScroll(nextChapter),
+    ).resolves.toBe('SANITIZED:<p>next body</p>');
+  });
+
+  it('reports an empty chapter as empty instead of the empty-chapter notice', async () => {
+    // Given: a chapter whose download is missing and whose source returns ''
+    const { result } = await renderReadyHook({
+      [initialChapter.id]: 'base body',
+      [nextChapter.id]: '',
+    });
+
+    // When: the append path asks for it
+    const html = await result.current.fetchChapterHtmlForInfiniteScroll(
+      nextChapter,
+    );
+
+    // Then: emptiness surfaces as an EMPTY string. Returning the localized
+    // "Chapter is empty" notice instead would let the append path insert it as
+    // the chapter body and advance the walk past a chapter nobody read.
+    expect(html).toBe('');
+    expect(mockSanitizeChapterText).not.toHaveBeenCalledWith(
+      novel.pluginId,
+      novel.name,
+      nextChapter.name,
+      '',
+    );
+  });
+
+  it('treats a whitespace-only chapter as empty', async () => {
+    const { result } = await renderReadyHook({
+      [initialChapter.id]: 'base body',
+      [nextChapter.id]: '   \n\t  ',
+    });
+
+    await expect(
+      result.current.fetchChapterHtmlForInfiniteScroll(nextChapter),
+    ).resolves.toBe('');
+  });
+
+  it('propagates a failed fetch so the caller can refuse to advance', async () => {
+    // Given: the chapter's download is gone and the source read throws
+    (NativeFile.hasAllFilesAccess as jest.Mock).mockReturnValue(true);
+    (NativeFile.readFile as jest.Mock).mockReturnValue('partial');
+    (NativeFile.readFile as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('storage gone');
+    });
+    mockFetchChapter.mockRejectedValue(new Error('network failed'));
+
+    const { result } = await renderReadyHook({
+      [initialChapter.id]: 'base body',
+    });
+
+    // When/Then: the rejection reaches the append path, which parks the walk
+    // instead of advancing past the unreachable chapter.
+    await expect(
+      result.current.fetchChapterHtmlForInfiniteScroll(nextChapter),
+    ).rejects.toThrow('network failed');
   });
 });

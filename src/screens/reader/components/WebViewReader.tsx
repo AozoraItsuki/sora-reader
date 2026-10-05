@@ -47,6 +47,9 @@ import WebView from 'react-native-webview';
 import { useChapterContext } from '../ChapterContext';
 import { absolutizeAssetRefs, chapterBaseUrl } from '../utils/chapterAssetUrls';
 import {
+  AppendStatusKind,
+  buildAppendStatusCall,
+  buildClearAppendStatusCall,
   generateAppendChapterHtml,
   generateReaderHtml,
 } from '../utils/htmlGenerator';
@@ -91,6 +94,13 @@ const tiktokTTSEmitter = new NativeEventEmitter(TikTokTTS);
 const assetsUriPrefix = __DEV__
   ? 'http://localhost:8081/assets'
   : 'file:///android_asset';
+
+/**
+ * Delay before the near-bottom latch is re-armed after a failed/empty append.
+ * Long enough that a dead source is not hammered in a tight loop, short enough
+ * that a transient failure still retries while the reader keeps scrolling.
+ */
+const APPEND_RETRY_DELAY_MS = 1500;
 
 const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   const {
@@ -161,11 +171,34 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   const infiniteNextChapterRef = useRef<ChapterInfo | undefined>(undefined);
   const isAppendingRef = useRef(false);
   const appendedChapterIdsRef = useRef(new Set<number>());
+  // Monotonic token: every append takes one, and a chapter change bumps it so an
+  // in-flight append from the previous chapter is dropped instead of splicing
+  // its content into the new document. It also owns the concurrency flag, so a
+  // late `finally` from a stale append cannot unlock a live one.
+  const appendTokenRef = useRef(0);
+
+  /** Render the in-document marker that explains a stopped append. */
+  const showAppendStatus = useCallback(
+    (chap: ChapterInfo, kind: AppendStatusKind) => {
+      webViewRef.current?.injectJavaScript(
+        buildAppendStatusCall(chap.id, chap.name, kind),
+      );
+    },
+    [webViewRef],
+  );
+
+  /** Let the document post `near-bottom` again so the same chapter is retried. */
+  const rearmNearBottom = useCallback(() => {
+    webViewRef.current?.injectJavaScript(
+      `(function(){if(window.reader&&window.reader.rearmNearBottom){window.reader.rearmNearBottom(${APPEND_RETRY_DELAY_MS});}true;})()`,
+    );
+  }, [webViewRef]);
 
   useEffect(() => {
     infiniteNextChapterRef.current = nextChapter;
-    isAppendingRef.current = false;
     appendedChapterIdsRef.current = new Set<number>();
+    appendTokenRef.current += 1;
+    isAppendingRef.current = false;
   }, [chapter.id, nextChapter]);
 
   const appendNextChapter = useCallback(async () => {
@@ -183,13 +216,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     ) {
       return;
     }
+    const token = ++appendTokenRef.current;
+    const isStale = () => appendTokenRef.current !== token;
     isAppendingRef.current = true;
     try {
       const chapHtml = await fetchChapterHtmlForInfiniteScroll(chap);
+      if (isStale()) return;
       if (!chapHtml || chapHtml.trim().length === 0) {
         // Empty fetch (missing download + failed source load): do NOT mark
         // appended and do NOT advance — the chapter stays next in line so a
-        // later scroll retries it instead of silently skipping to ch+2.
+        // later scroll retries it instead of silently skipping to ch+2. The
+        // marker explains the stop; the near-bottom latch is re-armed for the
+        // retry.
+        showAppendStatus(chap, 'empty');
+        rearmNearBottom();
         return;
       }
       const terms = getAllTermsForNovel(novel.id ?? 0);
@@ -208,10 +248,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         chapterId: chap.id,
         chapterName: chap.name,
       });
-      const escaped = JSON.stringify(blockHtml);
+      // `</script>` inside plugin markup cannot close the injected snippet.
+      const escaped = JSON.stringify(blockHtml).replace(/</g, '\\u003c');
       webViewRef.current?.injectJavaScript(
         `(function(){if(window.reader&&window.reader.appendChapter){window.reader.appendChapter(${escaped},${chap.id});}true;})()`,
       );
+      // Clear the marker before the walk moves on, so a resolved chapter does
+      // not leave a stale "could not load" note in the document.
+      webViewRef.current?.injectJavaScript(buildClearAppendStatusCall(chap.id));
       appendedChapterIdsRef.current.add(chap.id);
       const nextNextChap = await getNextChapter(
         chap.novelId,
@@ -219,13 +263,28 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         chap.page ?? '',
         chap.id,
       );
+      if (isStale()) return;
       infiniteNextChapterRef.current = nextNextChap ?? undefined;
     } catch {
-      // silently fail — user can still use Next button
+      // A failed fetch must not advance either: the chapter stays queued for a
+      // retry, and the marker says why the scroll stopped.
+      if (!isStale()) {
+        showAppendStatus(chap, 'error');
+        rearmNearBottom();
+      }
     } finally {
-      isAppendingRef.current = false;
+      if (appendTokenRef.current === token) {
+        isAppendingRef.current = false;
+      }
     }
-  }, [fetchChapterHtmlForInfiniteScroll, novel, plugin, webViewRef]);
+  }, [
+    fetchChapterHtmlForInfiniteScroll,
+    novel,
+    plugin,
+    webViewRef,
+    rearmNearBottom,
+    showAppendStatus,
+  ]);
 
   // --- Reading time tracking ---
   const readStartTimeRef = useRef<number | null>(null);

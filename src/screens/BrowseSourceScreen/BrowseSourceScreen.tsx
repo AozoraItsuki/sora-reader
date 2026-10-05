@@ -7,12 +7,9 @@ import { NovelInfo } from '@database/types';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useSearch } from '@hooks';
 import { useSearchHistory, useTheme } from '@hooks/persisted';
-import usePlugins from '@hooks/persisted/usePlugins';
-import { discordRPC } from '@modules/discord/DiscordRPC';
 import { BrowseSourceScreenProps } from '@navigators/types';
 import { getPlugin } from '@plugins/pluginManager';
 import { NovelItem } from '@plugins/types';
-import { useFocusEffect } from '@react-navigation/native';
 import SourceScreenSkeletonLoading from '@screens/browse/loadingAnimation/SourceScreenSkeletonLoading';
 import { getString } from '@strings/translations';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -118,23 +115,6 @@ const BrowseSourceScreen = ({ route, navigation }: BrowseSourceScreenProps) => {
         },
       }),
     [navigation, pluginId],
-  );
-
-  const { filteredInstalledPlugins } = usePlugins();
-  const pluginIcon = useMemo(
-    () => filteredInstalledPlugins.find(p => p.id === pluginId)?.iconUrl,
-    [filteredInstalledPlugins, pluginId],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      discordRPC.setBrowsingSource(
-        pluginName,
-        getString('discord.browseSource'),
-        site,
-        pluginIcon,
-      );
-    }, [pluginName, site, pluginIcon]),
   );
 
   const { bottom, right } = useSafeAreaInsets();

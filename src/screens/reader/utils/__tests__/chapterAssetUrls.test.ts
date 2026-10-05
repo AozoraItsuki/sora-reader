@@ -47,9 +47,9 @@ describe('absolutizeAssetRefs', () => {
   const base = `${SERVER}/local/9/4/`;
 
   it('anchors a relative img src to the chapter base url', () => {
-    expect(
-      absolutizeAssetRefs('<img src="0.b64.png" alt="a" />', base),
-    ).toBe(`<img src="${base}0.b64.png" alt="a" />`);
+    expect(absolutizeAssetRefs('<img src="0.b64.png" alt="a" />', base)).toBe(
+      `<img src="${base}0.b64.png" alt="a" />`,
+    );
   });
 
   it('anchors every srcset candidate and keeps its descriptor', () => {
@@ -83,5 +83,40 @@ describe('absolutizeAssetRefs', () => {
     const html = '<img src="0.b64.png" />';
 
     expect(absolutizeAssetRefs(html, '')).toBe(html);
+  });
+
+  it('anchors every page of an appended image chapter to its own directory', () => {
+    // Infinite scroll appends the next chapter's markup into the live document,
+    // so each page image has to resolve against that chapter's base URL rather
+    // than the one the document was loaded with.
+    const appended = absolutizeAssetRefs(
+      '<img class="pdf-page-image" src="0.b64.png">' +
+        '<img class="pdf-page-image" src="1.b64.png">',
+      base,
+    );
+
+    expect(appended).toBe(
+      `<img class="pdf-page-image" src="${base}0.b64.png">` +
+        `<img class="pdf-page-image" src="${base}1.b64.png">`,
+    );
+  });
+
+  it('keeps protocol-relative references instead of resolving them', () => {
+    // `//cdn/x.png` inherits the document scheme, so anchoring it would pin it
+    // to the local server.
+    const html = '<img src="//cdn.example.com/a.png">';
+
+    expect(absolutizeAssetRefs(html, base)).toBe(html);
+  });
+
+  it('anchors every srcset candidate and normalizes its spacing', () => {
+    // Extra whitespace around a candidate must not end up inside the anchored
+    // URL, and the descriptor has to stay attached to its own candidate.
+    expect(
+      absolutizeAssetRefs(
+        '<img srcset="  1.b64.png 1x , 2.b64.png 2x  ">',
+        base,
+      ),
+    ).toBe(`<img srcset="${base}1.b64.png 1x, ${base}2.b64.png 2x">`);
   });
 });

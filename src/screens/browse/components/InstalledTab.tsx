@@ -1,5 +1,5 @@
 import { useBoolean } from '@hooks';
-import { useBrowseSettings, usePlugins } from '@hooks/persisted';
+import { usePlugins } from '@hooks/persisted';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 import { BrowseScreenProps } from '@navigators/types';
 import { localPlugin } from '@plugins/local/LocalPlugin';
@@ -11,7 +11,6 @@ import React, { memo, useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Portal } from 'react-native-paper';
 
-import DiscoverCard from '../discover/DiscoverCard';
 import { DeferredPluginListItem } from './DeferredPluginListItem';
 import SourceSettingsModal from './Modals/SourceSettings';
 
@@ -29,7 +28,6 @@ export const InstalledTab = memo(
       setLastUsedPlugin,
       pinnedPlugins,
     } = usePlugins();
-    const { showMyAnimeList, showAniList } = useBrowseSettings();
     const settingsModal = useBoolean();
     const [selectedPluginId, setSelectedPluginId] = useState<string>('');
 
@@ -102,32 +100,6 @@ export const InstalledTab = memo(
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <>
-              {/* Discover Section */}
-              {(showMyAnimeList || showAniList) && !searchText ? (
-                <View style={styles.section}>
-                  <SectionLabel
-                    label={getString('browseScreen.discover')}
-                    theme={theme}
-                  />
-                  {showAniList ? (
-                    <DiscoverCard
-                      theme={theme}
-                      icon={require('../../../../assets/anilist.png')}
-                      trackerName="Anilist"
-                      onPress={() => navigation.navigate('BrowseAL')}
-                    />
-                  ) : null}
-                  {showMyAnimeList ? (
-                    <DiscoverCard
-                      theme={theme}
-                      icon={require('../../../../assets/mal.png')}
-                      trackerName="MyAnimeList"
-                      onPress={() => navigation.navigate('BrowseMal')}
-                    />
-                  ) : null}
-                </View>
-              ) : null}
-
               {/* Pinned Plugins Section */}
               {!searchText && pinnedPluginsList.length > 0 ? (
                 <View style={styles.section}>

@@ -23,6 +23,7 @@ import {
   getNextChapter,
   getNovelChapters,
   getNovelDownloadedChapters,
+  getNovelProgressSnapshots,
   getPageChapters,
   getPageChaptersBatched,
   getPrevChapter,
@@ -1218,6 +1219,103 @@ describe('ChapterQueries', () => {
 
       const result = isChapterDownloaded(chapterId);
       expect(result).toBe(false);
+    });
+  });
+  describe('getNovelProgressSnapshots', () => {
+    it('returns one row per novel, picking the most recently read chapter', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, {
+        name: 'Snapshot Novel',
+        pluginId: 'plugin-a',
+        path: '/novel/a',
+        cover: 'file:///cover.png',
+      });
+      await insertTestChapter(testDb, novelId, {
+        name: 'Older',
+        readTime: '2026-01-01 10:00:00',
+        progress: 10,
+        charOffset: 100,
+      });
+      const newest = await insertTestChapter(testDb, novelId, {
+        name: 'Newest',
+        readTime: '2026-01-02 10:00:00',
+        progress: 55,
+        charOffset: 550,
+      });
+
+      const rows = await getNovelProgressSnapshots();
+
+      expect(rows.filter(row => row.novelId === novelId)).toHaveLength(1);
+      expect(rows.find(row => row.novelId === novelId)).toEqual({
+        novelId,
+        chapterId: newest,
+        chapterName: 'Newest',
+        position: 55,
+        charOffset: 550,
+        readTime: '2026-01-02 10:00:00',
+        pluginId: 'plugin-a',
+        novelName: 'Snapshot Novel',
+        novelPath: '/novel/a',
+        novelCover: 'file:///cover.png',
+      });
+    });
+
+    it('keeps a novel that only has a percentage, with no readTime', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, { name: 'Partial Novel' });
+      await insertTestChapter(testDb, novelId, {
+        name: 'Halfway',
+        readTime: null,
+        progress: 50,
+        charOffset: 250,
+      });
+
+      const rows = await getNovelProgressSnapshots();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toEqual(
+        expect.objectContaining({
+          novelId,
+          chapterName: 'Halfway',
+          position: 50,
+          charOffset: 250,
+          readTime: null,
+        }),
+      );
+    });
+
+    it('ranks a chapter with a readTime above one that only has progress', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, { name: 'Mixed Novel' });
+      await insertTestChapter(testDb, novelId, {
+        name: 'OnlyProgress',
+        readTime: null,
+        progress: 90,
+      });
+      const readChapter = await insertTestChapter(testDb, novelId, {
+        name: 'WasRead',
+        readTime: '2026-01-01 10:00:00',
+        progress: 10,
+      });
+
+      const rows = await getNovelProgressSnapshots();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].chapterId).toBe(readChapter);
+      expect(rows[0].chapterName).toBe('WasRead');
+    });
+
+    it('skips novels that were never opened', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, { name: 'Untouched' });
+      await insertTestChapter(testDb, novelId, {
+        name: 'Unread',
+        readTime: null,
+        progress: null,
+        charOffset: 0,
+      });
+
+      expect(await getNovelProgressSnapshots()).toEqual([]);
     });
   });
 });

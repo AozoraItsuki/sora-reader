@@ -131,7 +131,10 @@ const renderScreen = () =>
       <SafeAreaProvider initialMetrics={initialMetrics}>
         <PaperProvider>
           <ThemeProvider>
-            <DownloadsScreen navigation={{ goBack: jest.fn() } as any} />
+            <DownloadsScreen
+              navigation={{ goBack: jest.fn() } as any}
+              route={{ key: 'Downloads', name: 'Downloads' } as any}
+            />
           </ThemeProvider>
         </PaperProvider>
       </SafeAreaProvider>

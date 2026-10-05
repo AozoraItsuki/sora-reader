@@ -1,35 +1,12 @@
-import { catppuccinTheme } from './catppuccin';
 import { defaultTheme } from './defaultTheme';
-import { deepPurpleTheme } from './deepPurple';
-import { lavenderTheme } from './lavender';
-import { midnightDusk } from './mignightDusk';
-import { strawberryDaiquiriTheme } from './strawberry';
-import { takoTheme } from './tako';
-import { tealTurquoise } from './tealTurquoise';
-import { yinyangTheme } from './yinyang';
-import { yotsubaTheme } from './yotsuba';
 
-export const lightThemes = [
-  defaultTheme.light,
-  midnightDusk.light,
-  tealTurquoise.light,
-  yotsubaTheme.light,
-  lavenderTheme.light,
-  strawberryDaiquiriTheme.light,
-  takoTheme.light,
-  catppuccinTheme.light,
-  yinyangTheme.light,
-  deepPurpleTheme.light,
-].map((theme, i) => ({ ...theme, id: 100 + i }));
-export const darkThemes = [
-  defaultTheme.dark,
-  midnightDusk.dark,
-  tealTurquoise.dark,
-  yotsubaTheme.dark,
-  lavenderTheme.dark,
-  strawberryDaiquiriTheme.dark,
-  takoTheme.dark,
-  catppuccinTheme.dark,
-  yinyangTheme.dark,
-  deepPurpleTheme.dark,
-].map((theme, i) => ({ ...theme, id: 100 + i }));
+/**
+ * The single bundled seed theme.
+ *
+ * Everything user-facing is recolored from this pair (see
+ * `generateCustomTheme.ts`), so the app ships one look instead of a catalogue
+ * of finished palettes. Ids stay at 100 because `useTheme.transformThemeId`
+ * maps every legacy stored id onto this range.
+ */
+export const lightThemes = [{ ...defaultTheme.light, id: 100 }];
+export const darkThemes = [{ ...defaultTheme.dark, id: 100 }];

@@ -997,6 +997,77 @@ export const getDetailedUpdatesFromDb = async (
     .all();
 };
 
+export interface NovelProgressSnapshot {
+  novelId: number;
+  chapterId: number;
+  chapterName: string;
+  position: number | null;
+  charOffset: number | null;
+  readTime: string | null;
+  pluginId: string;
+  novelName: string;
+  novelPath: string;
+  novelCover: string | null;
+}
+
+/**
+ * One row per novel describing the furthest point the reader reached.
+ *
+ * This is the migration source for the independent reading-progress store
+ * (MMKV, see `useReadingProgress`), which needs a self-contained snapshot —
+ * novel name and cover included — so it can keep working after the novel and
+ * chapter rows are gone. Chapters that only carry a `readTime` count as read
+ * progress; chapters without one only qualify through a non-zero `progress`.
+ * Among candidates the most recently read chapter wins, falling back to the
+ * highest chapter id so the result stays deterministic.
+ */
+export const getNovelProgressSnapshots = async (): Promise<
+  NovelProgressSnapshot[]
+> => {
+  const rankedProgress = dbManager
+    .select({
+      novelId: chapterSchema.novelId,
+      chapterId: chapterSchema.id,
+      chapterName: chapterSchema.name,
+      position: chapterSchema.progress,
+      charOffset: chapterSchema.charOffset,
+      readTime: chapterSchema.readTime,
+      progressRank: sql<number>`row_number() over (
+        partition by ${chapterSchema.novelId}
+        order by
+          (CASE WHEN ${chapterSchema.readTime} IS NULL THEN 1 ELSE 0 END),
+          ${chapterSchema.readTime} DESC,
+          ${chapterSchema.id} DESC
+      )`.as('progressRank'),
+    })
+    .from(chapterSchema)
+    .where(
+      sql`${chapterSchema.readTime} IS NOT NULL OR COALESCE(${chapterSchema.progress}, 0) > 0`,
+    )
+    .as('rankedProgress');
+
+  // The novel columns are joined outside the ranked subquery on purpose: both
+  // tables have a `name` column, and selecting both through the subquery makes
+  // the novel name resolve to the chapter name.
+  return dbManager
+    .select({
+      novelId: rankedProgress.novelId,
+      chapterId: rankedProgress.chapterId,
+      chapterName: rankedProgress.chapterName,
+      position: rankedProgress.position,
+      charOffset: rankedProgress.charOffset,
+      readTime: rankedProgress.readTime,
+      pluginId: novelSchema.pluginId,
+      novelName: novelSchema.name,
+      novelPath: novelSchema.path,
+      novelCover: novelSchema.cover,
+    })
+    .from(rankedProgress)
+    .innerJoin(novelSchema, eq(rankedProgress.novelId, novelSchema.id))
+    .where(eq(rankedProgress.progressRank, 1))
+    .all();
+};
+
 export const isChapterDownloaded = (chapterId: number): boolean => {
   const result = dbManager.getSync(
     dbManager

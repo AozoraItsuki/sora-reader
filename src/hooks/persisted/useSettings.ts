@@ -19,16 +19,19 @@ export const DOWNLOAD_SETTINGS = 'DOWNLOAD_SETTINGS';
 
 export type SwipeAction = 'disabled' | 'bookmark' | 'markAsRead' | 'download';
 
+/**
+ * Where the app navigation bar is anchored. `left`/`right` render it as a
+ * vertical rail, which the bottom tab navigator lays out as a row so the
+ * screen keeps its full height instead of being overlapped.
+ */
+export type NavbarPosition = 'bottom' | 'left' | 'right';
+
 export interface AppSettings {
   /**
    * General settings
    */
 
   incognitoMode: boolean;
-  discordRPCEnabled?: boolean;
-  discordRPCAppOpen?: boolean;
-  discordRPCBrowsing?: boolean;
-  discordRPCReading?: boolean;
   disableHapticFeedback: boolean;
   verboseLogging: boolean;
   allowCloudflareBypass: boolean;
@@ -42,6 +45,8 @@ export interface AppSettings {
   showHistoryTab: boolean;
   showUpdatesTab: boolean;
   showLabelsInNav: boolean;
+  navbarPosition: NavbarPosition;
+  navbarVisible: boolean;
   useFabForContinueReading: boolean;
   disableLoadingAnimations: boolean;
   enableAnimations: boolean;
@@ -78,8 +83,6 @@ export interface AppSettings {
 }
 
 export interface BrowseSettings {
-  showMyAnimeList: boolean;
-  showAniList: boolean;
   globalSearchConcurrency?: number;
 }
 
@@ -198,10 +201,6 @@ const initialAppSettings: AppSettings = {
    */
 
   incognitoMode: false,
-  discordRPCEnabled: true,
-  discordRPCAppOpen: true,
-  discordRPCBrowsing: true,
-  discordRPCReading: true,
   disableHapticFeedback: false,
   verboseLogging: false,
   allowCloudflareBypass: false,
@@ -215,6 +214,8 @@ const initialAppSettings: AppSettings = {
   showHistoryTab: true,
   showUpdatesTab: true,
   showLabelsInNav: true,
+  navbarPosition: 'bottom',
+  navbarVisible: true,
   useFabForContinueReading: false,
   disableLoadingAnimations: false,
   enableAnimations: true,
@@ -251,8 +252,6 @@ const initialAppSettings: AppSettings = {
 };
 
 const initialBrowseSettings: BrowseSettings = {
-  showMyAnimeList: true,
-  showAniList: true,
   globalSearchConcurrency: 3,
 };
 
@@ -600,24 +599,13 @@ export const useDownloadSettings = () => {
 
 // --- Security Settings ---
 
-export type LockOnBackground =
-  | 'always'
-  | '1min'
-  | '2min'
-  | '5min'
-  | '10min'
-  | 'never';
 export type ScreenProtection = 'always' | 'incognito' | 'never';
 
 export interface SecuritySettings {
-  appLockEnabled: boolean;
-  lockOnBackground: LockOnBackground;
   screenProtection: ScreenProtection;
 }
 
 const initialSecuritySettings: SecuritySettings = {
-  appLockEnabled: false,
-  lockOnBackground: 'always',
   screenProtection: 'never',
 };
 

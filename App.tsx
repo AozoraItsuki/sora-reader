@@ -15,7 +15,6 @@ import {
 import { ThemeProvider } from '@hooks/persisted/useTheme';
 import { CloudflareSolverOverlay } from '@plugins/helpers/CloudflareSolverOverlay';
 import { initLocalServer } from '@plugins/local/localServerManager';
-import AppLockOverlay, { useAppLock } from '@screens/more/AppLockScreen';
 import SetupStorageScreen from '@screens/setup/SetupStorageScreen';
 import { ensureDirectStorage } from '@services/saf/directStorage';
 import { runSafMigration } from '@services/saf/migrateToSaf';
@@ -116,8 +115,6 @@ const useCancelStuckBackupTasks = () => {
  * a synchronous read here would flash setup on every cold start.
  */
 const AppContent = () => {
-  const { isLocked, isCredentialsRevoked, authenticate, dismissRevoked } =
-    useAppLock();
   useScreenProtection();
   useCancelStuckBackupTasks();
 
@@ -160,12 +157,6 @@ const AppContent = () => {
       ) : (
         <Main />
       )}
-      <AppLockOverlay
-        isLocked={isLocked}
-        onAuthenticate={authenticate}
-        isCredentialsRevoked={isCredentialsRevoked}
-        onDismissRevoked={dismissRevoked}
-      />
       <CloudflareSolverOverlay />
     </>
   );

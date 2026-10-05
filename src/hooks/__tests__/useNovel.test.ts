@@ -6,10 +6,14 @@ import {
 } from '@database/queries/NovelQueries';
 import { deleteCachedNovels, useNovel } from '@hooks/persisted/useNovel';
 import {
+  READING_PROGRESS_KEY,
+  readReadingProgressMap,
+  saveReadingProgress,
+} from '@hooks/persisted/useReadingProgress';
+import {
   keyContract,
   novelPersistence,
 } from '@hooks/persisted/useNovel/store-helper/contracts';
-import { TRACKED_NOVEL_PREFIX } from '@hooks/persisted/useTrackedNovel';
 import { safUnlink } from '@services/saf/safFile';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 
@@ -40,7 +44,7 @@ describe('deleteCachedNovels', () => {
 
   it('clears tracked novel and legacy persistence keys for each cached novel', async () => {
     for (const novel of cachedNovels) {
-      MMKVStorage.set(`${TRACKED_NOVEL_PREFIX}_${novel.id}`, 'tracked');
+      MMKVStorage.set(`TRACKED_NOVEL_PREFIX_${novel.id}`, 'tracked');
       MMKVStorage.set(
         keyContract.pageIndex({
           pluginId: novel.pluginId,
@@ -67,7 +71,7 @@ describe('deleteCachedNovels', () => {
     await deleteCachedNovels();
 
     for (const novel of cachedNovels) {
-      expect(MMKVStorage.contains(`${TRACKED_NOVEL_PREFIX}_${novel.id}`)).toBe(
+      expect(MMKVStorage.contains(`TRACKED_NOVEL_PREFIX_${novel.id}`)).toBe(
         false,
       );
       expect(
@@ -118,5 +122,37 @@ describe('deleteCachedNovels', () => {
     await deleteCachedNovels();
 
     expect(_deleteCachedNovels).toHaveBeenCalledTimes(1);
+  });
+
+  it('never touches the independent reading-progress store', async () => {
+    saveReadingProgress({
+      pluginId: 'p1',
+      novelId: 10,
+      novelName: 'N1',
+      chapterId: 3,
+      position: 42,
+      charOffset: 900,
+    });
+    saveReadingProgress({
+      pluginId: 'p2',
+      novelId: 11,
+      novelName: 'N2',
+      chapterId: 7,
+      position: 8,
+    });
+    const before = readReadingProgressMap();
+
+    await deleteCachedNovels();
+
+    // Progress is no longer collateral damage of a cache wipe: the entries (and
+    // the migrated-once guard) must survive untouched, including when the SAF
+    // unlink fails and the DB rows are dropped anyway.
+    expect(readReadingProgressMap()).toEqual(before);
+    expect(MMKVStorage.getString(READING_PROGRESS_KEY)).not.toBeUndefined();
+
+    (safUnlink as jest.Mock).mockRejectedValue(new Error('no tree'));
+    await deleteCachedNovels();
+
+    expect(readReadingProgressMap()).toEqual(before);
   });
 });

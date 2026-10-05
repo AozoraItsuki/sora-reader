@@ -54,14 +54,79 @@ body:not(.page-reader) .transition-chapter {
 #SoraReader-chapter {
   padding-left: var(--readerSettings-padding);
   padding-right: var(--readerSettings-padding);
+  /* border-box so the narrow centered column (htmlGenerator) keeps its gutter
+     inside the capped measure instead of pushing the column wider. */
+  box-sizing: border-box;
 }
 
 .sorareader-chapter-block {
   padding-left: var(--readerSettings-padding);
   padding-right: var(--readerSettings-padding);
+  box-sizing: border-box;
   overflow-x: hidden;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+/* Always-visible reading progress. A fixed 2px rail scaled on the X axis, so
+   scrolling never triggers layout. Independent from #reader-percentage, which
+   stays behind the showScrollPercentage preference. */
+#reader-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  z-index: 10000001;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background-color: var(--theme-primary, currentColor);
+  will-change: transform;
+}
+
+/* Append marker: explains an infinite scroll that stopped on an empty or
+   unreachable chapter. Deliberately not a .sorareader-chapter-block, so the
+   progress walk in core.js never counts it as a read chapter. The slot is a
+   plain block: it sits between the last chapter block and #reader-ui, so a
+   later append lands after it and the marker is cleared once it resolves. */
+#reader-append-status-slot:empty {
+  display: none;
+}
+
+.sorareader-append-status {
+  box-sizing: border-box;
+  max-width: var(--reader-columnMax, 40em);
+  margin: 2.4em auto 0;
+  padding: 0.9em 1.1em;
+  border: 1px solid
+    color-mix(in srgb, var(--theme-outline, #888) 45%, transparent);
+  border-radius: var(--reader-radius, 10px);
+  background-color: color-mix(
+    in srgb,
+    var(--theme-onSurface, #888) 6%,
+    transparent
+  );
+  color: var(--readerSettings-textColor);
+  text-align: center;
+  opacity: 0.72;
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.sorareader-append-status-title {
+  font-weight: bold;
+  opacity: 0.85;
+}
+
+.sorareader-append-status-label {
+  margin-top: 0.2em;
+  font-size: 0.94em;
+  opacity: 0.75;
+}
+
+.sorareader-append-status--error {
+  border-style: dashed;
 }
 
 hr {

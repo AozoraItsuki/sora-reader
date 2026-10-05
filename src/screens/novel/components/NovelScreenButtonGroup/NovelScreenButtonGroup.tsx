@@ -1,6 +1,5 @@
 import { NovelInfo } from '@database/types';
 import { useBoolean } from '@hooks';
-import { useTrackedNovel, useTracker } from '@hooks/persisted';
 import { NovelScreenProps } from '@navigators/types';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -59,24 +58,19 @@ const Button = memo(NButton);
 interface NovelScreenButtonGroupProps {
   novel: NovelInfo | (Omit<NovelInfo, 'id'> & { id: 'NO_ID' });
   theme: ThemeColors;
-  handleTrackerSheet: () => void;
   handleFollowNovel: () => void;
 }
 
 const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
   novel,
-  handleTrackerSheet,
   handleFollowNovel,
   theme,
 }) => {
   const { inLibrary, isLocal } = novel;
   const { navigate } = useNavigation<NovelScreenProps['navigation']>();
-  const { tracker } = useTracker();
-  const { trackedNovel } = useTrackedNovel(novel.id);
   const refreshNovel = useNovelAction('refreshNovel');
 
   const followButtonColor = inLibrary ? theme.primary : theme.outline;
-  const trackerButtonColor = trackedNovel ? theme.primary : theme.outline;
 
   const handleOpenWebView = async () => {
     navigate('WebviewScreen', {
@@ -120,19 +114,6 @@ const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
           color={followButtonColor}
         />
 
-        {tracker ? (
-          <Button
-            theme={theme}
-            onPress={handleTrackerSheet}
-            icon={trackedNovel ? 'check' : 'sync'}
-            label={
-              trackedNovel
-                ? getString('novelScreen.tracked')
-                : getString('novelScreen.tracking')
-            }
-            color={trackerButtonColor}
-          />
-        ) : null}
         {inLibrary && !isLocal ? (
           <Button
             theme={theme}

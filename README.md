@@ -17,7 +17,7 @@ A free and open-source light novel reader for Android, Mihon/Tachiyomi-style lib
 - EPUB: import and export with image support.
 - Backups: selective sections (library, downloads, categories, repositories, settings) to local file, Google Drive, or self-hosted server.
 - Library: updates, categories, novel merge/reconcile, reading stats, history.
-- Integrations: AniList / MyAnimeList tracking, Discord RPC, Cloudflare challenge solver, Samsung S-Pen actions, app lock.
+- Integrations: Cloudflare challenge solver, Samsung S-Pen actions.
 - Local HTTP server serves downloads to the reader; covers resolve from the new location after migration.
 
 ## Tech stack

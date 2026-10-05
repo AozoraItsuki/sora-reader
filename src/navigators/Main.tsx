@@ -2,14 +2,12 @@ import { LibraryContextProvider } from '@components/Context/LibraryContext';
 import { UpdateContextProvider } from '@components/Context/UpdateContext';
 import { useGithubUpdateChecker } from '@hooks/common/useGithubUpdateChecker';
 import { useAppSettings, usePlugins, useTheme } from '@hooks/persisted';
-import { discordRPC } from '@modules/discord/DiscordRPC';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import OnboardingScreen from '@screens/onboarding/OnboardingScreen';
 import PdfViewerScreen from '@screens/pdf/PdfViewerScreen';
 import WebviewScreen from '@screens/WebviewScreen/WebviewScreen';
 import ServiceManager from '@services/ServiceManager';
-import { getString } from '@strings/translations';
 import {
   changeNavigationBarColor,
   setStatusBarColor,
@@ -20,8 +18,6 @@ import React, { useEffect } from 'react';
 import { useMMKVBoolean } from 'react-native-mmkv';
 
 import NewUpdateDialog from '../components/NewUpdateDialog';
-import AniListTopNovels from '../screens/browse/discover/AniListTopNovels';
-import MalTopNovels from '../screens/browse/discover/MalTopNovels';
 import Migration from '../screens/browse/migration/Migration';
 import MigrateNovel from '../screens/browse/migration/MigrationNovels';
 import BrowseSettings from '../screens/browse/settings/BrowseSettings';
@@ -66,9 +62,6 @@ const MainNavigator = () => {
     if (isOnboarded) {
       // hack this helps app has enough time to initialize database;
       refreshPlugins();
-      discordRPC.connect().then(() => {
-        discordRPC.setAppOpen(getString('discord.openApp'));
-      });
     }
   }, [isOnboarded, refreshPlugins, updateLibraryOnLaunch]);
 
@@ -125,8 +118,6 @@ const MainNavigator = () => {
             <Stack.Screen name="ReaderStack" component={ReaderStack} />
             <Stack.Screen name="MoreStack" component={MoreStack} />
             <Stack.Screen name="SourceScreen" component={BrowseSourceScreen} />
-            <Stack.Screen name="BrowseMal" component={MalTopNovels} />
-            <Stack.Screen name="BrowseAL" component={AniListTopNovels} />
             <Stack.Screen name="BrowseSettings" component={BrowseSettings} />
             <Stack.Screen
               name="GlobalSearchScreen"

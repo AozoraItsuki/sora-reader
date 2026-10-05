@@ -8,8 +8,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
-import { DiscordSVG } from './SettingsDiscordScreen';
-
 export const AIIconSvg = ({ color, size, ...props }: any) => (
   <Svg
     xmlns="http://www.w3.org/2000/svg"
@@ -91,12 +89,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           icon: 'format-color-highlight',
           screen: 'TermsSettings',
         },
-        {
-          title: getString('tracking'),
-          description: 'AniList, MyAnimeList tracker sync',
-          icon: 'sync',
-          screen: 'TrackerSettings',
-        },
       ],
     },
     {
@@ -104,16 +96,9 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
       items: [
         {
           title: getString('securitySettings'),
-          description: 'App lock and security options',
+          description: 'Screen protection and security options',
           icon: 'shield-lock-outline',
           screen: 'SecuritySettings',
-        },
-        {
-          title: 'Discord',
-          description: 'Rich presence and Discord integration',
-          icon: 'discord',
-          isCustomIcon: true,
-          screen: 'DiscordSettings',
         },
         {
           title: getString('common.backup'),
@@ -135,9 +120,6 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
     if (item.isCustomIcon) {
       if (item.icon === 'ai') {
         return <AIIconSvg color={iconColor} size={20} />;
-      }
-      if (item.icon === 'discord') {
-        return <DiscordSVG color={iconColor} size={20} />;
       }
     }
     return (

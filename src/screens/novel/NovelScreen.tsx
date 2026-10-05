@@ -8,9 +8,7 @@ import { ChapterInfo } from '@database/types';
 import { useBoolean } from '@hooks';
 import { useDownload, useTheme } from '@hooks/persisted';
 import { LegendListRef } from '@legendapp/list';
-import { discordRPC } from '@modules/discord/DiscordRPC';
 import { NovelScreenProps } from '@navigators/types';
-import { useFocusEffect } from '@react-navigation/native';
 import { resolveUrl } from '@services/plugin/fetch';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
@@ -62,23 +60,6 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
 
   const headerOpacity = useSharedValue(0);
   const [forceResetModal, showForceResetModal] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      const novelName = novel?.name || route.params?.name || '';
-      if (novelName) {
-        const url = novel
-          ? resolveUrl(novel.pluginId, novel.path, true)
-          : undefined;
-        discordRPC.setBrowsingNovel(
-          novelName,
-          getString('discord.browseNovel'),
-          novel?.cover,
-          url,
-        );
-      }
-    }, [route.params?.name, novel]),
-  );
 
   const downloadChs = useCallback(
     async (amount: number | 'all' | 'unread') => {

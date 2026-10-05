@@ -1,7 +1,6 @@
 import Switch from '@components/Switch/Switch';
 import { useAnimatedEntrance } from '@hooks';
 import { useLibrarySettings, useTheme } from '@hooks/persisted';
-import { discordRPC } from '@modules/discord/DiscordRPC';
 import { MoreStackScreenProps } from '@navigators/types';
 import ServiceManager, { BackgroundTask } from '@services/ServiceManager';
 import { getString } from '@strings/translations';
@@ -132,15 +131,7 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
     setLibrarySettings({ downloadedOnlyMode: !downloadedOnlyMode });
 
   const enableIncognitoMode = () => {
-    const newVal = !incognitoMode;
-    setLibrarySettings({ incognitoMode: newVal });
-    if (newVal) {
-      discordRPC.disconnect();
-    } else {
-      discordRPC.connect().then(() => {
-        discordRPC.setAppOpen(getString('discord.openApp'));
-      });
-    }
+    setLibrarySettings({ incognitoMode: !incognitoMode });
   };
 
   useEffect(
@@ -231,6 +222,16 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
             title={getString('common.downloads')}
             onPress={() =>
               navigation.navigate('MoreStack', { screen: 'Downloads' })
+            }
+            theme={theme}
+          />
+          <Separator theme={theme} />
+          <MenuItem
+            icon="bookmark-check-outline"
+            title={getString('progressScreen.title')}
+            description={getString('progressScreen.description')}
+            onPress={() =>
+              navigation.navigate('MoreStack', { screen: 'Progress' })
             }
             theme={theme}
           />

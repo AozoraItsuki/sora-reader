@@ -214,41 +214,6 @@ const FollowButton = ({
   </View>
 );
 
-const TrackerButton = ({
-  theme,
-  isTracked,
-  onPress,
-}: {
-  theme: ThemeColors;
-  onPress: () => void;
-  isTracked: boolean;
-}) => (
-  <View style={styles.followButtonContainer}>
-    <Pressable
-      android_ripple={{ color: theme.rippleColor, borderless: false }}
-      onPress={onPress}
-      style={styles.followButtonPressable}
-    >
-      <IconButton
-        icon={isTracked ? 'check' : 'sync'}
-        iconColor={isTracked ? theme.primary : theme.outline}
-        size={24}
-        style={styles.iconButton}
-      />
-      <Text
-        style={[
-          { color: isTracked ? theme.primary : theme.outline },
-          styles.followButtonText,
-        ]}
-      >
-        {isTracked
-          ? getString('novelScreen.tracked')
-          : getString('novelScreen.tracking')}
-      </Text>
-    </Pressable>
-  </View>
-);
-
 const genreKeyExtractor = (_item: string, index: number) => 'genre' + index;
 const tagKeyExtractor = (_item: string, index: number) => 'tag' + index;
 
@@ -304,7 +269,6 @@ export {
   NovelTags,
   NovelThumbnail,
   NovelTitle,
-  TrackerButton,
 };
 
 const styles = StyleSheet.create({

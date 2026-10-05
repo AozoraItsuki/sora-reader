@@ -17,8 +17,6 @@ export type RootStackParamList = {
     showLatestNovels?: boolean;
     searchText?: string;
   };
-  BrowseMal: undefined;
-  BrowseAL: undefined;
   BrowseSettings: undefined;
   GlobalSearchScreen: { searchText?: string };
   Migration: undefined;
@@ -78,6 +76,7 @@ export type MoreStackParamList = {
   Statistics: undefined;
   ReadingTimeStats: undefined;
   NovelReadingTimeStats: { novelId: number; novelName: string };
+  Progress: undefined;
   DebugLog: undefined;
 };
 
@@ -85,12 +84,10 @@ export type SettingsStackParamList = {
   Settings: undefined;
   GeneralSettings: undefined;
   ReaderSettings: undefined;
-  TrackerSettings: undefined;
   BackupSettings: undefined;
   AppearanceSettings: undefined;
   AdvancedSettings: undefined;
   SecuritySettings: undefined;
-  DiscordSettings: undefined;
   RespositorySettings: { url?: string } | undefined;
   AISettings: undefined;
   AIPromptsSettings: undefined;
@@ -132,17 +129,13 @@ export type TaskQueueScreenProps = StackScreenProps<
   MoreStackParamList,
   'TaskQueue'
 >;
+export type ProgressScreenProps = StackScreenProps<
+  MoreStackParamList,
+  'Progress'
+>;
 export type BrowseSourceScreenProps = StackScreenProps<
   RootStackParamList,
   'SourceScreen'
->;
-export type BrowseMalScreenProps = StackScreenProps<
-  RootStackParamList,
-  'BrowseMal'
->;
-export type BrowseALScreenProps = StackScreenProps<
-  RootStackParamList,
-  'BrowseAL'
 >;
 export type BrowseSettingsScreenProp = StackScreenProps<
   RootStackParamList,
@@ -179,10 +172,6 @@ export type SettingsScreenProps = CompositeScreenProps<
 export type AppearanceSettingsScreenProps = StackScreenProps<
   SettingsStackParamList,
   'AppearanceSettings'
->;
-export type TrackerSettingsScreenProps = StackScreenProps<
-  SettingsStackParamList,
-  'TrackerSettings'
 >;
 export type BackupSettingsScreenProps = StackScreenProps<
   SettingsStackParamList,
