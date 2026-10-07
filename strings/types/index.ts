@@ -221,6 +221,10 @@ export interface StringMap {
   'browseScreen.available': 'string';
   'browseScreen.deletePluginMessage': 'string';
   'browseScreen.globalSearch': 'string';
+  'browseScreen.importFromFile': 'string';
+  'browseScreen.importMissingFields': 'string';
+  'browseScreen.importNotPlugin': 'string';
+  'browseScreen.importWrongType': 'string';
   'browseScreen.installFailed': 'string';
   'browseScreen.installed': 'string';
   'browseScreen.installedPlugin': 'string';
