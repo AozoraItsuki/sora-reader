@@ -26,6 +26,7 @@ export const languagesMapping: Record<string, string> = {
 export const languages = Object.values(languagesMapping);
 
 export const getLocaleLanguageName = (lang: string): string => {
-  if (lang !== 'Multi') return lang;
+  const name = languagesMapping[lang] ?? lang;
+  if (name !== 'Multi') return name;
   return getString('browseSettingsScreen.multi');
 };

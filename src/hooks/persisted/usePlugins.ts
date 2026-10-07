@@ -1,6 +1,7 @@
 import {
   fetchPlugins,
   installPlugin as _install,
+  normalizePluginLang,
   uninstallPlugin as _uninstall,
   updatePlugin as _update,
 } from '@plugins/pluginManager';
@@ -50,12 +51,15 @@ export default function usePlugins() {
    */
   const filterPlugins = useCallback(
     (filter: string[]) => {
+      const filterCodes = filter.map(normalizePluginLang);
       const installedPlugins =
         getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
       const availableFilterPlugins =
         getMMKVObject<PluginItem[]>(AVAILABLE_PLUGINS) || [];
       setFilteredInstalledPlugins(
-        installedPlugins.filter(plg => filter.includes(plg.lang)),
+        installedPlugins.filter(plg =>
+          filterCodes.includes(normalizePluginLang(plg.lang)),
+        ),
       );
       setFilteredAvailablePlugins(
         orderBy(
@@ -66,7 +70,7 @@ export default function usePlugins() {
                   installedPlugin => installedPlugin.id === avalilablePlugin.id,
                 ),
             )
-            .filter(plg => filter.includes(plg.lang)),
+            .filter(plg => filterCodes.includes(normalizePluginLang(plg.lang))),
           'name',
         ),
       );
