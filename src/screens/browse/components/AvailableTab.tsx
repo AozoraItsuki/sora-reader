@@ -1,5 +1,5 @@
 import { EmptyView } from '@components';
-import { usePlugins } from '@hooks/persisted';
+import { useImportPlugin, usePlugins } from '@hooks/persisted';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 import { MoreStackScreenProps } from '@navigators/types';
 import { PluginItem } from '@plugins/types';
@@ -159,6 +159,7 @@ export const AvailableTab = memo(({ searchText, theme }: AvailableTabProps) => {
   const [refreshing, setRefreshing] = useState(false);
   const { filteredAvailablePlugins, refreshPlugins, installPlugin } =
     usePlugins();
+  const importPluginFromFile = useImportPlugin();
 
   const searchedPlugins = useMemo(() => {
     let res = filteredAvailablePlugins;
@@ -234,6 +235,11 @@ export const AvailableTab = memo(({ searchText, theme }: AvailableTabProps) => {
                           screen: 'SettingsStack',
                           params: { screen: 'RespositorySettings' },
                         }),
+                    },
+                    {
+                      iconName: 'file-import',
+                      title: getString('browseScreen.importFromFile'),
+                      onPress: () => importPluginFromFile(),
                     },
                   ]
                 : []

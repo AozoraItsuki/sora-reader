@@ -1,6 +1,6 @@
 import { EmptyView, SafeAreaView, SearchbarV2 } from '@components';
 import { useSearch } from '@hooks';
-import { usePlugins, useTheme } from '@hooks/persisted';
+import { useImportPlugin, usePlugins, useTheme } from '@hooks/persisted';
 import { DISABLED_REPOSITORIES } from '@hooks/persisted/useDisabledRepositories';
 import { BrowseScreenProps } from '@navigators/types';
 import { useFocusEffect } from '@react-navigation/native';
@@ -24,6 +24,7 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
   const theme = useTheme();
   const { searchText, setSearchText, clearSearchbar } = useSearch();
   const { languagesFilter } = usePlugins();
+  const importPluginFromFile = useImportPlugin();
   const layout = useWindowDimensions();
 
   const prevDisabledReposRef = React.useRef<string | null>(null);
@@ -57,11 +58,15 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
           onPress: () => navigation.navigate('Migration'),
         },
         {
+          iconName: 'file-import',
+          onPress: () => importPluginFromFile(),
+        },
+        {
           iconName: 'cog-outline',
           onPress: () => navigation.navigate('BrowseSettings'),
         },
       ] as const,
-    [navigation],
+    [navigation, importPluginFromFile],
   );
 
   useEffect(
