@@ -31,6 +31,7 @@ export {
   useReadingProgress,
 } from './useReadingProgress';
 export { default as usePlugins } from './usePlugins';
+export { useImportPlugin } from './useImportPlugin';
 export {
   ENABLE_SEARCH_HISTORY_KEY,
   SEARCH_HISTORY_KEY,
