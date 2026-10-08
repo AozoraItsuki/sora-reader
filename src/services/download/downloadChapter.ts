@@ -68,16 +68,27 @@ const downloadFiles = async (
   const loadedCheerio = cheerio.load(html);
   const imgs = loadedCheerio('img').toArray();
 
+  // Same absolute URL in multiple <img> tags (e.g. repeated character
+  // portraits) must download once and share the same local file.
+  const fileNameByUrl = new Map<string, string>();
+
   const downloadTasks = imgs.map((img, i) => {
     const elem = loadedCheerio(img);
     const url = elem.attr('src');
     if (!url) {
       return Promise.resolve();
     }
+    const absoluteURL = new URL(url, plugin.site).href;
+    const existingFileName = fileNameByUrl.get(absoluteURL);
+    if (existingFileName !== undefined) {
+      // RELATIVE src: the reader resolves it against the local-server baseUrl.
+      elem.attr('src', existingFileName);
+      return Promise.resolve();
+    }
     const fileName = imageFileName(i);
+    fileNameByUrl.set(absoluteURL, fileName);
     // RELATIVE src: the reader resolves it against the local-server baseUrl.
     elem.attr('src', fileName);
-    const absoluteURL = new URL(url, plugin.site).href;
     return safDownloadFile(
       absoluteURL,
       chapterImageRel(pluginId, novelId, chapterId, i),
