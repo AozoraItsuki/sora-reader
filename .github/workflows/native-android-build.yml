@@ -1,0 +1,76 @@
+name: Build Native Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Build variant'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: native-android-${{ github.ref }}-${{ inputs.variant || 'debug' }}
+  cancel-in-progress: false
+
+env:
+  VARIANT: ${{ inputs.variant || 'debug' }}
+
+jobs:
+  build-native-android:
+    name: Build Native Android (${{ inputs.variant || 'debug' }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: native-android
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        if: env.VARIANT != 'release'
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Build Release APK
+        if: env.VARIANT == 'release'
+        run: ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sorareader-native-${{ env.VARIANT }}-${{ github.run_number }}
+          path: native-android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
