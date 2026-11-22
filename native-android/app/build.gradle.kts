@@ -98,7 +98,8 @@ android {
 // Fail before any work when a release task is requested without signing env.
 // Checking the task graph (not configuration) keeps debug builds working,
 // since AGP configures both debug and release variants on every build.
-gradle.taskGraph.whenReady { graph ->
+gradle.taskGraph.whenReady {
+    val graph = it
     val wantsRelease = graph.allTasks.any { task ->
         task.name.contains("release", ignoreCase = true) &&
             !task.name.contains("prerelease", ignoreCase = true)
