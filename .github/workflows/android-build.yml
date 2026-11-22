@@ -215,12 +215,30 @@ jobs:
       - name: Build Debug APK
         if: env.VARIANT != 'release'
         run: |
-          if [[ "$ARCH" == "all" ]]; then
-            pnpm rock build:android --variant debug
-          else
-            pnpm rock build:android --variant debug \
-              --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
-          fi
+          set -o pipefail
+          build_apk() {
+            if [[ "$ARCH" == "all" ]]; then
+              pnpm rock build:android --variant debug
+            else
+              pnpm rock build:android --variant debug \
+                --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
+            fi
+          }
+          for attempt in 1 2 3; do
+            echo "::group::Debug build attempt $attempt"
+            set +e
+            build_apk 2>&1 | tee "/tmp/rock-debug-$attempt.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            echo "::endgroup::"
+            [[ $status -eq 0 ]] && break
+            if [[ $attempt -eq 3 ]] || ! grep -Eq "429 Too Many Requests|Could not GET|Connection reset|read timed out" "/tmp/rock-debug-$attempt.log"; then
+              echo "::error::Debug build failed (exit $status)."
+              exit "$status"
+            fi
+            echo "::warning::Transient dependency download failure; retrying in 60s."
+            sleep 60
+          done
 
       - name: Build Release APK
         if: env.VARIANT == 'release'
@@ -230,12 +248,30 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [[ "$ARCH" == "all" ]]; then
-            pnpm rock build:android --variant release
-          else
-            pnpm rock build:android --variant release \
-              --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
-          fi
+          set -o pipefail
+          build_apk() {
+            if [[ "$ARCH" == "all" ]]; then
+              pnpm rock build:android --variant release
+            else
+              pnpm rock build:android --variant release \
+                --extra-params "-PtargetAbis=$ARCH -PreactNativeArchitectures=$ARCH"
+            fi
+          }
+          for attempt in 1 2 3; do
+            echo "::group::Release build attempt $attempt"
+            set +e
+            build_apk 2>&1 | tee "/tmp/rock-release-$attempt.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            echo "::endgroup::"
+            [[ $status -eq 0 ]] && break
+            if [[ $attempt -eq 3 ]] || ! grep -Eq "429 Too Many Requests|Could not GET|Connection reset|read timed out" "/tmp/rock-release-$attempt.log"; then
+              echo "::error::Release build failed (exit $status)."
+              exit "$status"
+            fi
+            echo "::warning::Transient dependency download failure; retrying in 60s."
+            sleep 60
+          done
           ls android/app/build/outputs/apk/release/
 
       - name: Upload APK Artifact
