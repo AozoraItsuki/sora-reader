@@ -73,6 +73,7 @@ export interface Update extends ChapterInfo {
 
 export interface UpdateOverview {
   novelId: number;
+  pluginId: string;
   novelName: string;
   updateDate: string;
   updatesPerDay: number;

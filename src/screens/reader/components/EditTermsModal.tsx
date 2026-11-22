@@ -9,9 +9,7 @@ import {
 } from '@utils/readerTerms';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +19,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  KeyboardController,
+} from 'react-native-keyboard-controller';
 
 interface Props {
   visible: boolean;
@@ -33,6 +35,13 @@ interface Props {
 type TabKey = 'editor' | 'terms' | 'config';
 
 const MAX_LEN = 128;
+// Give adjustResize a couple of frames to settle after the keyboard hides
+// before the tab content is swapped. Swapping mid-relayout makes the flex-end
+// overlay (and its tab bar) oscillate on Android.
+const KEYBOARD_DISMISS_SETTLE_MS = 150;
+// Upper bound on waiting for keyboardDidHide; never strand the user on the
+// editor tab if the platform fails to emit the hide event.
+const KEYBOARD_DISMISS_TIMEOUT_MS = 500;
 const generateId = () => Math.random().toString(36).slice(2, 10);
 
 const PRESET_COLORS = [
@@ -170,7 +179,22 @@ const EditTermsModal: React.FC<Props> = ({
     resetForm();
     loadTerms();
     onTermsChanged?.();
-    setTab('terms');
+    // Do not swap to the terms tab while the keyboard is still dismissing:
+    // the overlay re-measures on keyboardDidHide and the tab bar flickers.
+    // eslint-disable-next-line no-void
+    void (async () => {
+      try {
+        await Promise.race([
+          KeyboardController.dismiss(),
+          new Promise<void>(resolve =>
+            setTimeout(resolve, KEYBOARD_DISMISS_TIMEOUT_MS),
+          ),
+        ]);
+      } catch {
+        // Best-effort: the keyboard may already be gone.
+      }
+      setTimeout(() => setTab('terms'), KEYBOARD_DISMISS_SETTLE_MS);
+    })();
   };
 
   const deleteTerm = (term: ReaderTerm) => {
@@ -602,13 +626,13 @@ const EditTermsModal: React.FC<Props> = ({
       visible={visible}
       onRequestClose={onClose}
       transparent
-      animationType="slide"
+      animationType="fade"
       statusBarTranslucent
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
+        behavior="padding"
+        automaticOffset
       >
         <View style={styles.overlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />

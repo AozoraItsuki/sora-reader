@@ -1,12 +1,12 @@
 import { NovelInfo } from '@database/types';
 import { NovelItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
-import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import color from 'color';
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { coverPlaceholderColor } from '../theme/colors';
+import { useNovelCoverImageSource } from './novelCoverUri';
 
 interface ListViewProps {
   item: NovelItem | NovelInfo;
@@ -30,6 +30,13 @@ const ListView = ({
   onLongPress,
 }: ListViewProps) => {
   const fadedImage = { opacity: inLibraryBadge ? 0.5 : 1 };
+  // Library rows carry the identity needed for an on-disk cover; plugin
+  // listings do not, and the helper still rejects a raw tree-relative path.
+  const source =
+    'pluginId' in item && item.pluginId
+      ? { pluginId: item.pluginId, novelId: item.id }
+      : null;
+  const coverImage = useNovelCoverImageSource(item.cover, source);
   return (
     <Pressable
       android_ripple={{ color: theme.rippleColor }}
@@ -43,9 +50,8 @@ const ListView = ({
       onLongPress={onLongPress}
     >
       <Image
-        source={{
-          uri: resolveDownloadUrl(item.cover),
-        }}
+        source={coverImage.source}
+        onError={coverImage.onError}
         style={[styles.extensionIcon, fadedImage]}
       />
       <Text

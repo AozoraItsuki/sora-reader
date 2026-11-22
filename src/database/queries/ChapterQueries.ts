@@ -939,6 +939,7 @@ export const getUpdatedOverviewFromDb = async () =>
   dbManager
     .select({
       novelId: novelSchema.id,
+      pluginId: novelSchema.pluginId,
       novelName: novelSchema.name,
       novelCover: novelSchema.cover,
       novelPath: novelSchema.path,

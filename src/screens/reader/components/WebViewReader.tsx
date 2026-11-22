@@ -41,6 +41,7 @@ import React, {
 } from 'react';
 import { AppState, NativeEventEmitter, NativeModules } from 'react-native';
 import { getBatteryLevelSync } from 'react-native-device-info';
+import { useKeyboardState } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 
@@ -101,6 +102,14 @@ const assetsUriPrefix = __DEV__
  * that a transient failure still retries while the reader keeps scrolling.
  */
 const APPEND_RETRY_DELAY_MS = 1500;
+
+/**
+ * After the soft keyboard hides, adjustResize keeps relaying out the reader for
+ * a few hundred ms. Infinite-scroll DOM insertion must stay out of that window,
+ * otherwise a queued `near-bottom` from a deep scroll splices content in mid
+ * relayout and the reader/terms UI visibly oscillates.
+ */
+const KEYBOARD_HIDE_COOLDOWN_MS = 350;
 
 const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   const {
@@ -189,6 +198,32 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   const appStateRef = useRef(AppState.currentState);
   const ttsQueueRef = useRef<string[]>([]);
   const ttsQueueIndexRef = useRef<number>(0);
+
+  // Block infinite-scroll appends while the keyboard is up and for a short
+  // cooldown after it hides, so DOM insertion never interleaves with the
+  // keyboard-dismiss relayout. Refs keep the (non-memoized) onMessage handler
+  // reading the current gate without changing its dependencies.
+  const isKeyboardVisible = useKeyboardState(state => state.isVisible);
+  const keyboardAppendsBlockedRef = useRef(false);
+  const wasKeyboardVisibleRef = useRef(false);
+
+  useEffect(() => {
+    if (isKeyboardVisible) {
+      wasKeyboardVisibleRef.current = true;
+      keyboardAppendsBlockedRef.current = true;
+      return;
+    }
+    // The initial render has isVisible === false; do not introduce a cooldown
+    // until there has actually been a keyboard -> hidden transition.
+    if (!wasKeyboardVisibleRef.current) {
+      return;
+    }
+    keyboardAppendsBlockedRef.current = true;
+    const timer = setTimeout(() => {
+      keyboardAppendsBlockedRef.current = false;
+    }, KEYBOARD_HIDE_COOLDOWN_MS);
+    return () => clearTimeout(timer);
+  }, [isKeyboardVisible]);
 
   // One stable term snapshot per novel, shared by the initial document build and
   // every infinite-scroll append. readerTerms caches by novel id and invalidates
@@ -806,7 +841,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         }
         switch (event.type) {
           case 'near-bottom':
-            appendNextChapter();
+            // Ignore appends during/right after keyboard dismissal; a deep-scroll
+            // near-bottom firing in that window would fight the relayout.
+            if (!keyboardAppendsBlockedRef.current) {
+              appendNextChapter();
+            }
             break;
           case 'scroll':
             onScroll?.();
