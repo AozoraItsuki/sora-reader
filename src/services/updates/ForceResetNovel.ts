@@ -3,6 +3,7 @@ import {
   chapterSchema,
   extendedChapterHistorySchema,
   novelSchema,
+  type NovelInsert,
 } from '@database/schema';
 import { LAST_READ_PREFIX } from '@hooks/persisted/useNovel';
 import { getPlugin } from '@plugins/pluginManager';
@@ -51,7 +52,7 @@ export const forceResetNovel = async (
   // 1. Reload Metadata
   if (reloadMetadata) {
     log(getString('novelScreen.forceResetModal.logReloadMetadata'));
-    const { name, summary, author, artist, genres, status, totalPages } =
+    const { name, summary, author, artist, genres, tags, status, totalPages } =
       sourceNovel;
     let { cover } = sourceNovel;
 
@@ -72,19 +73,26 @@ export const forceResetNovel = async (
       }
     }
 
+    const updateData: Partial<NovelInsert> = {
+      name,
+      summary: summary || null,
+      author: author || 'unknown',
+      artist: artist || null,
+      genres: genres || null,
+      tags: tags || null,
+      status: status || null,
+      totalPages: totalPages || 0,
+    };
+    // Keep the existing cover when the refreshed download fails; writing
+    // `cover: null` here silently erased it on every transient network error.
+    if (cover) {
+      updateData.cover = cover;
+    }
+
     await dbManager.write(async tx => {
       await tx
         .update(novelSchema)
-        .set({
-          name,
-          cover: cover || null,
-          summary: summary || null,
-          author: author || 'unknown',
-          artist: artist || null,
-          genres: genres || null,
-          status: status || null,
-          totalPages: totalPages || 0,
-        })
+        .set(updateData)
         .where(eq(novelSchema.id, novelId))
         .run();
     });

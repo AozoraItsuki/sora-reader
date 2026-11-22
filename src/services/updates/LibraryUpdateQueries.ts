@@ -1,5 +1,5 @@
 import { dbManager } from '@database/db';
-import { chapterSchema, novelSchema } from '@database/schema';
+import { chapterSchema, novelSchema, type NovelInsert } from '@database/schema';
 import { NOVEL_UPDATE_RANDOM_KEY } from '@hooks/persisted/useUpdates';
 import { getPlugin, LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { ChapterItem, SourceNovel } from '@plugins/types';
@@ -44,20 +44,26 @@ const updateNovelMetadata = async (
     }
   }
 
+  const updateData: Partial<NovelInsert> = {
+    name,
+    summary: summary || null,
+    author: author || 'unknown',
+    artist: artist || null,
+    genres: genres || null,
+    tags: tags || null,
+    status: status || null,
+    totalPages: totalPages || 0,
+  };
+  // A failed cover fetch must not wipe the cover already stored for this
+  // novel — only include the field when a fresh file was written.
+  if (cover) {
+    updateData.cover = cover;
+  }
+
   await dbManager.write(async tx => {
     await tx
       .update(novelSchema)
-      .set({
-        name,
-        cover: cover || null,
-        summary: summary || null,
-        author: author || 'unknown',
-        artist: artist || null,
-        genres: genres || null,
-        tags: tags || null,
-        status: status || null,
-        totalPages: totalPages || 0,
-      })
+      .set(updateData)
       .where(eq(novelSchema.id, novelId))
       .run();
   });

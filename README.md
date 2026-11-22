@@ -32,10 +32,27 @@ Prerequisites: Node 22, pnpm 10, Java 17, Android SDK (compileSdk 36, build-tool
 pnpm install
 pnpm run generate:env:debug
 pnpm rock run:android --app-id-suffix "debug" --active-arch-only   # dev
-pnpm rock build:android --variant release                          # release APK
+pnpm rock build:android --variant debug                            # local debug APK
 ```
 
-CI is manual-only: GitHub Actions (`Build`, workflow_dispatch with variant + ABI selector, per-ABI APKs, Gradle/SDK/pnpm caching) and a Codemagic release workflow. Pushing never triggers a build.
+Releases are built in CI, not locally. `Build` (`.github/workflows/android-build.yml`) is manual-only (`workflow_dispatch` with variant + ABI selector, per-ABI APKs, Gradle/SDK/pnpm caching); pushing never triggers a build. The release build verifies the signing keystore before compiling and attaches its tag to the exact commit that produced the APKs:
+
+```sh
+# Requires the repository secrets KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD.
+gh workflow run android-build.yml --ref <branch> -f variant=release -f arch=all
+gh run list --workflow=android-build.yml --limit 3
+```
+
+`arch=all` produces `app-arm64-v8a-release.apk` and `app-armeabi-v7a-release.apk`, uploaded both as workflow artifacts and as assets on a `build-<run number>` GitHub release. Use `arch=arm64-v8a` or `arch=armeabi-v7a` for a single ABI. Debug builds need no signing secrets.
+
+A local release build is possible but requires all four signing variables to be exported (`KEYSTORE_FILE` pointing at a keystore, plus `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`); Gradle now fails fast instead of silently signing with the debug key:
+
+```sh
+KEYSTORE_FILE=/path/to/release.keystore KEYSTORE_PASSWORD=... KEY_ALIAS=... KEY_PASSWORD=... \
+  pnpm rock build:android --variant release
+```
+
+Codemagic remains an alternate release path. `Native Android Build` builds the experimental Kotlin/Compose scaffold; its release artifact is explicitly marked `-unsigned` and is for verification only.
 
 Useful scripts: `pnpm jest` (tests), `pnpm run type-check` (`tsc --noEmit`), `pnpm run lint`, `pnpm run format:check`, `pnpm run generate:string-types`.
 

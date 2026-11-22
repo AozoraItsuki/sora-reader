@@ -93,6 +93,25 @@ def ciBuildOffset = (ciBuildNumberRaw ==~ /\d+/) ? ciBuildNumberRaw.toInteger() 
 def baseVersionCode = (((versionMajor << 10) | versionMinor) << 11) | versionPatch
 def fullVersionName = "$versionMajor.$versionMinor.$versionPatch" + (ciBuildOffset > 0 ? "-ci.$ciBuildNumberRaw" : "")
 
+// A "release" APK signed with the public debug key can never update a real
+// install. Fail before doing any work when release tasks are requested without
+// signing env. Checking the task graph (instead of the buildTypes block)
+// keeps debug builds — which Gradle configures alongside release — working.
+gradle.taskGraph.whenReady { graph ->
+    def wantsRelease = graph.allTasks.any { task ->
+        def name = task.name.toLowerCase(java.util.Locale.ROOT)
+        name.contains('release') && !name.contains('prerelease')
+    }
+    if (wantsRelease) {
+        ['KEYSTORE_FILE', 'KEYSTORE_PASSWORD', 'KEY_ALIAS', 'KEY_PASSWORD'].each { key ->
+            if (!System.getenv(key)) {
+                throw new GradleException(
+                    "Release builds require ${key}. Set KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD (CI reads them from secrets).")
+            }
+        }
+    }
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion

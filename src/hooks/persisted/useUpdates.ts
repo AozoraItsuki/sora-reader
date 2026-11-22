@@ -45,35 +45,42 @@ export const useUpdates = () => {
       onlyDownloadedChapters: boolean = false,
     ) => {
       setIsLoading(true);
-
-      let result: Update[] = await getDetailedUpdatesFromDb(
-        novelId,
-        updateDate,
-        onlyDownloadedChapters,
-      );
-      result = result.map(update => {
-        const parsedTime = dayjs(update.releaseTime);
-        return {
-          ...update,
-          releaseTime: parsedTime.isValid()
-            ? parsedTime.format('LL')
-            : update.releaseTime,
-        };
-      });
-      setIsLoading(false);
-      return result;
+      try {
+        let result: Update[] = await getDetailedUpdatesFromDb(
+          novelId,
+          updateDate,
+          onlyDownloadedChapters,
+        );
+        result = result.map(update => {
+          const parsedTime = dayjs(update.releaseTime);
+          return {
+            ...update,
+            releaseTime: parsedTime.isValid()
+              ? parsedTime.format('LL')
+              : update.releaseTime,
+          };
+        });
+        return result;
+      } catch (err: any) {
+        setError(err?.message ?? String(err));
+        return [];
+      } finally {
+        setIsLoading(false);
+      }
     },
     [],
   );
 
   const getUpdates = useCallback(async () => {
     setIsLoading(true);
-    getUpdatedOverviewFromDb()
-      .then(res => {
-        setUpdatesOverview(res);
-      })
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setIsLoading(false));
+    try {
+      const res = await getUpdatedOverviewFromDb();
+      setUpdatesOverview(res);
+    } catch (err: any) {
+      setError(err?.message ?? String(err));
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {

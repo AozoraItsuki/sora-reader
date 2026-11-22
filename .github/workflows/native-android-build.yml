@@ -69,9 +69,10 @@ jobs:
         if: env.VARIANT == 'release'
         run: ./gradlew :app:assembleRelease --stacktrace
 
+      # This scaffold's release APK is unsigned and intended for build verification only, not distribution.
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sorareader-native-${{ env.VARIANT }}-${{ github.run_number }}
+          name: sorareader-native-${{ env.VARIANT }}${{ env.VARIANT == 'release' && '-unsigned' || '' }}-${{ github.run_number }}
           path: native-android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
