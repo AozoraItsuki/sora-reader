@@ -278,6 +278,16 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         --reader-termPatch: ${theme.isDark ? '#8fd694' : '#2e7d32'};
       }
 
+      /* Toggled by appendChapter() only around the synchronous insert of a new
+         block. Suppressing smooth scrolling/animations for that window keeps
+         term marks at the viewport edge from blinking while nodes mount. */
+      html.sora-append-in-progress,
+      html.sora-append-in-progress * {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+      }
+
       img {
         max-width: 100%;
         height: auto;
@@ -667,16 +677,31 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
         var readerUi = document.getElementById('reader-ui');
         if (!readerUi) return;
         // Appending below the viewport must not move what the reader is looking
-        // at, so the scroll offset is captured and restored around the insert
-        // ('instant' opts out of the CSS smooth scrolling on <html>).
+        // at, so the scroll offset is captured and restored around the insert.
         var scrollBefore = window.scrollY || 0;
-        var div = document.createElement('div');
-        div.innerHTML = html;
-        while (div.firstChild) {
-          readerUi.parentNode.insertBefore(div.firstChild, readerUi);
+
+        // Parse into a detached fragment first: the document then sees ONE
+        // insertion instead of a relayout per child node.
+        var holder = document.createElement('div');
+        holder.innerHTML = html;
+        var fragment = document.createDocumentFragment();
+        while (holder.firstChild) {
+          fragment.appendChild(holder.firstChild);
         }
-        if ((window.scrollY || 0) !== scrollBefore) {
-          window.scrollTo({ top: scrollBefore, behavior: 'instant' });
+
+        // The generated CSS sets scroll-behavior: smooth on <html>, which can
+        // animate the scroll restore and make highlights flicker at the edge.
+        // The class is added and removed in the same synchronous task, so no
+        // intermediate frame is ever painted with the suppression active.
+        var root = document.documentElement;
+        root.classList.add('sora-append-in-progress');
+        try {
+          readerUi.parentNode.insertBefore(fragment, readerUi);
+          if ((window.scrollY || 0) !== scrollBefore) {
+            window.scrollTo({ top: scrollBefore, behavior: 'instant' });
+          }
+        } finally {
+          root.classList.remove('sora-append-in-progress');
         }
         _isNearBottomPosted = false;
         updateProgressBar();

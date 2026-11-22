@@ -10,9 +10,18 @@
  * Kept out of `NovelCover.tsx` so the path logic can be tested without pulling
  * in the component's theme, list and navigation dependencies.
  */
+import { getUserAgent } from '@hooks/persisted/useUserAgent';
+import { defaultCover } from '@plugins/helpers/constants';
+import type { ImageRequestInit } from '@plugins/types';
 import { getDirectRootAbsolute } from '@services/saf/safFile';
 import NativeFile from '@specs/NativeFile';
-import { coverRel, isAbsoluteUri } from '@utils/DownloadPaths';
+import {
+  coverRel,
+  isAbsoluteUri,
+  resolveDownloadUrl,
+} from '@utils/DownloadPaths';
+import { useMemo, useState } from 'react';
+import type { ImageSourcePropType } from 'react-native';
 
 /** The novel identity a downloaded cover is filed under. */
 export interface LocalCoverSource {
@@ -140,4 +149,85 @@ export const localCoverFileUri = (
     }
   }
   return uri;
+};
+
+/** RN `<Image>` source for a novel cover, plus the handler to attach to it. */
+export interface NovelCoverImageSource {
+  source: ImageSourcePropType;
+  /** Drops a stale on-disk answer so a later render re-probes the filesystem. */
+  onError?: () => void;
+}
+
+export interface NovelCoverImageOptions {
+  /** Plugin request init; its headers win over the default User-Agent. */
+  imageRequestInit?: ImageRequestInit;
+  /** A local uri that already failed to load, so the fallback is used instead. */
+  brokenLocalUri?: string | null;
+}
+
+export interface ResolvedNovelCover extends NovelCoverImageSource {
+  /** The on-disk uri actually used, or null when a fallback was chosen. */
+  localUri: string | null;
+}
+
+const isRemoteHttpUri = (uri: string): boolean => /^https?:\/\//i.test(uri);
+
+/**
+ * Synchronous, disk-first cover resolution shared by every cover thumbnail.
+ *
+ * A tree-relative cover is not an Image uri: while the local server is down
+ * `resolveDownloadUrl` returns it unchanged, which produced blank covers. Only
+ * an absolute served/remote url is accepted — otherwise the placeholder wins.
+ */
+export const novelCoverImageSource = (
+  cover: string | null | undefined,
+  source: LocalCoverSource | null,
+  options: NovelCoverImageOptions = {},
+): ResolvedNovelCover => {
+  const localUri = localCoverFileUri(cover, source);
+  const useLocal = localUri !== null && localUri !== options.brokenLocalUri;
+  const servedUri = resolveDownloadUrl(cover);
+  const uri = useLocal
+    ? localUri
+    : servedUri && isAbsoluteUri(servedUri)
+    ? servedUri
+    : defaultCover;
+  const headers =
+    options.imageRequestInit?.headers ??
+    (isRemoteHttpUri(uri) ? { 'User-Agent': getUserAgent() } : undefined);
+  return {
+    source: { uri, ...(headers ? { headers } : {}) },
+    localUri: useLocal ? localUri : null,
+    onError: useLocal ? () => invalidateLocalCoverUri(source) : undefined,
+  };
+};
+
+/**
+ * Hook wrapper: after a bad local file, retry with the served/remote fallback.
+ * The retry flag is plain React state, so first paint is never delayed.
+ */
+export const useNovelCoverImageSource = (
+  cover: string | null | undefined,
+  source: LocalCoverSource | null,
+  imageRequestInit?: ImageRequestInit,
+): NovelCoverImageSource => {
+  const [brokenLocalUri, setBrokenLocalUri] = useState<string | null>(null);
+  const pluginId = source?.pluginId;
+  const novelId = source?.novelId;
+  const resolved = useMemo(
+    () =>
+      novelCoverImageSource(
+        cover,
+        pluginId && novelId !== undefined ? { pluginId, novelId } : null,
+        { imageRequestInit, brokenLocalUri },
+      ),
+    [cover, pluginId, novelId, imageRequestInit, brokenLocalUri],
+  );
+  const onError = resolved.onError
+    ? () => {
+        resolved.onError?.();
+        setBrokenLocalUri(resolved.localUri);
+      }
+    : undefined;
+  return { source: resolved.source, onError };
 };

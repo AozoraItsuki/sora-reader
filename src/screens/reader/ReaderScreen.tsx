@@ -5,7 +5,10 @@ import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
 import { ChapterScreenProps } from '@navigators/types';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { getString } from '@strings/translations';
-import { buildApplyTermsJs, getAllTermsForNovel } from '@utils/readerTerms';
+import {
+  buildApplyTermsJs,
+  refreshAllTermsForNovel,
+} from '@utils/readerTerms';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
@@ -109,7 +112,9 @@ export const ChapterContent = ({
 
   const applyTermsToWebView = useCallback(() => {
     const novelId = ctxNovel?.id ?? 0;
-    const terms = getAllTermsForNovel(novelId);
+    // A term edit must use a fresh snapshot; this also invalidates the cache
+    // shared with initial HTML generation and infinite-scroll appends.
+    const terms = refreshAllTermsForNovel(novelId);
     const js = buildApplyTermsJs(terms);
     webViewRef?.current?.injectJavaScript(js);
   }, [ctxNovel?.id, webViewRef]);

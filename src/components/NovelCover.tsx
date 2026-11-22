@@ -1,16 +1,13 @@
 import { DBNovelInfo, NovelInfo } from '@database/types';
 import { useDeviceOrientation } from '@hooks';
 import { useLibrarySettings } from '@hooks/persisted';
-import { getUserAgent } from '@hooks/persisted/useUserAgent';
-import { defaultCover } from '@plugins/helpers/constants';
 import { ImageRequestInit, NovelItem } from '@plugins/types';
 import SourceScreenSkeletonLoading from '@screens/browse/loadingAnimation/SourceScreenSkeletonLoading';
 import { DisplayModes } from '@screens/library/constants/constants';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
-import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo } from 'react';
 import {
   Image,
   Pressable,
@@ -24,9 +21,8 @@ import { ActivityIndicator } from 'react-native-paper';
 import { coverPlaceholderColor } from '../theme/colors';
 import ListView from './ListView';
 import {
-  invalidateLocalCoverUri,
-  localCoverFileUri,
   type LocalCoverSource,
+  useNovelCoverImageSource,
 } from './novelCoverUri';
 
 interface UnreadBadgeProps {
@@ -188,34 +184,15 @@ function NovelCover<
 
   const selectNovel = () => onLongPress(item);
 
-  // A cover already on disk is cheaper and survives a local server that has not
-  // finished starting; the served/remote url stays as the fallback. `brokenLocal`
-  // holds the uri that failed, so the fallback only kicks in for that one and
-  // resets by itself when the row changes.
-  const localUri = localCoverFileUri(item.cover, localCoverSource(item));
-  const [brokenLocal, setBrokenLocal] = useState<string | null>(null);
-  const useLocal = localUri !== null && localUri !== brokenLocal;
-  const uri = useLocal
-    ? localUri
-    : resolveDownloadUrl(item.cover) || defaultCover;
-  const handleCoverError = useLocal
-    ? () => {
-        // A cached hit can go stale if the file was replaced or removed after
-        // it was resolved; drop it so the next render re-probes the disk.
-        invalidateLocalCoverUri(localCoverSource(item));
-        setBrokenLocal(localUri);
-      }
-    : undefined;
-  const requestInit = useMemo(() => {
-    const init = imageRequestInit || ({} as ImageRequestInit);
-    if (init.headers) {
-      return init;
-    }
-    return {
-      ...init,
-      headers: { 'User-Agent': getUserAgent() },
-    };
-  }, [imageRequestInit]);
+  // Shared disk-first resolution: a cover already on disk survives a local
+  // server that has not finished starting; the served/remote url and the
+  // placeholder are the fallbacks. Failed local uris invalidate the cache and
+  // retry through the fallback, as before.
+  const coverImage = useNovelCoverImageSource(
+    item.cover,
+    localCoverSource(item),
+    imageRequestInit,
+  );
 
   if (item.completeRow) {
     if (!addSkeletonLoading) {
@@ -282,8 +259,8 @@ function NovelCover<
           {inActivity ? <InActivityBadge theme={theme} /> : null}
         </View>
         <Image
-          source={{ uri, ...requestInit }}
-          onError={handleCoverError}
+          source={coverImage.source}
+          onError={coverImage.onError}
           style={[
             {
               height: coverHeight,

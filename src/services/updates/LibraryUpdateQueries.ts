@@ -1,5 +1,9 @@
+import {
+  clearLocalCoverUriCache,
+  invalidateLocalCoverUri,
+} from '@components/novelCoverUri';
 import { dbManager } from '@database/db';
-import { chapterSchema, novelSchema, type NovelInsert } from '@database/schema';
+import { chapterSchema, type NovelInsert,novelSchema } from '@database/schema';
 import { NOVEL_UPDATE_RANDOM_KEY } from '@hooks/persisted/useUpdates';
 import { getPlugin, LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { ChapterItem, SourceNovel } from '@plugins/types';
@@ -37,6 +41,9 @@ const updateNovelMetadata = async (
         novelCoverRel,
         getPlugin(pluginId)?.imageRequestInit,
       );
+      // The cover cache stores misses too; a newly written file must be
+      // re-probed instead of reusing the earlier "no file" answer.
+      invalidateLocalCoverUri({ pluginId, novelId });
       cover = `${novelCoverRel}?${Date.now()}`;
     } catch {
       // If download fails, we fallback to what was there or null
@@ -435,6 +442,10 @@ export const reloadAllLibraryNovels = async (
     .from(novelSchema)
     .where(and(eq(novelSchema.inLibrary, true), ne(novelSchema.pluginId, LOCAL_PLUGIN_ID)))
     .all();
+
+  // Existing bulk-refresh hook: covers for the whole library are rewritten, so
+  // every cached local-cover answer (including misses) must be re-probed.
+  clearLocalCoverUriCache();
 
   let success = 0;
   let failed = 0;

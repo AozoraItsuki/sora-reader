@@ -1,11 +1,16 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import NovelScreenList from '../NovelScreenList';
 
 const mockUseNovelValue = jest.fn();
 const mockUseNovelActions = jest.fn();
 const mockDownloadChapter = jest.fn();
+const mockGetChapter = jest.fn();
 let mockDownloadingChapterIds = new Set<number>();
+
+jest.mock('@database/queries/ChapterQueries', () => ({
+  getChapter: (...args: any[]) => mockGetChapter(...args),
+}));
 
 jest.mock('../../NovelContext', () => ({
   useNovelValue: (key: string) => mockUseNovelValue(key),
@@ -270,6 +275,7 @@ describe('NovelScreenList (task 12 context boundary cutover)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDownloadingChapterIds = new Set<number>();
+    mockGetChapter.mockResolvedValue({ ...baseChapter, isDownloaded: true });
   });
 
   it('uses novelStore selector actions', () => {
@@ -283,7 +289,7 @@ describe('NovelScreenList (task 12 context boundary cutover)', () => {
     expect(store.state.deleteChapter).toHaveBeenCalledTimes(1);
   });
 
-  it('marks downloaded chapter when an id leaves downloading set', () => {
+  it('marks downloaded chapter when the DB confirms a finished download', async () => {
     const store = createStore();
 
     mockDownloadingChapterIds = new Set<number>([1]);
@@ -307,9 +313,14 @@ describe('NovelScreenList (task 12 context boundary cutover)', () => {
       />,
     );
 
-    expect(store.state.updateChapter).toHaveBeenCalledWith(0, {
-      isDownloaded: true,
-    });
+    await waitFor(() =>
+      expect(mockGetChapter).toHaveBeenCalledWith(baseChapter.id),
+    );
+    await waitFor(() =>
+      expect(store.state.updateChapter).toHaveBeenCalledWith(0, {
+        isDownloaded: true,
+      }),
+    );
   });
 
   it('uses selector-backed page navigation action from novelStore', () => {

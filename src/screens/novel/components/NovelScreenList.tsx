@@ -1,4 +1,5 @@
 import { ChapterListSkeleton } from '@components/Skeleton/Skeleton';
+import { getChapter } from '@database/queries/ChapterQueries';
 import { pickCustomNovelCover } from '@database/queries/NovelQueries';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
@@ -113,7 +114,8 @@ const NovelScreenList = ({
   const { downloadingChapterIds, downloadChapter, cancelChapterDownload } =
     useDownload();
 
-  // Mark chapters as downloaded when their download completes
+  // Queue removal only means the task ended — it can also be a failure or a
+  // cancel. Confirm the persisted flag before reflecting success in the list.
   const prevDownloadingRef = useRef(downloadingChapterIds);
   useEffect(() => {
     const prev = prevDownloadingRef.current;
@@ -121,14 +123,29 @@ const NovelScreenList = ({
     if (prev === downloadingChapterIds) {
       return;
     }
-    for (const id of prev) {
-      if (!downloadingChapterIds.has(id)) {
-        const index = chapters.findIndex(c => c.id === id);
-        if (index !== -1) {
-          updateChapter(index, { isDownloaded: true });
+    let cancelled = false;
+    void (async () => {
+      for (const id of prev) {
+        if (downloadingChapterIds.has(id)) {
+          continue;
+        }
+        try {
+          const persisted = await getChapter(id);
+          if (cancelled || !persisted?.isDownloaded) {
+            continue;
+          }
+          const index = chapters.findIndex(c => c.id === id);
+          if (index !== -1) {
+            updateChapter(index, { isDownloaded: true });
+          }
+        } catch {
+          // A failed flag read must never be treated as a successful download.
         }
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [downloadingChapterIds, chapters, updateChapter]);
 
   const [isFabExtended, setIsFabExtended] = useState(true);

@@ -1,12 +1,11 @@
 import { IconButtonV2 } from '@components';
+import { useNovelCoverImageSource } from '@components/novelCoverUri';
 import { History, NovelInfo } from '@database/types';
 import { useTheme } from '@hooks/persisted';
 import { HistoryScreenProps } from '@navigators/types';
-import { defaultCover } from '@plugins/helpers/constants';
 import { LOCAL_PLUGIN_ID } from '@plugins/pluginManager';
 import { useNavigation } from '@react-navigation/native';
 import { coverPlaceholderColor } from '@theme/colors';
-import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import Color from 'color';
 import dayjs from 'dayjs';
 import React from 'react';
@@ -25,6 +24,13 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   const { navigate } = useNavigation<HistoryScreenProps['navigation']>();
 
   const progress = history.progress ?? 0;
+
+  const coverImage = useNovelCoverImageSource(
+    history.novelCover,
+    history.pluginId
+      ? { pluginId: history.pluginId, novelId: history.novelId }
+      : null,
+  );
 
   const navigateToReader = () =>
     navigate('ReaderStack', {
@@ -53,35 +59,58 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
       },
     });
 
-  const cardBg = Color(theme.surfaceVariant).alpha(0.45).string();
-  const progressBarBg = Color(theme.onSurface).alpha(0.08).string();
+  const cardBg = Color(theme.surfaceVariant).alpha(0.55).string();
+  const cardBorder = Color(theme.onSurface)
+    .alpha(theme.isDark ? 0.1 : 0.07)
+    .string();
+  const coverBorder = Color(theme.onSurface).alpha(0.14).string();
+  const coverScrim = Color(theme.scrim).alpha(0.4).string();
+  // Light track over the dark cover scrim in both themes.
+  const progressBarBg = Color(theme.isDark ? theme.onSurface : theme.surface)
+    .alpha(0.35)
+    .string();
   const progressBarFill = theme.primary;
 
   return (
     <Pressable
-      style={[styles.container, { backgroundColor: cardBg }]}
+      style={[
+        styles.container,
+        { backgroundColor: cardBg, borderColor: cardBorder },
+      ]}
       android_ripple={{ color: theme.rippleColor }}
       onPress={navigateToReader}
     >
-      <Pressable onPress={navigateToNovel} style={styles.coverWrapper}>
+      <Pressable
+        onPress={navigateToNovel}
+        style={[styles.coverWrapper, { borderColor: coverBorder }]}
+      >
         <Image
-          source={{ uri: resolveDownloadUrl(history.novelCover) || defaultCover }}
+          source={coverImage.source}
+          onError={coverImage.onError}
           style={styles.cover}
         />
         {progress > 0 && (
-          <View
-            style={[styles.progressBarTrack, { backgroundColor: progressBarBg }]}
-          >
+          <>
+            <View
+              style={[styles.coverScrim, { backgroundColor: coverScrim }]}
+            />
             <View
               style={[
-                styles.progressBarFill,
-                {
-                  backgroundColor: progressBarFill,
-                  width: `${Math.min(progress, 100)}%`,
-                },
+                styles.progressBarTrack,
+                { backgroundColor: progressBarBg },
               ]}
-            />
-          </View>
+            >
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    backgroundColor: progressBarFill,
+                    width: `${Math.min(progress, 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+          </>
         )}
       </Pressable>
 
@@ -117,6 +146,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 
       <IconButtonV2
         name="delete-outline"
+        color={theme.onSurfaceVariant}
         theme={theme}
         onPress={() => handleRemoveFromHistory(history.id)}
       />
@@ -129,7 +159,9 @@ export default HistoryCard;
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    elevation: 2,
     flexDirection: 'row',
     marginHorizontal: 12,
     marginVertical: 4,
@@ -139,19 +171,28 @@ const styles = StyleSheet.create({
   },
   cover: {
     backgroundColor: coverPlaceholderColor,
-    borderRadius: 8,
+    borderRadius: 10,
     height: 80,
     width: 56,
   },
+  coverScrim: {
+    bottom: 0,
+    height: 28,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
   coverWrapper: {
-    borderRadius: 8,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   chapterName: {
     fontSize: 12,
     fontWeight: '600',
+    includeFontPadding: false,
     marginBottom: 6,
-    marginTop: 2,
+    marginTop: 3,
   },
   detailsContainer: {
     flex: 1,
@@ -170,21 +211,24 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
+    includeFontPadding: false,
+    letterSpacing: 0.2,
   },
   novelName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    lineHeight: 18,
+    includeFontPadding: false,
+    lineHeight: 19,
   },
   progressBarFill: {
-    borderRadius: 1,
+    borderRadius: 2,
     height: '100%',
   },
   progressBarTrack: {
-    borderRadius: 1,
+    borderRadius: 2,
     bottom: 0,
-    height: 3,
+    height: 4,
     left: 0,
     position: 'absolute',
     right: 0,

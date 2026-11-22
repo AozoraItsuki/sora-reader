@@ -1,3 +1,4 @@
+import { useNovelCoverImageSource } from '@components/novelCoverUri';
 import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
 import { ChapterScreenProps } from '@navigators/types';
 import {
@@ -7,7 +8,6 @@ import {
 } from '@screens/novel/NovelContext';
 import { getString } from '@strings/translations';
 import { StringMap } from '@strings/types';
-import { resolveDownloadUrl } from '@utils/DownloadPaths';
 import color from 'color';
 import React, { useMemo, useState } from 'react';
 import {
@@ -83,6 +83,12 @@ const ChapterFooter = ({
     hideHeader,
   } = useChapterContext();
   const theme = useTheme();
+  // Resolved at the component level (not inside renderTabContent) so the hook
+  // keeps a stable position; an empty cover still renders the placeholder.
+  const coverImage = useNovelCoverImageSource(
+    novel.cover,
+    novel.pluginId ? { pluginId: novel.pluginId, novelId: novel.id } : null,
+  );
   const { navigationBarHeight } = useNovelLayout();
   const { followNovel } = useNovelActions();
   const { setChapterGeneralSettings, ...generalSettings } =
@@ -155,6 +161,16 @@ const ChapterFooter = ({
 
   const dividerColor = color(theme.onSurface).alpha(0.12).string();
   const cardBg = color(theme.surfaceVariant).alpha(0.8).string();
+  const navActiveBg = color(theme.primary)
+    .alpha(theme.isDark ? 0.18 : 0.12)
+    .string();
+  const navActiveBorder = color(theme.primary).alpha(0.35).string();
+  const navDisabledBg = color(theme.surfaceVariant).alpha(0.45).string();
+  const activeTabBg = color(theme.primary)
+    .alpha(theme.isDark ? 0.16 : 0.1)
+    .string();
+  const coverBorder = color(theme.onSurface).alpha(0.16).string();
+  const coverScrim = color(theme.scrim).alpha(0.18).string();
 
   const toggleSetting = (key: string) => {
     setChapterGeneralSettings({ [key]: !(generalSettings as any)[key] });
@@ -174,16 +190,29 @@ const ChapterFooter = ({
                 android_ripple={rippleConfig}
                 style={[
                   styles.navBtn,
-                  {
-                    backgroundColor: cardBg,
-                    borderColor: dividerColor,
-                    opacity: prevChapter ? 1 : 0.4,
-                  },
+                  prevChapter
+                    ? {
+                        backgroundColor: navActiveBg,
+                        borderColor: navActiveBorder,
+                      }
+                    : {
+                        backgroundColor: navDisabledBg,
+                        borderColor: dividerColor,
+                      },
                 ]}
                 onPress={() => navigateChapter('PREV')}
                 disabled={!prevChapter}
               >
-                <Text style={[styles.navBtnText, { color: theme.onSurface }]}>
+                <Text
+                  style={[
+                    styles.navBtnText,
+                    {
+                      color: prevChapter
+                        ? theme.primary
+                        : theme.onSurfaceDisabled,
+                    },
+                  ]}
+                >
                   {'< Prev'}
                 </Text>
               </Pressable>
@@ -228,16 +257,29 @@ const ChapterFooter = ({
                 android_ripple={rippleConfig}
                 style={[
                   styles.navBtn,
-                  {
-                    backgroundColor: cardBg,
-                    borderColor: dividerColor,
-                    opacity: nextChapter ? 1 : 0.4,
-                  },
+                  nextChapter
+                    ? {
+                        backgroundColor: navActiveBg,
+                        borderColor: navActiveBorder,
+                      }
+                    : {
+                        backgroundColor: navDisabledBg,
+                        borderColor: dividerColor,
+                      },
                 ]}
                 onPress={() => navigateChapter('NEXT')}
                 disabled={!nextChapter}
               >
-                <Text style={[styles.navBtnText, { color: theme.onSurface }]}>
+                <Text
+                  style={[
+                    styles.navBtnText,
+                    {
+                      color: nextChapter
+                        ? theme.primary
+                        : theme.onSurfaceDisabled,
+                    },
+                  ]}
+                >
                   {'Next >'}
                 </Text>
               </Pressable>
@@ -281,13 +323,17 @@ const ChapterFooter = ({
                 }
                 activeOpacity={0.75}
               >
-                {novel.cover ? (
+                <View style={[styles.coverFrame, { borderColor: coverBorder }]}>
                   <Image
-                    source={{ uri: resolveDownloadUrl(novel.cover) }}
+                    source={coverImage.source}
+                    onError={coverImage.onError}
                     style={styles.novelCover}
                     resizeMode="cover"
                   />
-                ) : null}
+                  <View
+                    style={[styles.coverScrim, { backgroundColor: coverScrim }]}
+                  />
+                </View>
                 <View style={styles.novelTextWrap}>
                   <Text
                     style={[
@@ -390,7 +436,7 @@ const ChapterFooter = ({
               unit="px"
             />
             <ReaderFontPicker />
-            <View style={{ height: 8 }} />
+            <View style={styles.scrollSpacer} />
           </ScrollView>
         );
 
@@ -426,7 +472,7 @@ const ChapterFooter = ({
                 />
               </Pressable>
             ))}
-            <View style={{ height: 8 }} />
+            <View style={styles.scrollSpacer} />
           </ScrollView>
         );
 
@@ -475,7 +521,13 @@ const ChapterFooter = ({
             return (
               <TouchableOpacity
                 key={tab.key}
-                style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+                style={[
+                  styles.tabBtn,
+                  isActive && [
+                    styles.tabBtnActive,
+                    { backgroundColor: activeTabBg },
+                  ],
+                ]}
                 onPress={() => {
                   setActiveTab(tab.key as TabKey);
                 }}
@@ -535,11 +587,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   navBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
     borderWidth: 1,
-    minWidth: 80,
+    minWidth: 84,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -555,6 +607,8 @@ const styles = StyleSheet.create({
   chapterPositionBig: {
     fontSize: 16,
     fontWeight: '700',
+    includeFontPadding: false,
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
   chapterPercentSub: {
@@ -579,9 +633,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     gap: 8,
   },
@@ -593,10 +647,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
+  coverFrame: {
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 38,
+    overflow: 'hidden',
+    width: 28,
+  },
+  coverScrim: {
+    bottom: 0,
+    height: '40%',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
   novelCover: {
     width: 28,
     height: 38,
-    borderRadius: 3,
+    borderRadius: 6,
   },
   novelTextWrap: {
     flex: 1,
@@ -616,6 +684,9 @@ const styles = StyleSheet.create({
   tabScrollContent: {
     maxHeight: 280,
     paddingVertical: 4,
+  },
+  scrollSpacer: {
+    height: 8,
   },
   tabFixedContent: {
     height: 280,
@@ -640,6 +711,9 @@ const styles = StyleSheet.create({
   tabBtn: {
     flex: 1,
     alignItems: 'center',
+    borderRadius: 10,
+    justifyContent: 'center',
+    minHeight: 44,
     paddingVertical: 6,
     position: 'relative',
   },

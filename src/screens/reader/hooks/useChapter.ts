@@ -84,15 +84,24 @@ const sPenEmitter = NativeSPenRemote
  * keep resolving their downloads. Readiness is re-probed rather than read from
  * the cache, because a read on the first frames after boot would otherwise skip
  * the tree, miss the legacy path too, and fall through to a source fetch that
- * fails with no network. Returns `null` when the chapter is not downloaded at
- * all, so the caller can fall back to the source.
+ * fails with no network. Returns `null` when the chapter is not usable at all
+ * — missing or zero-length/whitespace-only content, e.g. a partial or failed
+ * download — so the caller falls back to the source instead of rendering blank.
  */
+const usableText = (content: string | null | undefined): string | null =>
+  typeof content === 'string' && content.trim().length > 0 ? content : null;
+
 const readDownloadedChapter = async (
   relativePath: string,
 ): Promise<string | null> => {
   if (isSafReady() || probeDirectStorage()) {
     try {
-      return await safReadFile(relativePath);
+      const fromTree = usableText(await safReadFile(relativePath));
+      if (fromTree !== null) {
+        return fromTree;
+      }
+      // An empty/whitespace index.html is a broken download: fall through to
+      // the legacy location and then the source rather than showing a blank.
     } catch {
       // Permission can be revoked while the app is running; the legacy path
       // below is the last resort.
@@ -100,7 +109,10 @@ const readDownloadedChapter = async (
   }
 
   const legacyPath = legacyDownloadPath(relativePath);
-  return NativeFile.exists(legacyPath) ? NativeFile.readFile(legacyPath) : null;
+  if (!NativeFile.exists(legacyPath)) {
+    return null;
+  }
+  return usableText(NativeFile.readFile(legacyPath));
 };
 
 export default function useChapter(

@@ -190,6 +190,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   const ttsQueueRef = useRef<string[]>([]);
   const ttsQueueIndexRef = useRef<number>(0);
 
+  // One stable term snapshot per novel, shared by the initial document build and
+  // every infinite-scroll append. readerTerms caches by novel id and invalidates
+  // on term writes, so edits refresh both paths without reloading the WebView.
+  const novelId = novel?.id ?? 0;
+  const getTermsForNovel = useCallback(
+    () => getAllTermsForNovel(novelId),
+    [novelId],
+  );
+
   // --- Infinite scroll ---
   const infiniteNextChapterRef = useRef<ChapterInfo | undefined>(undefined);
   const isAppendingRef = useRef(false);
@@ -255,7 +264,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         rearmNearBottom();
         return;
       }
-      const terms = getAllTermsForNovel(novel.id ?? 0);
+      const terms = getTermsForNovel();
       const processedHtml =
         terms.length > 0 ? applyTermsToHtml(chapHtml, terms) : chapHtml;
       // The appended document inherits the current chapter's base URL, so
@@ -307,6 +316,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     webViewRef,
     rearmNearBottom,
     showAppendStatus,
+    getTermsForNovel,
   ]);
 
   // --- Reading time tracking ---
@@ -644,7 +654,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
 
   // Compute source data and trigger reload only when truly needed
   useEffect(() => {
-    const terms = getAllTermsForNovel(novel.id ?? 0);
+    const terms = getTermsForNovel();
     const processedHtml =
       terms.length > 0 ? applyTermsToHtml(html, terms) : html;
     const currentGeneralSettings =
@@ -719,6 +729,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     pluginCustomCSS,
     pluginCustomJS,
     webViewRef,
+    getTermsForNovel,
   ]);
 
   // Source only changes when reloadKey changes

@@ -1,9 +1,10 @@
+import { invalidateLocalCoverUri } from '@components/novelCoverUri';
 import { dbManager } from '@database/db';
 import {
   chapterSchema,
   extendedChapterHistorySchema,
-  novelSchema,
   type NovelInsert,
+  novelSchema,
 } from '@database/schema';
 import { LAST_READ_PREFIX } from '@hooks/persisted/useNovel';
 import { getPlugin } from '@plugins/pluginManager';
@@ -67,6 +68,8 @@ export const forceResetNovel = async (
           novelCoverRel,
           getPlugin(pluginId)?.imageRequestInit,
         );
+        // A cached miss would keep the placeholder after a successful rewrite.
+        invalidateLocalCoverUri({ pluginId, novelId });
         cover = `${novelCoverRel}?${Date.now()}`;
       } catch {
         cover = undefined;

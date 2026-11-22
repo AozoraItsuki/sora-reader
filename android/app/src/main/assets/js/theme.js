@@ -50,13 +50,29 @@
 
 // text options
 (() => {
+  // innerHTML is derived ONLY from rawHTML plus these two transforms. General
+  // settings writes (infiniteScroll, fullScreen, pageReader, ...) must not
+  // touch it: rebuilding would wipe the term spans injected at runtime and make
+  // highlights blink. Track just the flags the transform actually depends on.
+  const htmlTransformKey = settings => [
+    settings && settings.bionicReading ? '1' : '0',
+    settings && settings.removeExtraParagraphSpacing ? '1' : '0',
+  ].join('');
+  let lastTransformKey = null;
+
   van.derive(() => {
+    const settings = reader.generalSettings.val;
+    const key = htmlTransformKey(settings);
+    // null means first run: still apply the initial transforms to rawHTML.
+    if (lastTransformKey !== null && key === lastTransformKey) return;
+    lastTransformKey = key;
+
     let html = reader.rawHTML;
-    if (reader.generalSettings.val.bionicReading) {
+    if (settings.bionicReading) {
       html = textVide.textVide(reader.rawHTML);
     }
 
-    if (reader.generalSettings.val.removeExtraParagraphSpacing) {
+    if (settings.removeExtraParagraphSpacing) {
       html = html
         .replace(/(?:&nbsp;\s*|[\u200b]\s*)+(?=<\/?p[> ])/g, '')
         .replace(/<br>\s*<br>\s*(?:<br>\s*)+/g, '<br><br>') //force max 2 consecutive <br>, chaining regex
