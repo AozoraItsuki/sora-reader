@@ -9,6 +9,7 @@ export interface TermDraft {
   from: string;
   to: string;
   caseSensitive: boolean;
+  matchWholeWord?: boolean;
   style?: TermStyle;
 }
 

@@ -40,6 +40,13 @@ const TermRow: React.FC<TermRowProps> = ({
           {term.caseSensitive && (
             <Text style={[styles.badge, { color: theme.primary }]}>Aa</Text>
           )}
+          {term.matchWholeWord && (
+            <Text
+              style={[styles.badge, { color: theme.tertiary || theme.primary }]}
+            >
+              Ww
+            </Text>
+          )}
           {hasStyle(term.style) && (
             <Text style={[styles.badge, { color: theme.primary }]}>*</Text>
           )}

@@ -727,6 +727,8 @@ export interface StringMap {
   'termsSettingsScreen.toLabel': 'string';
   'termsSettingsScreen.toPlaceholder': 'string';
   'termsSettingsScreen.caseSensitive': 'string';
+  'termsSettingsScreen.matchWholeWord': 'string';
+  'termsSettingsScreen.matchWholeWordHint': 'string';
   'termsSettingsScreen.replacementStyle': 'string';
   'termsSettingsScreen.bold': 'string';
   'termsSettingsScreen.italic': 'string';

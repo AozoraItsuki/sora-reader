@@ -101,6 +101,7 @@ const SettingsTermsScreen = ({ navigation }: TermsSettingsScreenProps) => {
       to: draft.to,
       scope,
       caseSensitive: draft.caseSensitive,
+      matchWholeWord: draft.matchWholeWord,
       style: draft.style,
     };
     target.persist(

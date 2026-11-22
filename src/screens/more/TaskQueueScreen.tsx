@@ -3,7 +3,7 @@ import { useTheme } from '@hooks/persisted';
 import { TaskQueueScreenProps } from '@navigators/types';
 import ServiceManager, { QueuedBackgroundTask } from '@services/ServiceManager';
 import { getString } from '@strings/translations';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMMKVObject } from 'react-native-mmkv';
 import {
@@ -23,15 +23,36 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
   const [taskQueue] = useMMKVObject<QueuedBackgroundTask[]>(
     ServiceManager.manager.STORE_KEY,
   );
+
+  // Filter out download tasks - downloads belong to Downloads -> Queue tab
+  const nonDownloadTasks = useMemo(
+    () =>
+      (taskQueue || []).filter(item => item.task?.name !== 'DOWNLOAD_CHAPTER'),
+    [taskQueue],
+  );
+
   const [isRunning, setIsRunning] = useState(ServiceManager.manager.isRunning);
   const [visible, setVisible] = useState(false);
   const openMenu = () => setVisible(true);
   const closeMenu = () => setVisible(false);
+
   useEffect(() => {
-    if (taskQueue?.length === 0) {
+    if (nonDownloadTasks.length === 0) {
       setIsRunning(false);
     }
-  }, [taskQueue]);
+  }, [nonDownloadTasks]);
+
+  const cancelNonDownloadTasks = () => {
+    const list = ServiceManager.manager.getTaskList();
+    for (const item of list) {
+      if (item.task?.name !== 'DOWNLOAD_CHAPTER') {
+        ServiceManager.manager.removeTaskById(item.id);
+      }
+    }
+    setIsRunning(false);
+    showToast(getString('common.cancel'));
+    closeMenu();
+  };
 
   return (
     <SafeAreaView excludeTop>
@@ -44,7 +65,7 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
           visible={visible}
           onDismiss={closeMenu}
           anchor={
-            taskQueue?.length ? (
+            nonDownloadTasks.length ? (
               <MaterialAppbar.Action
                 icon="dots-vertical"
                 iconColor={theme.onSurface}
@@ -55,13 +76,8 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
           contentStyle={{ backgroundColor: overlay(2, theme.surface) }}
         >
           <Menu.Item
-            onPress={() => {
-              ServiceManager.manager.stop();
-              setIsRunning(false);
-              showToast(getString('downloadScreen.cancelled'));
-              closeMenu();
-            }}
-            title={getString('downloadScreen.cancelDownloads')}
+            onPress={cancelNonDownloadTasks}
+            title={getString('common.cancel')}
             titleStyle={{ color: theme.onSurface }}
           />
         </Menu>
@@ -70,13 +86,28 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
       <FlatList
         contentContainerStyle={styles.paddingBottom}
         keyExtractor={(item, index) => 'task_' + index}
-        data={taskQueue || []}
+        data={nonDownloadTasks}
         renderItem={({ item }) => (
-          <View style={styles.taskRow}>
+          <View
+            style={[
+              styles.taskCard,
+              {
+                backgroundColor: theme.surface2 || theme.surface,
+                borderColor: theme.outlineVariant || theme.outline,
+              },
+            ]}
+          >
             <View style={styles.taskInfo}>
-              <Text style={{ color: theme.onSurface }}>{item.meta.name}</Text>
+              <Text style={[styles.taskTitle, { color: theme.onSurface }]}>
+                {item.meta.name}
+              </Text>
               {item.meta.progressText ? (
-                <Text style={{ color: theme.onSurfaceVariant }}>
+                <Text
+                  style={[
+                    styles.taskSubtitle,
+                    { color: theme.onSurfaceVariant },
+                  ]}
+                >
                   {item.meta.progressText}
                 </Text>
               ) : null}
@@ -86,13 +117,20 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
                 }
                 progress={item.meta.progress}
                 color={theme.primary}
-                style={[{ backgroundColor: theme.surface2 }, styles.marginTop]}
+                style={[
+                  styles.progressBar,
+                  { backgroundColor: theme.surfaceVariant },
+                ]}
               />
             </View>
             <Pressable
-              style={[styles.cancelButton]}
+              style={styles.cancelButton}
               onPress={() => ServiceManager.manager.removeTaskById(item.id)}
-              android_ripple={{ color: theme.rippleColor, borderless: true, radius: 20 }}
+              android_ripple={{
+                color: theme.rippleColor,
+                borderless: true,
+                radius: 20,
+              }}
               hitSlop={8}
             >
               <MaterialCommunityIcons
@@ -106,12 +144,12 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
         ListEmptyComponent={
           <EmptyView
             iconName="playlist-check"
-            description={'No running tasks'}
+            description={'No background tasks'}
             theme={theme}
           />
         }
       />
-      {taskQueue && taskQueue.length > 0 ? (
+      {nonDownloadTasks.length > 0 ? (
         <FAB
           style={[
             styles.fab,
@@ -147,17 +185,31 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
   },
-  marginTop: { marginTop: 8 },
-  paddingBottom: { paddingBottom: 100, flexGrow: 1 },
-  taskRow: {
+  paddingBottom: { padding: 12, paddingBottom: 100, flexGrow: 1 },
+  taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    paddingRight: 8,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 8,
   },
   taskInfo: {
     flex: 1,
     marginRight: 8,
+  },
+  taskTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  taskSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  progressBar: {
+    marginTop: 10,
+    borderRadius: 4,
+    height: 4,
   },
   cancelButton: {
     width: 36,

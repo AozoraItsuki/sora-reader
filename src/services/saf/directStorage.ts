@@ -29,8 +29,12 @@ let lastKnownDirectAccess: boolean | null = null;
  * this backend usable. Synchronous by design — call [ensureDirectStorage] for
  * the authoritative answer, which re-reads the permission after a reboot.
  */
-export const isDirectStorageReady = (): boolean =>
-  lastKnownDirectAccess === true && SHARED_ROOT !== '';
+export const isDirectStorageReady = (): boolean => {
+  if (lastKnownDirectAccess === null) {
+    probeDirectStorage();
+  }
+  return lastKnownDirectAccess === true && SHARED_ROOT !== '';
+};
 
 /**
  * Re-read the all-files permission and cache the answer.

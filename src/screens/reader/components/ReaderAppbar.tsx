@@ -96,8 +96,8 @@ const ReaderAppbar = ({
       style={[
         styles.container,
         {
-          paddingTop: statusBarHeight,
-          backgroundColor: color(theme.surface).alpha(0.92).string(),
+          paddingTop: statusBarHeight + 2,
+          backgroundColor: color(theme.surface).alpha(0.94).string(),
           borderBottomColor: color(theme.onSurface).alpha(0.08).string(),
         },
       ]}
@@ -107,7 +107,8 @@ const ReaderAppbar = ({
           name="arrow-left"
           onPress={goBack}
           color={theme.onSurface}
-          size={24}
+          size={20}
+          padding={6}
           theme={theme}
         />
 
@@ -128,7 +129,8 @@ const ReaderAppbar = ({
 
         <IconButtonV2
           name={getTranslateIconName()}
-          size={22}
+          size={19}
+          padding={6}
           onPress={() => {
             if (!isOfflineTranslated) translateChapter();
           }}
@@ -139,7 +141,8 @@ const ReaderAppbar = ({
 
         <IconButtonV2
           name={locked ? 'lock' : 'lock-open-outline'}
-          size={22}
+          size={19}
+          padding={6}
           onPress={onToggleLock}
           color={locked ? theme.primary : theme.onSurface}
           theme={theme}
@@ -147,7 +150,8 @@ const ReaderAppbar = ({
 
         <IconButtonV2
           name={bookmarked ? 'bookmark' : 'bookmark-outline'}
-          size={24}
+          size={20}
+          padding={6}
           onPress={() => {
             bookmarkChapter(chapter.id).then(() => setBookmarked(!bookmarked));
           }}
@@ -166,13 +170,15 @@ const styles = StyleSheet.create({
   appbar: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 4,
+    minHeight: 40,
   },
   bookmark: {
     marginEnd: 4,
   },
   container: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 6,
+    paddingBottom: 3,
     position: 'absolute',
     top: 0,
     width: '100%',
@@ -181,18 +187,19 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   novelLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    opacity: 0.75,
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    opacity: 0.7,
+    lineHeight: 12,
   },
   chapterTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 20,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
     marginTop: 1,
   },
 });

@@ -13,6 +13,7 @@ export interface ReaderTerm {
   to: string;
   scope: 'novel' | 'global';
   caseSensitive: boolean;
+  matchWholeWord?: boolean;
   style?: TermStyle;
 }
 
@@ -105,20 +106,37 @@ export function termMatchSignature(original: string, term: ReaderTerm): string {
     encodeURIComponent(JSON.stringify(normalized)),
     encodeURIComponent(term.scope ?? ''),
     term.caseSensitive ? '1' : '0',
+    term.matchWholeWord ? '1' : '0',
   ].join('|');
 }
 
 /**
  * Build a RegExp from a term's `from` string.
  * Supports `|` as OR operator: "hero|protagonist" matches either word.
+ * Supports `matchWholeWord` to avoid partial replacements (e.g. "ban" inside "bankai").
  */
-function buildTermRegex(from: string, caseSensitive: boolean): RegExp | null {
+function buildTermRegex(
+  from: string,
+  caseSensitive: boolean,
+  matchWholeWord?: boolean,
+): RegExp | null {
   const parts = from
     .split('|')
     .map(p => p.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .filter(Boolean);
   if (!parts.length) return null;
-  return new RegExp(`(${parts.join('|')})`, caseSensitive ? 'g' : 'gi');
+  const core = parts.join('|');
+  if (matchWholeWord) {
+    try {
+      return new RegExp(
+        `(?:\\b|(?<=[^\\p{L}\\p{N}_]))(${core})(?:\\b|(?=[^\\p{L}\\p{N}_]))`,
+        (caseSensitive ? 'g' : 'gi') + 'u',
+      );
+    } catch {
+      return new RegExp(`\\b(${core})\\b`, caseSensitive ? 'g' : 'gi');
+    }
+  }
+  return new RegExp(`(${core})`, caseSensitive ? 'g' : 'gi');
 }
 
 type Segment = { content: string; html: string | null };
@@ -133,7 +151,11 @@ function applyTermsToText(text: string, terms: ReaderTerm[]): string {
 
   for (const term of terms) {
     if (!term.from || !term.from.trim()) continue;
-    const re = buildTermRegex(term.from, term.caseSensitive);
+    const re = buildTermRegex(
+      term.from,
+      term.caseSensitive,
+      term.matchWholeWord,
+    );
     if (!re) continue;
 
     const newSegments: Segment[] = [];
@@ -228,10 +250,18 @@ var blocks=document.querySelectorAll('.sorareader-chapter-block, #SoraReader-nex
 if(!blocks.length)return;
 
 function esc(s){var re=new RegExp('[.*+?^$'+'{}()|[\\\\]\\\\\\\\]','g');return s.replace(re,'\\\\$&');}
-function buildRe(fromStr,cs){
+function buildRe(fromStr,cs,ww){
   var parts=String(fromStr||'').split('|').map(function(p){return esc(p.trim());}).filter(Boolean);
   if(!parts.length)return null;
-  return new RegExp('('+parts.join('|')+')',cs?'g':'gi');
+  var core=parts.join('|');
+  if(ww){
+    try{
+      return new RegExp('(?:\\\\b|(?<=[^\\\\p{L}\\\\p{N}_]))('+core+')(?:\\\\b|(?=[^\\\\p{L}\\\\p{N}_]))',(cs?'g':'gi')+'u');
+    }catch(e){
+      return new RegExp('\\\\b('+core+')\\\\b',cs?'g':'gi');
+    }
+  }
+  return new RegExp('('+core+')',cs?'g':'gi');
 }
 function normalizedStyle(style){
   var s=style||{};var out={};
@@ -255,13 +285,13 @@ function wrapStyle(text,style){
 }
 //Must stay byte-for-byte equivalent to termMatchSignature() in readerTerms.ts.
 function signature(original,term){
-  return encodeURIComponent(original)+'|'+encodeURIComponent(term.from||'')+'|'+encodeURIComponent(term.to||'')+'|'+encodeURIComponent(JSON.stringify(normalizedStyle(term.style)))+'|'+encodeURIComponent(term.scope||'')+'|'+(term.caseSensitive?'1':'0');
+  return encodeURIComponent(original)+'|'+encodeURIComponent(term.from||'')+'|'+encodeURIComponent(term.to||'')+'|'+encodeURIComponent(JSON.stringify(normalizedStyle(term.style)))+'|'+encodeURIComponent(term.scope||'')+'|'+(term.caseSensitive?'1':'0')+'|'+(term.matchWholeWord?'1':'0');
 }
 //The first term whose pattern matches the *whole* original text is the one the
 //segment algorithm would have applied, so it identifies an existing mark.
 function findTerm(original){
   for(var i=0;i<terms.length;i++){
-    var t=terms[i];var re=buildRe(t.from,t.caseSensitive);
+    var t=terms[i];var re=buildRe(t.from,t.caseSensitive,t.matchWholeWord);
     if(!re)continue;re.lastIndex=0;
     var m=re.exec(original);
     if(m&&m[0]===original)return t;
@@ -320,7 +350,7 @@ blockList.forEach(function(block){
     if(!text||!text.trim())return;
     var hasMatch=false;
     for(var i=0;i<terms.length;i++){
-      var re=buildRe(terms[i].from,terms[i].caseSensitive);
+      var re=buildRe(terms[i].from,terms[i].caseSensitive,terms[i].matchWholeWord);
       if(re&&re.test(text)){hasMatch=true;break;}
     }
     if(!hasMatch)return;
@@ -328,7 +358,7 @@ blockList.forEach(function(block){
     var segs=[{content:text,html:null}];
     for(var i=0;i<terms.length;i++){
       var term=terms[i];
-      var re=buildRe(term.from,term.caseSensitive);
+      var re=buildRe(term.from,term.caseSensitive,term.matchWholeWord);
       if(!re)continue;
       var newSegs=[];
       for(var s=0;s<segs.length;s++){

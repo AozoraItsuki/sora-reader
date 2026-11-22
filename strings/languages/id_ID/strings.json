@@ -842,6 +842,8 @@
     "toLabel": "Dengan",
     "toPlaceholder": "Teks pengganti (kosong untuk menyembunyikan)",
     "caseSensitive": "Peka huruf besar-kecil",
+    "matchWholeWord": "Kata utuh saja",
+    "matchWholeWordHint": "Hanya ganti kata utuh (contoh: \"ban\" tidak akan mengubah \"bankai\")",
     "replacementStyle": "Gaya teks pengganti",
     "bold": "Tebal",
     "italic": "Miring",

@@ -71,6 +71,7 @@ const EditTermsModal: React.FC<Props> = ({
   const [fromText, setFromText] = useState('');
   const [toText, setToText] = useState('');
   const [caseSensitive, setCaseSensitive] = useState(false);
+  const [matchWholeWord, setMatchWholeWord] = useState(false);
   const [novelOnly, setNovelOnly] = useState(true);
   const [fromFocused, setFromFocused] = useState(false);
   const [toFocused, setToFocused] = useState(false);
@@ -105,6 +106,7 @@ const EditTermsModal: React.FC<Props> = ({
     setFromText('');
     setToText('');
     setCaseSensitive(false);
+    setMatchWholeWord(false);
     setNovelOnly(true);
     setFromFocused(false);
     setToFocused(false);
@@ -119,6 +121,7 @@ const EditTermsModal: React.FC<Props> = ({
     setFromText(term.from);
     setToText(term.to);
     setCaseSensitive(term.caseSensitive);
+    setMatchWholeWord(term.matchWholeWord ?? false);
     setNovelOnly(term.scope === 'novel');
     setStyleBold(term.style?.bold ?? false);
     setStyleItalic(term.style?.italic ?? false);
@@ -148,6 +151,7 @@ const EditTermsModal: React.FC<Props> = ({
       to: toText,
       scope,
       caseSensitive,
+      matchWholeWord,
       style: buildStyle(),
     };
 
@@ -163,9 +167,15 @@ const EditTermsModal: React.FC<Props> = ({
         saveGlobalTerms(gTerms.filter(t => t.id !== editingId));
         saveNovelTerms(novelId, [...nTerms, newTerm]);
       } else if (inNovel && scope === 'novel') {
-        saveNovelTerms(novelId, nTerms.map(t => (t.id === editingId ? newTerm : t)));
+        saveNovelTerms(
+          novelId,
+          nTerms.map(t => (t.id === editingId ? newTerm : t)),
+        );
       } else if (inNovel && scope === 'global') {
-        saveNovelTerms(novelId, nTerms.filter(t => t.id !== editingId));
+        saveNovelTerms(
+          novelId,
+          nTerms.filter(t => t.id !== editingId),
+        );
         saveGlobalTerms([...gTerms, newTerm]);
       }
     } else {
@@ -201,7 +211,10 @@ const EditTermsModal: React.FC<Props> = ({
     if (term.scope === 'global') {
       saveGlobalTerms(getGlobalTerms().filter(t => t.id !== term.id));
     } else {
-      saveNovelTerms(novelId, getNovelTerms(novelId).filter(t => t.id !== term.id));
+      saveNovelTerms(
+        novelId,
+        getNovelTerms(novelId).filter(t => t.id !== term.id),
+      );
     }
     loadTerms();
     onTermsChanged?.();
@@ -209,7 +222,9 @@ const EditTermsModal: React.FC<Props> = ({
 
   const deleteSelected = () => {
     const gFiltered = getGlobalTerms().filter(t => !selected.includes(t.id));
-    const nFiltered = getNovelTerms(novelId).filter(t => !selected.includes(t.id));
+    const nFiltered = getNovelTerms(novelId).filter(
+      t => !selected.includes(t.id),
+    );
     saveGlobalTerms(gFiltered);
     saveNovelTerms(novelId, nFiltered);
     setSelected([]);
@@ -231,7 +246,10 @@ const EditTermsModal: React.FC<Props> = ({
     const isSelected = selected.includes(term.id);
     const hasStyle =
       term.style &&
-      (term.style.bold || term.style.italic || term.style.underline || term.style.color);
+      (term.style.bold ||
+        term.style.italic ||
+        term.style.underline ||
+        term.style.color);
     return (
       <View
         key={term.id}
@@ -253,7 +271,15 @@ const EditTermsModal: React.FC<Props> = ({
             onPress={() => toggleSelect(term.id)}
           >
             {isSelected && (
-              <Text style={{ color: theme.onPrimary, fontSize: 10, fontWeight: '700' }}>✓</Text>
+              <Text
+                style={{
+                  color: theme.onPrimary,
+                  fontSize: 10,
+                  fontWeight: '700',
+                }}
+              >
+                ✓
+              </Text>
             )}
           </Pressable>
         ) : (
@@ -261,22 +287,36 @@ const EditTermsModal: React.FC<Props> = ({
             style={[styles.editBtn, { borderColor: theme.outline }]}
             onPress={() => openEdit(term)}
           >
-            <Text style={[styles.editBtnText, { color: theme.onSurface }]}>Edit</Text>
+            <Text style={[styles.editBtnText, { color: theme.onSurface }]}>
+              Edit
+            </Text>
           </TouchableOpacity>
         )}
         <View style={styles.termInfo}>
-          <Text style={[styles.termFrom, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
-            <Text style={{ fontWeight: '600', color: theme.onSurface }}>FROM: </Text>
+          <Text
+            style={[styles.termFrom, { color: theme.onSurfaceVariant }]}
+            numberOfLines={1}
+          >
+            <Text style={{ fontWeight: '600', color: theme.onSurface }}>
+              FROM:{' '}
+            </Text>
             {term.from}
           </Text>
           <View style={styles.termToRow}>
-            <Text style={[styles.termTo, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
-              <Text style={{ fontWeight: '600', color: theme.onSurface }}>TO: </Text>
+            <Text
+              style={[styles.termTo, { color: theme.onSurfaceVariant }]}
+              numberOfLines={1}
+            >
+              <Text style={{ fontWeight: '600', color: theme.onSurface }}>
+                TO:{' '}
+              </Text>
               <Text
                 style={{
                   fontWeight: term.style?.bold ? '700' : '400',
                   fontStyle: term.style?.italic ? 'italic' : 'normal',
-                  textDecorationLine: term.style?.underline ? 'underline' : 'none',
+                  textDecorationLine: term.style?.underline
+                    ? 'underline'
+                    : 'none',
                   color: term.style?.color ?? theme.onSurfaceVariant,
                 }}
               >
@@ -286,14 +326,22 @@ const EditTermsModal: React.FC<Props> = ({
             {term.caseSensitive && (
               <Text style={[styles.caseBadge, { color: '#E07B3A' }]}> Cs</Text>
             )}
+            {term.matchWholeWord && (
+              <Text style={[styles.caseBadge, { color: '#4CAF50' }]}> Ww</Text>
+            )}
             {hasStyle && (
               <Text style={[styles.caseBadge, { color: accentColor }]}> ✦</Text>
             )}
           </View>
         </View>
         {!multiDelete && (
-          <TouchableOpacity onPress={() => deleteTerm(term)} style={styles.deleteBtn}>
-            <Text style={{ color: theme.error ?? '#f44', fontSize: 16 }}>×</Text>
+          <TouchableOpacity
+            onPress={() => deleteTerm(term)}
+            style={styles.deleteBtn}
+          >
+            <Text style={{ color: theme.error ?? '#f44', fontSize: 16 }}>
+              ×
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -343,13 +391,17 @@ const EditTermsModal: React.FC<Props> = ({
           style={[styles.chipBtn, { borderColor: theme.outline }]}
           onPress={() => setFromText(t => t + '|')}
         >
-          <Text style={[styles.chipBtnText, { color: theme.onSurfaceVariant }]}>+ Variation</Text>
+          <Text style={[styles.chipBtnText, { color: theme.onSurfaceVariant }]}>
+            + Variation
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.chipBtn, { borderColor: theme.outline }]}
           onPress={() => setFromText(t => t + '*')}
         >
-          <Text style={[styles.chipBtnText, { color: theme.onSurfaceVariant }]}>+ Wild Char</Text>
+          <Text style={[styles.chipBtnText, { color: theme.onSurfaceVariant }]}>
+            + Wild Char
+          </Text>
         </TouchableOpacity>
       </View>
       <TextInput
@@ -374,19 +426,41 @@ const EditTermsModal: React.FC<Props> = ({
         <Text style={[styles.hintText, { color: theme.onSurfaceVariant }]}>
           Example: from_1|from_2|from_3...
         </Text>
-        <View style={styles.caseRow}>
-          <Switch
-            value={caseSensitive}
-            onValueChange={setCaseSensitive}
-            trackColor={{ true: accentColor, false: theme.outline }}
-            thumbColor={caseSensitive ? theme.onPrimary : theme.surfaceVariant}
-            style={styles.smallSwitch}
-          />
-          <Text style={[styles.caseLabel, { color: theme.onSurface }]}>Case sensitive</Text>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={styles.caseRow}>
+            <Switch
+              value={caseSensitive}
+              onValueChange={setCaseSensitive}
+              trackColor={{ true: accentColor, false: theme.outline }}
+              thumbColor={
+                caseSensitive ? theme.onPrimary : theme.surfaceVariant
+              }
+              style={styles.smallSwitch}
+            />
+            <Text style={[styles.caseLabel, { color: theme.onSurface }]}>
+              Case sensitive
+            </Text>
+          </View>
+          <View style={styles.caseRow}>
+            <Switch
+              value={matchWholeWord}
+              onValueChange={setMatchWholeWord}
+              trackColor={{ true: accentColor, false: theme.outline }}
+              thumbColor={
+                matchWholeWord ? theme.onPrimary : theme.surfaceVariant
+              }
+              style={styles.smallSwitch}
+            />
+            <Text style={[styles.caseLabel, { color: theme.onSurface }]}>
+              Whole word
+            </Text>
+          </View>
         </View>
       </View>
 
-      <Text style={[styles.fieldLabel, { color: theme.onSurface, marginTop: 12 }]}>
+      <Text
+        style={[styles.fieldLabel, { color: theme.onSurface, marginTop: 12 }]}
+      >
         Replacement Text ({toText.length}/{MAX_LEN})
       </Text>
       <TextInput
@@ -409,27 +483,43 @@ const EditTermsModal: React.FC<Props> = ({
       />
 
       {/* Text Styling */}
-      <Text style={[styles.fieldLabel, { color: theme.onSurface, marginTop: 12, marginBottom: 8 }]}>
+      <Text
+        style={[
+          styles.fieldLabel,
+          { color: theme.onSurface, marginTop: 12, marginBottom: 8 },
+        ]}
+      >
         Replacement Style
       </Text>
       <View style={styles.styleRow}>
         {renderStyleToggle('B', styleBold, setStyleBold, { fontWeight: '700' })}
-        {renderStyleToggle('I', styleItalic, setStyleItalic, { fontStyle: 'italic' })}
-        {renderStyleToggle('U', styleUnderline, setStyleUnderline, { textDecorationLine: 'underline' })}
+        {renderStyleToggle('I', styleItalic, setStyleItalic, {
+          fontStyle: 'italic',
+        })}
+        {renderStyleToggle('U', styleUnderline, setStyleUnderline, {
+          textDecorationLine: 'underline',
+        })}
         {styleColor ? (
           <TouchableOpacity
-            style={[styles.styleChip, { borderColor: styleColor, backgroundColor: styleColor + '22' }]}
+            style={[
+              styles.styleChip,
+              { borderColor: styleColor, backgroundColor: styleColor + '22' },
+            ]}
             onPress={() => setStyleColor(undefined)}
             activeOpacity={0.7}
           >
             <View style={[styles.colorDot, { backgroundColor: styleColor }]} />
-            <Text style={[styles.styleChipText, { color: styleColor }]}>Color</Text>
+            <Text style={[styles.styleChipText, { color: styleColor }]}>
+              Color
+            </Text>
           </TouchableOpacity>
         ) : null}
       </View>
       {/* Color picker row */}
       <View style={styles.colorPickerRow}>
-        <Text style={[styles.colorPickerLabel, { color: theme.onSurfaceVariant }]}>
+        <Text
+          style={[styles.colorPickerLabel, { color: theme.onSurfaceVariant }]}
+        >
           Color:
         </Text>
         {PRESET_COLORS.map(c => (
@@ -451,9 +541,19 @@ const EditTermsModal: React.FC<Props> = ({
         </TouchableOpacity>
       </View>
 
-      {toText.trim() && (styleBold || styleItalic || styleUnderline || styleColor) ? (
-        <View style={[styles.previewBox, { backgroundColor: cardBg, borderColor: theme.outline + '44' }]}>
-          <Text style={[styles.previewLabel, { color: theme.onSurfaceVariant }]}>Preview:</Text>
+      {toText.trim() &&
+      (styleBold || styleItalic || styleUnderline || styleColor) ? (
+        <View
+          style={[
+            styles.previewBox,
+            { backgroundColor: cardBg, borderColor: theme.outline + '44' },
+          ]}
+        >
+          <Text
+            style={[styles.previewLabel, { color: theme.onSurfaceVariant }]}
+          >
+            Preview:
+          </Text>
           <Text
             style={{
               fontWeight: styleBold ? '700' : '400',
@@ -478,8 +578,15 @@ const EditTermsModal: React.FC<Props> = ({
           thumbColor={novelOnly ? theme.onPrimary : theme.surfaceVariant}
         />
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={[styles.novelOnlyTitle, { color: theme.onSurface }]}>This Novel Only</Text>
-          <Text style={[styles.novelOnlySubtitle, { color: theme.onSurfaceVariant }]}>
+          <Text style={[styles.novelOnlyTitle, { color: theme.onSurface }]}>
+            This Novel Only
+          </Text>
+          <Text
+            style={[
+              styles.novelOnlySubtitle,
+              { color: theme.onSurfaceVariant },
+            ]}
+          >
             {novelOnly ? `Only for: ${novelName}` : 'Applies to all novels'}
           </Text>
         </View>
@@ -492,14 +599,24 @@ const EditTermsModal: React.FC<Props> = ({
           style={[styles.closeActionBtn, { borderColor: theme.outline }]}
           onPress={onClose}
         >
-          <Text style={[styles.closeActionBtnText, { color: theme.onSurface }]}>Close</Text>
+          <Text style={[styles.closeActionBtnText, { color: theme.onSurface }]}>
+            Close
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.saveBtn, { backgroundColor: accentColor, opacity: fromText.trim() ? 1 : 0.5 }]}
+          style={[
+            styles.saveBtn,
+            {
+              backgroundColor: accentColor,
+              opacity: fromText.trim() ? 1 : 0.5,
+            },
+          ]}
           onPress={saveTerm}
           disabled={!fromText.trim()}
         >
-          <Text style={[styles.saveBtnText, { color: theme.onPrimary }]}>Save</Text>
+          <Text style={[styles.saveBtnText, { color: theme.onPrimary }]}>
+            Save
+          </Text>
         </TouchableOpacity>
       </View>
       <View style={{ height: 16 }} />
@@ -525,14 +642,22 @@ const EditTermsModal: React.FC<Props> = ({
             setSelected([]);
           }}
         >
-          <Text style={[styles.multiDeleteText, { color: multiDelete ? accentColor : theme.onSurface }]}>
+          <Text
+            style={[
+              styles.multiDeleteText,
+              { color: multiDelete ? accentColor : theme.onSurface },
+            ]}
+          >
             {multiDelete && selected.length > 0
               ? `Delete (${selected.length})`
               : 'Enable Multi-Delete'}
           </Text>
         </TouchableOpacity>
       </View>
-      <ScrollView style={styles.termsScrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.termsScrollView}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.sectionHeaderRow}>
           <View style={[styles.sectionChip, { borderColor: theme.outline }]}>
             <Text style={[styles.sectionChipText, { color: theme.onSurface }]}>
@@ -549,7 +674,9 @@ const EditTermsModal: React.FC<Props> = ({
 
         <View style={[styles.sectionHeaderRow, { marginTop: 8 }]}>
           <View style={[styles.sectionChip, { borderColor: theme.outline }]}>
-            <Text style={[styles.sectionChipText, { color: theme.onSurface }]}>Global</Text>
+            <Text style={[styles.sectionChipText, { color: theme.onSurface }]}>
+              Global
+            </Text>
           </View>
         </View>
         {globalTerms.length === 0 && (
@@ -560,12 +687,19 @@ const EditTermsModal: React.FC<Props> = ({
         {globalTerms.map(t => renderTermRow(t))}
         <View style={{ height: 16 }} />
       </ScrollView>
-      <View style={[styles.termsBottomBar, { borderTopColor: dividerColor, backgroundColor: theme.surface }]}>
+      <View
+        style={[
+          styles.termsBottomBar,
+          { borderTopColor: dividerColor, backgroundColor: theme.surface },
+        ]}
+      >
         <TouchableOpacity
           style={[styles.closeActionBtn, { borderColor: theme.outline }]}
           onPress={onClose}
         >
-          <Text style={[styles.closeActionBtnText, { color: theme.onSurface }]}>Close</Text>
+          <Text style={[styles.closeActionBtnText, { color: theme.onSurface }]}>
+            Close
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.addTermBtn, { backgroundColor: accentColor }]}
@@ -574,7 +708,9 @@ const EditTermsModal: React.FC<Props> = ({
             setTab('editor');
           }}
         >
-          <Text style={[styles.addTermBtnText, { color: theme.onPrimary }]}>+ Add New Term</Text>
+          <Text style={[styles.addTermBtnText, { color: theme.onPrimary }]}>
+            + Add New Term
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -583,37 +719,81 @@ const EditTermsModal: React.FC<Props> = ({
   const renderConfigTab = () => (
     <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       <View style={[styles.configSection, { borderColor: dividerColor }]}>
-        <Text style={[styles.configSectionTitle, { color: theme.onSurface }]}>Styling Guide</Text>
+        <Text style={[styles.configSectionTitle, { color: theme.onSurface }]}>
+          Styling Guide
+        </Text>
         <Text style={[styles.configDesc, { color: theme.onSurfaceVariant }]}>
           When editing a term, you can apply styles to the replacement text:
         </Text>
         {[
-          { label: 'B — Bold', example: 'Makes text bold', style: { fontWeight: '700' as const } },
-          { label: 'I — Italic', example: 'Makes text italic', style: { fontStyle: 'italic' as const } },
-          { label: 'U — Underline', example: 'Adds underline', style: { textDecorationLine: 'underline' as const } },
+          {
+            label: 'B — Bold',
+            example: 'Makes text bold',
+            style: { fontWeight: '700' as const },
+          },
+          {
+            label: 'I — Italic',
+            example: 'Makes text italic',
+            style: { fontStyle: 'italic' as const },
+          },
+          {
+            label: 'U — Underline',
+            example: 'Adds underline',
+            style: { textDecorationLine: 'underline' as const },
+          },
           { label: 'Color', example: 'Changes text color', style: {} },
         ].map(item => (
           <View key={item.label} style={styles.configRow}>
-            <Text style={[styles.configRowLabel, { color: theme.primary }, item.style]}>
+            <Text
+              style={[
+                styles.configRowLabel,
+                { color: theme.primary },
+                item.style,
+              ]}
+            >
               {item.label}
             </Text>
-            <Text style={[styles.configRowDesc, { color: theme.onSurfaceVariant }]}>
+            <Text
+              style={[styles.configRowDesc, { color: theme.onSurfaceVariant }]}
+            >
               {item.example}
             </Text>
           </View>
         ))}
       </View>
 
-      <View style={[styles.configSection, { borderColor: dividerColor, marginTop: 12 }]}>
-        <Text style={[styles.configSectionTitle, { color: theme.onSurface }]}>Pattern Syntax</Text>
+      <View
+        style={[
+          styles.configSection,
+          { borderColor: dividerColor, marginTop: 12 },
+        ]}
+      >
+        <Text style={[styles.configSectionTitle, { color: theme.onSurface }]}>
+          Pattern Syntax
+        </Text>
         {[
-          { label: '|', desc: 'OR — matches any variation\nExample: "abc|def" replaces both "abc" and "def"' },
-          { label: '*', desc: 'Wildcard — matches any single character sequence' },
-          { label: 'Case', desc: 'Enable "Case sensitive" to match exact casing' },
+          {
+            label: '|',
+            desc: 'OR — matches any variation\nExample: "abc|def" replaces both "abc" and "def"',
+          },
+          {
+            label: '*',
+            desc: 'Wildcard — matches any single character sequence',
+          },
+          {
+            label: 'Case',
+            desc: 'Enable "Case sensitive" to match exact casing',
+          },
         ].map(item => (
           <View key={item.label} style={styles.configRow}>
-            <Text style={[styles.configRowLabel, { color: theme.primary }]}>{item.label}</Text>
-            <Text style={[styles.configRowDesc, { color: theme.onSurfaceVariant }]}>{item.desc}</Text>
+            <Text style={[styles.configRowLabel, { color: theme.primary }]}>
+              {item.label}
+            </Text>
+            <Text
+              style={[styles.configRowDesc, { color: theme.onSurfaceVariant }]}
+            >
+              {item.desc}
+            </Text>
           </View>
         ))}
       </View>
@@ -643,22 +823,38 @@ const EditTermsModal: React.FC<Props> = ({
                   key={t}
                   style={[
                     styles.tabItem,
-                    tab === t && { borderBottomColor: accentColor, borderBottomWidth: 2 },
+                    tab === t && {
+                      borderBottomColor: accentColor,
+                      borderBottomWidth: 2,
+                    },
                   ]}
                   onPress={() => setTab(t)}
                 >
                   <Text
                     style={[
                       styles.tabLabel,
-                      { color: tab === t ? accentColor : theme.onSurfaceVariant },
+                      {
+                        color: tab === t ? accentColor : theme.onSurfaceVariant,
+                      },
                     ]}
                   >
-                    {t === 'editor' ? 'Editor' : t === 'terms' ? 'Your Terms' : 'Config'}
+                    {t === 'editor'
+                      ? 'Editor'
+                      : t === 'terms'
+                      ? 'Your Terms'
+                      : 'Config'}
                   </Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.closeTabBtn} onPress={onClose}>
-                <Text style={[styles.closeTabText, { color: theme.onSurfaceVariant }]}>✕</Text>
+                <Text
+                  style={[
+                    styles.closeTabText,
+                    { color: theme.onSurfaceVariant },
+                  ]}
+                >
+                  ✕
+                </Text>
               </TouchableOpacity>
             </View>
 

@@ -415,12 +415,7 @@ export const generateReaderHtml = (options: HtmlTemplateOptions) => {
          rules match any element so plugin markup that tags its own spans is
          colored too; the highlight chrome stays limited to term spans. */
       .lnr-term {
-        border-bottom: 1.5px dashed
-          var(--reader-termUser, var(--theme-primary, currentColor));
         cursor: pointer;
-      }
-      .lnr-term[data-scope='global'] {
-        border-bottom-style: dotted;
       }
       [data-kind='system'] {
         color: var(--reader-termSystem, var(--theme-tertiary, currentColor));

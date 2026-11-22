@@ -16,6 +16,7 @@ const EMPTY_DRAFT: TermDraft = {
   from: '',
   to: '',
   caseSensitive: false,
+  matchWholeWord: false,
   style: undefined,
 };
 
@@ -57,6 +58,7 @@ const TermEditorModal: React.FC<Props> = ({
             from: term.from,
             to: term.to,
             caseSensitive: term.caseSensitive,
+            matchWholeWord: term.matchWholeWord ?? false,
             style: term.style,
           }
         : EMPTY_DRAFT,
@@ -176,6 +178,19 @@ const TermEditorModal: React.FC<Props> = ({
             setDraft(current => ({
               ...current,
               caseSensitive: !current.caseSensitive,
+            }))
+          }
+          theme={theme}
+        />
+
+        <SwitchItem
+          label={getString('termsSettingsScreen.matchWholeWord')}
+          description={getString('termsSettingsScreen.matchWholeWordHint')}
+          value={Boolean(draft.matchWholeWord)}
+          onPress={() =>
+            setDraft(current => ({
+              ...current,
+              matchWholeWord: !current.matchWholeWord,
             }))
           }
           theme={theme}

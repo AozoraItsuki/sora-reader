@@ -842,6 +842,8 @@
     "toLabel": "With",
     "toPlaceholder": "Replacement text (empty to hide the match)",
     "caseSensitive": "Case sensitive",
+    "matchWholeWord": "Match whole word",
+    "matchWholeWordHint": "Only replace exact whole words (e.g. \"ban\" won't match \"bankai\")",
     "replacementStyle": "Replacement style",
     "bold": "Bold",
     "italic": "Italic",

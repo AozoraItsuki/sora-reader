@@ -465,11 +465,14 @@ export default class ServiceManager {
               // Only a real success or a real failure is terminal. If the
               // service stopped before this task ran, it stays queued.
               let reachedTerminalState = false;
-              while (BackgroundService.isRunning()) {
+              const maxRetries = downloadSettings.retryOnError ? 3 : 1;
+              let retryCount = 0;
+              while (BackgroundService.isRunning() && retryCount < maxRetries) {
                 try {
                   await manager.executeDownloadTask(t, startingTasks);
                   doneTasks.DOWNLOAD_CHAPTER += 1;
                   reachedTerminalState = true;
+                  lastError = undefined;
                   break;
                 } catch (error: any) {
                   if (isAbortError(error)) {
@@ -477,11 +480,14 @@ export default class ServiceManager {
                     break;
                   }
                   lastError = error;
-                  if (!downloadSettings.retryOnError) {
+                  retryCount++;
+                  if (retryCount >= maxRetries) {
                     reachedTerminalState = true;
                     break;
                   }
-                  await new Promise(r => setTimeout(r, retryDelayMs));
+                  await new Promise(r =>
+                    setTimeout(r, Math.min(retryDelayMs, 5000)),
+                  );
                 }
               }
               if (lastError) {
@@ -510,20 +516,24 @@ export default class ServiceManager {
 
         // Sequential download
         let lastError: any;
-        while (BackgroundService.isRunning()) {
+        const maxRetries = downloadSettings.retryOnError ? 3 : 1;
+        let retryCount = 0;
+        while (BackgroundService.isRunning() && retryCount < maxRetries) {
           try {
             await manager.executeTask(currentTask, startingTasks);
             doneTasks[currentTask.task.name] += 1;
+            lastError = undefined;
             break;
           } catch (error: any) {
             if (isAbortError(error)) {
               break;
             }
             lastError = error;
-            if (!downloadSettings.retryOnError) {
+            retryCount++;
+            if (retryCount >= maxRetries) {
               break;
             }
-            await new Promise(r => setTimeout(r, retryDelayMs));
+            await new Promise(r => setTimeout(r, Math.min(retryDelayMs, 5000)));
           }
         }
         if (lastError) {

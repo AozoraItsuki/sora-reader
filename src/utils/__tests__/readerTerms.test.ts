@@ -64,6 +64,37 @@ describe('readerTerms unstyled terms', () => {
     expect(out).toContain('Hai');
     expect(out).not.toContain('lnr-term');
   });
+
+  it('respects matchWholeWord option (e.g. ban does not replace bankai)', () => {
+    const termWholeWord: ReaderTerm = {
+      id: 'term_ban',
+      from: 'ban',
+      to: 'topi',
+      scope: 'novel',
+      caseSensitive: false,
+      matchWholeWord: true,
+    };
+    const out = applyTermsToHtml('<p>ban mobil dan bankai</p>', [
+      termWholeWord,
+    ]);
+    expect(out).toContain('topi mobil');
+    expect(out).toContain('bankai');
+    expect(out).not.toContain('topikai');
+  });
+
+  it('replaces partial match when matchWholeWord is false or omitted', () => {
+    const termPartial: ReaderTerm = {
+      id: 'term_ban_partial',
+      from: 'ban',
+      to: 'topi',
+      scope: 'novel',
+      caseSensitive: false,
+      matchWholeWord: false,
+    };
+    const out = applyTermsToHtml('<p>ban mobil dan bankai</p>', [termPartial]);
+    expect(out).toContain('topi mobil');
+    expect(out).toContain('topikai');
+  });
 });
 
 describe('term signature markers', () => {
@@ -123,10 +154,7 @@ describe('buildApplyTermsJs', () => {
   it('never rewrites an already matching span on a second apply', () => {
     const dom = makeDom(TWO_BLOCKS);
     applyInDom(dom, [styled]);
-    const replaceWith = jest.spyOn(
-      dom.window.Element.prototype,
-      'replaceWith',
-    );
+    const replaceWith = jest.spyOn(dom.window.Element.prototype, 'replaceWith');
     applyInDom(dom, [styled]);
     expect(replaceWith).not.toHaveBeenCalled();
   });
@@ -140,9 +168,7 @@ describe('buildApplyTermsJs', () => {
 
     applyInDom(dom, [{ ...styled, to: 'World!', style: { italic: true } }]);
 
-    const after = Array.from(
-      dom.window.document.querySelectorAll('.lnr-term'),
-    );
+    const after = Array.from(dom.window.document.querySelectorAll('.lnr-term'));
     expect(after).toHaveLength(2);
     after.forEach((span: any, i: number) => {
       // Same element nodes were reused (patched), never detached/rebuilt.
