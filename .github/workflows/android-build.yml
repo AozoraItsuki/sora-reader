@@ -209,10 +209,6 @@ jobs:
           fi
           echo "Release keystore verified."
 
-      - name: Cleanup Decoded Keystore
-        if: always() && env.VARIANT == 'release'
-        run: rm -f android/app/release.keystore
-
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
 
@@ -250,6 +246,10 @@ jobs:
             android/app/build/outputs/apk/**/*.apk
             android/app/build/outputs/bundle/**/*.aab
           if-no-files-found: error
+
+      - name: Cleanup Decoded Keystore
+        if: always() && env.VARIANT == 'release'
+        run: rm -f android/app/release.keystore
 
   # Minimal write-scoped job: it only downloads the built artifact and creates
   # the release, so build steps never hold contents: write.
