@@ -35,8 +35,8 @@ class AppContainer(context: Context) {
     ).fallbackToDestructiveMigration().build()
 
     val novelRepository: NovelRepository = RoomNovelRepository(database)
-    val sourceCatalog: SourceCatalog = RepositoryBackedSourceCatalog(repositoryStore, httpClient, json, SimpleSourceCatalog())
     val repositoryStore: RepositoryStore = RepositoryStoreImpl(database)
+    val sourceCatalog: SourceCatalog = RepositoryBackedSourceCatalog(repositoryStore, httpClient, json, SimpleSourceCatalog())
     val settings: AppSettingsStore = AppSettingsStore(context.applicationContext)
     val downloadManager: DownloadManager = SimpleDownloadManager(context.applicationContext).also { SimpleDownloadManager.instance = it }
 

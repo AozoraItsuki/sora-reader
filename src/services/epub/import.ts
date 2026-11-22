@@ -47,13 +47,18 @@ const localAssetName = (ref: string): string | null => {
 };
 
 /**
- * Reduce every asset reference of a chapter document to the bare filename it
- * points at, and report the filenames that is.
+ * Reduce asset references of a chapter document to the bare filename they
+ * point at, and report the filenames that is.
  *
- * Both come out of one walk, so a rewritten chapter can only reference names
- * that are also copied next to its `index.html`.
+ * Only references whose file is actually imported are rewritten. An EPUB
+ * internal link such as `<a href="../Text/ch2.xhtml">` is not an image/style
+ * asset and is left alone; collapsing it to a basename would point at a file
+ * that was never copied next to `index.html`.
  */
-const rewriteAssetRefs = (html: string): { html: string; names: string[] } => {
+const rewriteAssetRefs = (
+  html: string,
+  hasAsset: (name: string) => boolean,
+): { html: string; names: string[] } => {
   const names = new Set<string>();
   const rewriteValue = (value: string, attribute: string): string => {
     // `srcset` holds a comma-separated candidate list of `url descriptor`.
@@ -61,7 +66,7 @@ const rewriteAssetRefs = (html: string): { html: string; names: string[] } => {
     const rewritten = candidates.map(candidate => {
       const url = candidate.trimStart().split(/\s/)[0] ?? '';
       const name = localAssetName(url);
-      if (!name) {
+      if (!name || !hasAsset(name)) {
         return candidate;
       }
       names.add(name);
@@ -177,7 +182,9 @@ export const importEpub = async (
 
       // RELATIVE srcs (bare filenames): the reader resolves them against the
       // local-server baseUrl, so the assets must sit next to index.html.
-      const rewritten = rewriteAssetRefs(chapterText);
+      const rewritten = rewriteAssetRefs(chapterText, name =>
+        assetSources.has(name),
+      );
       chapterText = rewritten.html;
 
       const chapterRelDir = chapterRel(

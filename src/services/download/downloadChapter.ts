@@ -46,6 +46,26 @@ import {
 /** `3.b64.png` — the bare filename the reader resolves against its baseUrl. */
 const imageFileName = (index: number) => `${index}.b64.png`;
 
+/** Bound parallel native/HTTP image writes so image-heavy chapters stay responsive. */
+const createLimiter = (limit: number) => {
+  let active = 0;
+  const waiting: Array<() => void> = [];
+  return async <T>(task: () => Promise<T>): Promise<T> => {
+    if (active >= limit) {
+      await new Promise<void>(resolve => waiting.push(resolve));
+    }
+    active++;
+    try {
+      return await task();
+    } finally {
+      active--;
+      waiting.shift()?.();
+    }
+  };
+};
+
+type ImageOutcome = { ok: boolean; error?: unknown };
+
 const createChapterFolder = async (data: {
   pluginId: string;
   novelId: number;
@@ -69,36 +89,72 @@ const downloadFiles = async (
   const imgs = loadedCheerio('img').toArray();
 
   // Same absolute URL in multiple <img> tags (e.g. repeated character
-  // portraits) must download once and share the same local file.
-  const fileNameByUrl = new Map<string, string>();
+  // portraits) must download once and share the same local file. Sharing the
+  // in-flight promise also prevents a duplicate download when both tags are
+  // processed before the first write settles.
+  const imageByUrl = new Map<
+    string,
+    { fileName: string; outcome: Promise<ImageOutcome> }
+  >();
+  const limit = createLimiter(6);
 
-  const downloadTasks = imgs.map((img, i) => {
-    const elem = loadedCheerio(img);
-    const url = elem.attr('src');
-    if (!url) {
-      return Promise.resolve();
-    }
-    const absoluteURL = new URL(url, plugin.site).href;
-    const existingFileName = fileNameByUrl.get(absoluteURL);
-    if (existingFileName !== undefined) {
-      // RELATIVE src: the reader resolves it against the local-server baseUrl.
-      elem.attr('src', existingFileName);
-      return Promise.resolve();
-    }
-    const fileName = imageFileName(i);
-    fileNameByUrl.set(absoluteURL, fileName);
-    // RELATIVE src: the reader resolves it against the local-server baseUrl.
-    elem.attr('src', fileName);
-    return safDownloadFile(
-      absoluteURL,
-      chapterImageRel(pluginId, novelId, chapterId, i),
-      plugin.imageRequestInit,
-    ).catch(e => {
-      elem.attr('alt', String(e));
+  const writeImage = (url: string, relPath: string): Promise<ImageOutcome> =>
+    limit(async () => {
+      try {
+        // Inline payloads can never be fetched by the native HTTP downloader,
+        // so write them straight into the chapter folder instead.
+        if (url.startsWith('data:')) {
+          const comma = url.indexOf(',');
+          const base64 = comma >= 0 ? url.slice(comma + 1) : '';
+          if (!base64) {
+            return { ok: false, error: 'Empty data URI image' };
+          }
+          await safWriteFile(relPath, base64, 'base64');
+        } else {
+          await safDownloadFile(url, relPath, plugin.imageRequestInit);
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e };
+      }
     });
-  });
 
-  await Promise.all(downloadTasks);
+  await Promise.all(
+    imgs.map(async (img, i) => {
+      const elem = loadedCheerio(img);
+      const url = elem.attr('src');
+      if (!url) {
+        return;
+      }
+      let absoluteURL: string;
+      try {
+        absoluteURL = new URL(url, plugin.site).href;
+      } catch {
+        return;
+      }
+      let image = imageByUrl.get(absoluteURL);
+      if (!image) {
+        image = {
+          fileName: imageFileName(i),
+          outcome: writeImage(
+            absoluteURL,
+            chapterImageRel(pluginId, novelId, chapterId, i),
+          ),
+        };
+        imageByUrl.set(absoluteURL, image);
+      }
+      const outcome = await image.outcome;
+      if (outcome.ok) {
+        // Only point at the local copy once its bytes are actually on disk.
+        // RELATIVE src: the reader resolves it against the local-server baseUrl.
+        elem.attr('src', image.fileName);
+      } else {
+        // Keep the original src so the reader can still load the image from
+        // the network, and record why no offline copy was created.
+        elem.attr('alt', String(outcome.error ?? 'Image download failed'));
+      }
+    }),
+  );
   await safWriteFile(
     chapterIndexRel(pluginId, novelId, chapterId),
     loadedCheerio.html(),
@@ -224,7 +280,10 @@ export const downloadChapter = async (
     await downloadFiles(finalHtml, plugin, novel.id, chapter.id);
 
     await dbManager.write(async tx => {
-      tx.update(chapterSchema)
+      // dbManager.write awaits this callback before committing — without the
+      // await here the flag can be lost (or reject after the tx has closed).
+      await tx
+        .update(chapterSchema)
         .set({ isDownloaded: true })
         .where(eq(chapterSchema.id, chapter.id))
         .run();

@@ -712,6 +712,21 @@ describe('migration verify-before-delete', () => {
     expect(mockMigrationDone).toBe(false);
   });
 
+  it('overwrites an empty destination instead of deleting the only good source', async () => {
+    const dir = `${OLD_ROOT}/p1/1/5`;
+    mockLegacyFiles.set(`${dir}/index.html`, '<html>good</html>');
+    mockTree.set('Novels/p1/1/5/index.html', { data: '', encoding: 'utf8' });
+    mockNovels = [{ id: 1, pluginId: 'p1', cover: null }];
+    mockDownloadedChapters = [{ id: 5, novelId: 1 }];
+
+    await runSafMigration();
+
+    expect(mockTree.get('Novels/p1/1/5/index.html')?.data).toBe(
+      '<html>good</html>',
+    );
+    expect(mockLegacyUnlinked).toContain(`${dir}/index.html`);
+  });
+
   it('copies a cover from a stale plugin folder into the current one', async () => {
     mockLegacyFiles.set(`${OLD_ROOT}/oldPlugin/1/cover.png`, 'JPEG');
     mockNovels = [

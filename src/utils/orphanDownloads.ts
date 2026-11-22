@@ -79,12 +79,16 @@ export const scanOrphanDownloads = (): readonly OrphanEntry[] => {
         if (!novel.isDirectory) {
           continue;
         }
-        const parsed = Number(novel.name);
-        const numeric = novel.name !== '' && Number.isInteger(parsed);
+        // Decimal digits only — Number('0x10') and Number('1e3') are valid
+        // numbers, but those directory names are not novel ids and must
+        // never be classified for deletion.
+        const numeric = /^\d+$/.test(novel.name);
+        const parsed = numeric ? Number(novel.name) : NaN;
+        const novelId = numeric && Number.isSafeInteger(parsed) ? parsed : null;
         const verdict = classifyDownloadDir({
-          novelId: numeric ? parsed : null,
+          novelId,
           hasChapterIndex: dirHasChapterIndex(novel.path),
-          inDb: numeric && getNovelById(parsed) !== undefined,
+          inDb: novelId !== null && getNovelById(novelId) !== undefined,
         });
         if (verdict === 'orphan') {
           found.push({

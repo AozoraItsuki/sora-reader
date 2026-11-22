@@ -79,6 +79,7 @@ describe('scanOrphanDownloads', () => {
           { name: '7', path: novelDir('wtrlab', '7'), isDirectory: true },
           { name: '9', path: novelDir('wtrlab', '9'), isDirectory: true },
           { name: '11', path: novelDir('wtrlab', '11'), isDirectory: true },
+          { name: '0x10', path: novelDir('wtrlab', '0x10'), isDirectory: true },
           {
             name: 'junk.txt',
             path: `${novelDir('wtrlab', '')}/junk.txt`,
@@ -113,11 +114,11 @@ describe('scanOrphanDownloads', () => {
           },
         ];
       }
-      if (dir === novelDir('wtrlab', '11')) {
+      if (dir === novelDir('wtrlab', '11') || dir === novelDir('wtrlab', '0x10')) {
         return [
           {
             name: 'cover.png',
-            path: `${novelDir('wtrlab', '11')}/cover.png`,
+            path: `${dir}/cover.png`,
             isDirectory: false,
           },
         ];
@@ -132,6 +133,13 @@ describe('scanOrphanDownloads', () => {
     expect(scanOrphanDownloads()).toEqual([
       { path: novelDir('wtrlab', '11'), bytes: 4096 },
     ]);
+  });
+
+  it('never classifies non-decimal numeric names as novel ids', () => {
+    expect(scanOrphanDownloads()).not.toContainEqual({
+      path: novelDir('wtrlab', '0x10'),
+      bytes: 4096,
+    });
   });
 
   it('returns an empty list when the novels root is absent', () => {

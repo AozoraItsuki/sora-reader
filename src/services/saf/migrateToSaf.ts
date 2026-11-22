@@ -182,9 +182,14 @@ const migrateFile = async ({
     return false;
   }
   if (await safExists(treeRel)) {
-    // Already migrated by an earlier partial run — just drop the duplicate.
-    nativeFileUnlink(source);
-    return true;
+    // Already migrated by an earlier partial run — but mere existence is not
+    // enough: a killed write leaves a zero-byte destination. Trust it only
+    // when it actually holds bytes, otherwise overwrite it from the source.
+    const existingSize = await safGetFileSize(treeRel).catch(() => -1);
+    if (existingSize > 0) {
+      nativeFileUnlink(source);
+      return true;
+    }
   }
 
   await safMkdir(treeRel.slice(0, treeRel.lastIndexOf('/')));
