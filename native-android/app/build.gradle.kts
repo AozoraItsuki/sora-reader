@@ -96,22 +96,19 @@ android {
 }
 
 // Fail before any work when a release task is requested without signing env.
-// Checking the task graph (not configuration) keeps debug builds working,
-// since AGP configures both debug and release variants on every build.
-gradle.taskGraph.whenReady {
-    val graph = it
-    val wantsRelease = graph.allTasks.any { task ->
-        task.name.contains("release", ignoreCase = true) &&
-            !task.name.contains("prerelease", ignoreCase = true)
-    }
-    if (wantsRelease) {
-        val missing = releaseEnvKeys.filter { releaseEnv(it) == null }
-        if (missing.isNotEmpty()) {
-            throw GradleException(
-                "Release builds require ${missing.joinToString(", ")}. " +
-                    "Set KEYSTORE_FILE (absolute path), KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD (CI reads them from secrets)."
-            )
-        }
+// Checking only the requested task names keeps debug builds working, since AGP
+// configures both debug and release variants on every build.
+val wantsRelease = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("release", ignoreCase = true) &&
+        !taskName.contains("prerelease", ignoreCase = true)
+}
+if (wantsRelease) {
+    val missing = releaseEnvKeys.filter { releaseEnv(it) == null }
+    if (missing.isNotEmpty()) {
+        throw GradleException(
+            "Release builds require ${missing.joinToString(", ")}. " +
+                "Set KEYSTORE_FILE (absolute path), KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD (CI reads them from secrets)."
+        )
     }
 }
 
