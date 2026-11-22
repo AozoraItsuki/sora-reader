@@ -1,4 +1,6 @@
 import {
+  errorCodes,
+  isErrorWithCode,
   keepLocalCopy,
   pick,
   saveDocuments,
@@ -100,6 +102,13 @@ export const createBackup = async (
       ...meta,
       isRunning: false,
     }));
+    if (
+      isErrorWithCode(error) &&
+      error.code === errorCodes.OPERATION_CANCELED
+    ) {
+      DebugLogService.addEntry('log', `${BTAG} Backup save cancelled by user`);
+      return;
+    }
     if (signal?.aborted) {
       DebugLogService.addEntry('warn', `${BTAG} ⚠️ Backup was cancelled`);
     } else {
@@ -132,6 +141,17 @@ export const restoreBackup = async (
       type: [types.zip],
       allowVirtualFiles: true, // TODO: hopefully this just works
     });
+    if (!result?.uri) {
+      DebugLogService.addEntry(
+        'log',
+        `${BTAG} Restore cancelled: no file selected`,
+      );
+      setMeta?.(meta => ({
+        ...meta,
+        isRunning: false,
+      }));
+      return;
+    }
     DebugLogService.addEntry('log', `${BTAG} File selected: ${result.uri}`);
 
     if (NativeFile.exists(CACHE_DIR_PATH)) {
@@ -195,6 +215,13 @@ export const restoreBackup = async (
       ...meta,
       isRunning: false,
     }));
+    if (
+      isErrorWithCode(error) &&
+      error.code === errorCodes.OPERATION_CANCELED
+    ) {
+      DebugLogService.addEntry('log', `${BTAG} Restore cancelled by user`);
+      return;
+    }
     DebugLogService.addEntry(
       'error',
       `${BTAG} ❌ Restore failed: ${error.message}`,

@@ -259,8 +259,13 @@ export const deleteDownloads = async (
       ).catch(() => undefined),
     ),
   );
+  const chapterIds = chapters.map(chapter => chapter.id);
   await dbManager.write(async tx => {
-    await tx.update(chapterSchema).set({ isDownloaded: false }).run();
+    await tx
+      .update(chapterSchema)
+      .set({ isDownloaded: false })
+      .where(inArray(chapterSchema.id, chapterIds))
+      .run();
   });
 };
 

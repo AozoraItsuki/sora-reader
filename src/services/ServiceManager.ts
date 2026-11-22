@@ -183,13 +183,14 @@ export default class ServiceManager {
       taskList[0].task?.name !== 'DOWNLOAD_CHAPTER'
     ) {
       const now = Date.now();
-      if (now - this.lastNotifUpdate > 1000) {
+      if (now - this.lastNotifUpdate < 1000) {
         const delay = 1000 - (now - this.lastNotifUpdate);
         const id = ++this.currentPendingUpdate;
         setTimeout(() => {
           if (this.currentPendingUpdate !== id) {
             return;
           }
+          this.lastNotifUpdate = Date.now();
           BackgroundService.updateNotification({
             taskTitle: taskList[0].meta?.name || 'Unknown Task',
             taskDesc: taskList[0].meta?.progressText ?? '',
@@ -240,7 +241,7 @@ export default class ServiceManager {
         count = 0;
       }
     }
-    if (i === null) {
+    if (i === null || count === 0) {
       return null;
     }
     return (i / count) * 100;
@@ -408,7 +409,10 @@ export default class ServiceManager {
 
       // Safety check
       if (!currentTask?.task?.name) {
-        setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
+        setMMKVObject(
+          manager.STORE_KEY,
+          manager.getTaskList().filter(t => t.id !== currentTask.id),
+        );
         continue;
       }
 
@@ -564,7 +568,10 @@ export default class ServiceManager {
         }
       }
 
-      setMMKVObject(manager.STORE_KEY, manager.getTaskList().slice(1));
+      setMMKVObject(
+        manager.STORE_KEY,
+        manager.getTaskList().filter(t => t.id !== currentTask.id),
+      );
     }
 
     if (manager.getTaskList().length === 0) {
@@ -723,19 +730,10 @@ export default class ServiceManager {
       this.currentAbortController.abort();
     }
 
-    if (isCurrentTask) {
-      this.pause();
-      setMMKVObject(
-        this.STORE_KEY,
-        taskList.filter(t => t.id !== id),
-      );
-      this.resume();
-    } else {
-      setMMKVObject(
-        this.STORE_KEY,
-        taskList.filter(t => t.id !== id),
-      );
-    }
+    setMMKVObject(
+      this.STORE_KEY,
+      taskList.filter(t => t.id !== id),
+    );
   }
 
   removeTasksByName(name: BackgroundTask['name']) {
@@ -754,22 +752,18 @@ export default class ServiceManager {
       this.currentAbortController.abort();
     }
 
-    if (isCurrentTask) {
-      this.pause();
-      setMMKVObject(
-        this.STORE_KEY,
-        taskList.filter(t => t.task?.name !== name),
-      );
-      this.resume();
-    } else {
-      setMMKVObject(
-        this.STORE_KEY,
-        taskList.filter(t => t.task?.name !== name),
-      );
-    }
+    setMMKVObject(
+      this.STORE_KEY,
+      taskList.filter(t => t.task?.name !== name),
+    );
   }
 
   clearTaskList() {
+    for (const controller of this.taskAbortControllers.values()) {
+      controller.abort();
+    }
+    this.taskAbortControllers.clear();
+    this.currentAbortController?.abort();
     setMMKVObject(this.STORE_KEY, []);
   }
 

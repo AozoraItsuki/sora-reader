@@ -328,7 +328,18 @@ export const deleteCachedNovels = async () => {
     }
   }
 
+  const cachedNovelIds = cachedNovels.map(n => n.id);
   await dbManager.write(async tx => {
+    if (cachedNovelIds.length > 0) {
+      await tx
+        .delete(chapterSchema)
+        .where(inArray(chapterSchema.novelId, cachedNovelIds))
+        .run();
+      await tx
+        .delete(novelCategorySchema)
+        .where(inArray(novelCategorySchema.novelId, cachedNovelIds))
+        .run();
+    }
     await tx.delete(novelSchema).where(eq(novelSchema.inLibrary, false)).run();
   });
   showToast(getString('advancedSettingsScreen.cachedNovelsDeletedToast'));
@@ -545,6 +556,10 @@ export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
     await tx
       .delete(chapterSchema)
       .where(eq(chapterSchema.novelId, novel.id))
+      .run();
+    await tx
+      .delete(novelCategorySchema)
+      .where(eq(novelCategorySchema.novelId, novel.id))
       .run();
 
     // Restore novel

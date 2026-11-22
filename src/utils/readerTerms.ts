@@ -171,6 +171,10 @@ function applyTermsToText(text: string, terms: ReaderTerm[]): string {
       re.lastIndex = 0;
 
       while ((m = re.exec(seg.content)) !== null) {
+        if (m[0].length === 0) {
+          re.lastIndex++;
+          break;
+        }
         if (m.index > lastIndex) {
           newSegments.push({
             content: seg.content.slice(lastIndex, m.index),
@@ -366,6 +370,7 @@ blockList.forEach(function(block){
         if(seg.html!==null){newSegs.push(seg);continue;}
         var lastIdx=0;var m;re.lastIndex=0;
         while((m=re.exec(seg.content))!==null){
+          if(!m[0].length){re.lastIndex++;break;}
           if(m.index>lastIdx)newSegs.push({content:seg.content.slice(lastIdx,m.index),html:null});
           var orig=m[0];
           var styled=wrapStyle(term.to||'',term.style);
