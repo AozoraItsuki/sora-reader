@@ -49,7 +49,7 @@ class RemoteJsonSourceCatalog(
     override suspend fun fetchChapterContent(sourceId: String, chapterUrl: String): ChapterContent {
         val payload = load()
         val chapter = payload.novels.flatMap { it.chapters }.first { it.url == chapterUrl }
-        return ChapterContent(chapterId = chapter.url.hashCode().toLong(), title = chapter.title, paragraphs = chapter.content.ifBlank { listOf("No content.") })
+        return ChapterContent(chapterId = chapter.url.hashCode().toLong(), title = chapter.title, paragraphs = chapter.content.ifEmpty { listOf("No content.") })
     }
 }
 
