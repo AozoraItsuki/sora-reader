@@ -169,30 +169,64 @@ const installPlugin = async (
     newer(plugin.version, currentPlugin.version) ||
     __DEV__
   ) {
-    plugins[plugin.id] = plugin;
-    currentPlugin = plugin;
-
-    // save plugin code;
     const pluginDir = `${PLUGIN_STORAGE}/${plugin.id}`;
-    NativeFile.mkdir(pluginDir);
     const pluginPath = pluginDir + '/index.js';
     const customJSPath = pluginDir + '/custom.js';
     const customCSSPath = pluginDir + '/custom.css';
-    if (_plugin.customJS) {
-      await downloadFile(getBypassCacheUrl(_plugin.customJS), customJSPath);
-      console.log(`[${plugin.id}]: Updated JS`);
-    } else if (NativeFile.exists(customJSPath)) {
-      NativeFile.unlink(customJSPath);
-      console.log(`[${plugin.id}]: Deleted JS`);
+    // Stage on the same filesystem as the final files so a failed download can
+    // never publish a half-installed plugin, and rollback is just file removal.
+    const stagedPaths = [
+      `${customJSPath}.tmp`,
+      `${customCSSPath}.tmp`,
+      `${pluginPath}.tmp`,
+    ];
+    const [stagedJSPath, stagedCSSPath, stagedIndexPath] = stagedPaths;
+    try {
+      NativeFile.mkdir(pluginDir);
+      if (_plugin.customJS) {
+        await downloadFile(getBypassCacheUrl(_plugin.customJS), stagedJSPath);
+      }
+      if (_plugin.customCSS) {
+        await downloadFile(getBypassCacheUrl(_plugin.customCSS), stagedCSSPath);
+      }
+      NativeFile.writeFile(stagedIndexPath, rawCode);
+
+      // Commit only after every remote write succeeded. index.js is written
+      // last because it is the marker getPlugin() reads on the next lookup.
+      const logs: string[] = [];
+      if (_plugin.customJS) {
+        NativeFile.moveFile(stagedJSPath, customJSPath);
+        logs.push(`[${plugin.id}]: Updated JS`);
+      } else if (NativeFile.exists(customJSPath)) {
+        NativeFile.unlink(customJSPath);
+        logs.push(`[${plugin.id}]: Deleted JS`);
+      }
+      if (_plugin.customCSS) {
+        NativeFile.moveFile(stagedCSSPath, customCSSPath);
+        logs.push(`[${plugin.id}]: Updated CSS`);
+      } else if (NativeFile.exists(customCSSPath)) {
+        NativeFile.unlink(customCSSPath);
+        logs.push(`[${plugin.id}]: Deleted CSS`);
+      }
+      NativeFile.moveFile(stagedIndexPath, pluginPath);
+
+      // The in-memory swap happens only once all disk writes are done: a later
+      // failure used to leave `plugins[id]` newer than the files on disk.
+      plugins[plugin.id] = plugin;
+      currentPlugin = plugin;
+      logs.forEach(log => console.log(log));
+    } catch (error) {
+      for (const path of stagedPaths) {
+        try {
+          if (NativeFile.exists(path)) {
+            NativeFile.unlink(path);
+          }
+        } catch {
+          // Best-effort rollback; never mask the original install failure.
+        }
+      }
+      throw error;
     }
-    if (_plugin.customCSS) {
-      await downloadFile(getBypassCacheUrl(_plugin.customCSS), customCSSPath);
-      console.log(`[${plugin.id}]: Updated CSS`);
-    } else if (NativeFile.exists(customCSSPath)) {
-      NativeFile.unlink(customCSSPath);
-      console.log(`[${plugin.id}]: Deleted CSS`);
-    }
-    NativeFile.writeFile(pluginPath, rawCode);
   }
   return currentPlugin;
 };

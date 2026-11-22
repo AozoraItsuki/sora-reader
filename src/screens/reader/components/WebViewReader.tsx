@@ -118,6 +118,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   } = useChapterContext();
   const theme = useTheme();
   const { top, bottom } = useSafeAreaInsets();
+  const safeAreaInsetsRef = useRef({ top, bottom });
+  safeAreaInsetsRef.current = { top, bottom };
   // Use state for settings so they update when MMKV changes
   const [readerSettings, setReaderSettings] = useState<ChapterReaderSettings>(
     () =>
@@ -136,6 +138,27 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
   // The reader chrome already sits inside the safe area, so the document only
   // offsets by what the system bars actually cover right now.
   const readerTopInset = chapterGeneralSettings.fullScreenMode ? 0 : top;
+
+  // Insets are applied to the live document as CSS variables. Rotation must not
+  // rebuild the HTML (that would reset scroll/TTS and the append state).
+  const injectReaderInsets = useCallback(
+    (fullScreenMode: boolean) => {
+      const bottomInset = fullScreenMode ? 0 : safeAreaInsetsRef.current.bottom;
+      const topInset = fullScreenMode ? 0 : safeAreaInsetsRef.current.top;
+      webViewRef.current?.injectJavaScript(`
+        document.documentElement.style.setProperty('--reader-bottomInset', '${bottomInset}px');
+        document.documentElement.style.setProperty('--reader-topInset', '${topInset}px');`,
+      );
+    },
+    [webViewRef],
+  );
+
+  useEffect(() => {
+    const settings =
+      getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) ||
+      initialChapterGeneralSettings;
+    injectReaderInsets(settings.fullScreenMode);
+  }, [injectReaderInsets, readerBottomInset, readerTopInset]);
 
   // Update readerSettings when chapter changes
   useEffect(() => {
@@ -458,14 +481,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
           webViewRef.current?.injectJavaScript(
             `reader.generalSettings.val = ${MMKVStorage.getString(
               CHAPTER_GENERAL_SETTINGS,
-            )};
-            document.documentElement.style.setProperty('--reader-bottomInset', '${
-              newGeneralSettings.fullScreenMode ? 0 : bottom
-            }px');
-            document.documentElement.style.setProperty('--reader-topInset', '${
-              newGeneralSettings.fullScreenMode ? 0 : top
-            }px');`,
+            )};`,
           );
+          injectReaderInsets(newGeneralSettings.fullScreenMode);
           break;
       }
     });
@@ -482,7 +500,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
       subscription.remove();
       mmkvListener.remove();
     };
-  }, [bottom, top, webViewRef]);
+  }, [injectReaderInsets, webViewRef]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
@@ -629,6 +647,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     const terms = getAllTermsForNovel(novel.id ?? 0);
     const processedHtml =
       terms.length > 0 ? applyTermsToHtml(html, terms) : html;
+    const currentGeneralSettings =
+      getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) ||
+      initialChapterGeneralSettings;
 
     sourceDataRef.current = {
       // Downloaded chapters are served by the local HTTP server out of the
@@ -658,8 +679,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
         prevChapter,
         assetsUriPrefix,
         batteryLevel,
-        readerBottomInset,
-        readerTopInset,
+        readerBottomInset: currentGeneralSettings.fullScreenMode
+          ? 0
+          : safeAreaInsetsRef.current.bottom,
+        readerTopInset: currentGeneralSettings.fullScreenMode
+          ? 0
+          : safeAreaInsetsRef.current.top,
         pluginCustomCSS,
         pluginCustomJS,
         nextChapterScreenVisible: nextChapterScreenVisible.current,
@@ -687,8 +712,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
     readerDir,
     plugin?.site,
     plugin?.imageRequestInit,
-    readerBottomInset,
-    readerTopInset,
     batteryLevel,
     chapterGeneralSettings,
     nextChapter,
@@ -722,6 +745,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
             window.reader.batteryLevel.val = ${currentBatteryLevel};
           }`,
         );
+
+        // A fresh document starts with the values baked into its HTML; keep
+        // live CSS variables in sync after rotation/settings changes.
+        const currentGeneralSettings =
+          getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) ||
+          initialChapterGeneralSettings;
+        injectReaderInsets(currentGeneralSettings.fullScreenMode);
 
         if (pendingScrollPositionRef.current) {
           pendingScrollPositionRef.current = null; // Reset after first load
@@ -824,13 +854,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress, onScroll }) => {
             break;
           case 'save':
             if (typeof event.data === 'number') {
-              saveProgress(
-                event.data,
-                event.chapterId,
-                typeof event.charOffset === 'number'
-                  ? event.charOffset
-                  : undefined,
-              );
+              void Promise.resolve(
+                saveProgress(
+                  event.data,
+                  event.chapterId,
+                  typeof event.charOffset === 'number'
+                    ? event.charOffset
+                    : undefined,
+                ),
+              ).catch(() => {
+                // Progress persistence is best-effort for WebView messages.
+              });
             }
             break;
           case 'speak':

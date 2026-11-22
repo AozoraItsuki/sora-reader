@@ -167,7 +167,7 @@ export default function useChapter(
   const { setImmersiveMode, showStatusAndNavBar } = useFullscreenMode();
 
   const connectVolumeButton = useCallback(() => {
-    emmiter.addListener('VolumeUp', () => {
+    const upSubscription = emmiter.addListener('VolumeUp', () => {
       if (isPageReaderMode) {
         webViewRef.current?.injectJavaScript(`(()=>{
           pageReader.movePage(pageReader.page.val - 1);
@@ -182,7 +182,7 @@ export default function useChapter(
         })()`);
       }
     });
-    emmiter.addListener('VolumeDown', () => {
+    const downSubscription = emmiter.addListener('VolumeDown', () => {
       if (isPageReaderMode) {
         webViewRef.current?.injectJavaScript(`(()=>{
           pageReader.movePage(pageReader.page.val + 1);
@@ -197,20 +197,18 @@ export default function useChapter(
         })()`);
       }
     });
+
+    return () => {
+      upSubscription.remove();
+      downSubscription.remove();
+    };
   }, [webViewRef, volumeButtonsOffset, isPageReaderMode, windowHeight]);
 
   useEffect(() => {
-    if (useVolumeButtons) {
-      connectVolumeButton();
-    } else {
-      emmiter.removeAllListeners('VolumeUp');
-      emmiter.removeAllListeners('VolumeDown');
-      // this is just for sure, without it app still works properly
-    }
+    const disconnect = useVolumeButtons ? connectVolumeButton() : undefined;
 
     return () => {
-      emmiter.removeAllListeners('VolumeUp');
-      emmiter.removeAllListeners('VolumeDown');
+      disconnect?.();
       Speech.stop();
       TikTokTTS?.stop();
     };
@@ -732,7 +730,9 @@ export default function useChapter(
       ) {
         return;
       }
-      lastSavedProgressRef.current = {
+      // Track this attempt by identity: if its DB write fails, only this key
+      // is cleared so a newer save's dedupe entry is left intact.
+      const savedProgress = {
         chapId,
         pct: clampedPct,
         charOffset: normalizedCharOffset,
@@ -769,16 +769,31 @@ export default function useChapter(
         charOffset === undefined
           ? updateChapterProgress(chapId, clampedPct)
           : updateChapterProgress(chapId, clampedPct, charOffset);
+      // Set the dedupe key only once a write has actually been started. It is
+      // cleared below if that write fails so the same position can be retried.
+      lastSavedProgressRef.current = savedProgress;
 
       if (clampedPct >= 97) {
         // a relative number
         markChapterRead(chapId);
       }
 
-      await Promise.resolve(persistence);
+      try {
+        await Promise.resolve(persistence);
+      } catch (error) {
+        if (lastSavedProgressRef.current === savedProgress) {
+          lastSavedProgressRef.current = null;
+        }
+        throw error;
+      }
 
       if (isTargetChapter) {
-        await Promise.resolve(insertHistory(chapId));
+        try {
+          await Promise.resolve(insertHistory(chapId));
+        } catch {
+          // History is best-effort; a failed write must not block the
+          // lastRead refresh for the chapter the reader just finished.
+        }
 
         if (!isCurrentCommit()) return;
 
@@ -902,7 +917,9 @@ export default function useChapter(
     const chapterId = chapter.id;
     const readSession = chapterSessionRef.current;
     const commit = progressCommitRef.current;
-    insertHistory(chapterId);
+    void Promise.resolve(insertHistory(chapterId)).catch(() => {
+      // History is best-effort; hydration must continue if the write fails.
+    });
     void Promise.resolve(getDbChapter(chapterId)).then(result => {
       if (
         result &&

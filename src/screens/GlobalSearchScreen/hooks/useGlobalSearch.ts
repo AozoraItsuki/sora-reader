@@ -24,12 +24,43 @@ export const useGlobalSearch = ({
   const isMounted = useRef(true); // if user closes the search screen, cancel the search
   const isFocused = useRef(true); // if the user opens a sub-screen (e.g. novel screen), pause the search
   const lastSearch = useRef(''); // if the user changes search, cancel running searches
-  useEffect(
-    () => () => {
-      isMounted.current = false;
-    },
+  const pollingWaiters = useRef<
+    Set<{ timer?: ReturnType<typeof setTimeout>; resolve: () => void }>
+  >(new Set());
+
+  // Polling must resolve even on unmount so the async search loops can exit
+  // instead of staying suspended on a timer that can no longer update state.
+  const waitForPollingInterval = useCallback(
+    () =>
+      new Promise<void>(resolve => {
+        if (!isMounted.current) {
+          resolve();
+          return;
+        }
+        const waiter: {
+          timer?: ReturnType<typeof setTimeout>;
+          resolve: () => void;
+        } = { resolve };
+        waiter.timer = setTimeout(() => {
+          pollingWaiters.current.delete(waiter);
+          resolve();
+        }, 100);
+        pollingWaiters.current.add(waiter);
+      }),
     [],
   );
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      pollingWaiters.current.forEach(({ timer, resolve }) => {
+        clearTimeout(timer);
+        resolve();
+      });
+      pollingWaiters.current.clear();
+    };
+  }, []);
   useFocusEffect(
     useCallback(() => {
       isFocused.current = true;
@@ -47,7 +78,7 @@ export const useGlobalSearch = ({
 
   const globalSearch = useCallback(
     (searchText: string) => {
-      if (lastSearch.current === searchText) {
+      if (!isMounted.current || lastSearch.current === searchText) {
         return;
       }
       lastSearch.current = searchText;
@@ -73,6 +104,9 @@ export const useGlobalSearch = ({
           }
           const res = await plugin.searchNovels(searchText, 1);
 
+          if (!isMounted.current) {
+            return;
+          }
           setSearchResults(prevState =>
             prevState
               .map(prevResult =>
@@ -83,6 +117,9 @@ export const useGlobalSearch = ({
               .sort(novelResultSorter),
           );
         } catch (error: any) {
+          if (!isMounted.current) {
+            return;
+          }
           const errorMessage = error?.message || String(error);
           setSearchResults(prevState =>
             prevState
@@ -107,10 +144,16 @@ export const useGlobalSearch = ({
       );
 
       (async () => {
+        if (!isMounted.current) {
+          return;
+        }
         if (globalSearchConcurrency > 1) {
           for (const _plugin of filteredSortedInstalledPlugins) {
-            while (running >= globalSearchConcurrency || !isFocused.current) {
-              await new Promise(resolve => setTimeout(resolve, 100));
+            while (
+              isMounted.current &&
+              (running >= globalSearchConcurrency || !isFocused.current)
+            ) {
+              await waitForPollingInterval();
             }
             if (!isMounted.current || lastSearch.current !== searchText) {
               break;
@@ -119,7 +162,7 @@ export const useGlobalSearch = ({
             searchInPlugin(_plugin)
               .then(() => {
                 running--;
-                if (lastSearch.current === searchText) {
+                if (isMounted.current && lastSearch.current === searchText) {
                   setProgress(
                     prevState =>
                       prevState + 1 / filteredInstalledPlugins.length,
@@ -135,11 +178,14 @@ export const useGlobalSearch = ({
             if (!isMounted.current || lastSearch.current !== searchText) {
               break;
             }
-            while (!isFocused.current) {
-              await new Promise(resolve => setTimeout(resolve, 100));
+            while (isMounted.current && !isFocused.current) {
+              await waitForPollingInterval();
+            }
+            if (!isMounted.current || lastSearch.current !== searchText) {
+              break;
             }
             await searchInPlugin(_plugin);
-            if (lastSearch.current === searchText) {
+            if (isMounted.current && lastSearch.current === searchText) {
               setProgress(
                 prevState => prevState + 1 / filteredInstalledPlugins.length,
               );
@@ -148,7 +194,7 @@ export const useGlobalSearch = ({
         }
       })();
     },
-    [filteredInstalledPlugins, globalSearchConcurrency],
+    [filteredInstalledPlugins, globalSearchConcurrency, waitForPollingInterval],
   );
 
   const debouncedGlobalSearch = useMemo(

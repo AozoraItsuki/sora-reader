@@ -32,7 +32,7 @@ class AppContainer(context: Context) {
         context.applicationContext,
         SoraDatabase::class.java,
         "sora-reader.db",
-    ).fallbackToDestructiveMigration().build()
+    ).build()
 
     val novelRepository: NovelRepository = RoomNovelRepository(database)
     val repositoryStore: RepositoryStore = RepositoryStoreImpl(database)

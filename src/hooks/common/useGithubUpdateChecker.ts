@@ -3,10 +3,16 @@ import { newer } from '@utils/compareVersion';
 import { GITHUB_REPO, GITHUB_USER } from '@utils/constants/metadata';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { useCallback, useEffect, useState } from 'react';
+import { supportedAbis, supportedAbisSync } from 'react-native-device-info';
 
 import { version } from '../../../package.json';
 
 const { GIT_HASH, BUILD_TYPE } = Config;
+
+export interface GithubReleaseAsset {
+  name?: string;
+  browser_download_url?: string;
+}
 
 export interface GithubUpdateRelease {
   tag_name: string;
@@ -26,6 +32,12 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const BETA_RELEASE_URL = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/tags/beta`;
 const LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest`;
 
+// Only real app versions are considered. CI tags such as "build-61" or
+// "codemagic-abc1234" must never be parsed as version "61".
+const SEMVER_TAG_RE = /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
+const ARM64 = 'arm64-v8a';
+const ARMV7 = 'armeabi-v7a';
+
 /**
  * Parse commit hash from beta release body.
  * Expected format: `- **Commit Hash**: [<hash>](<url>)`
@@ -33,6 +45,90 @@ const LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB
 const parseCommitHash = (body: string): string | null => {
   const match = body?.match(/\*\*Commit Hash\*\*.*?\[([a-f0-9]+)\]/i);
   return match?.[1] ?? null;
+};
+
+/**
+ * Returns the semver part of a release tag (without a leading "v"), or null
+ * when the tag is not a version tag.
+ */
+export const normalizeReleaseTag = (tag: unknown): string | null => {
+  if (typeof tag !== 'string') {
+    return null;
+  }
+  return SEMVER_TAG_RE.exec(tag.trim())?.[1] ?? null;
+};
+
+const isApk = (asset: GithubReleaseAsset): boolean =>
+  /\.apk($|\?)/i.test(`${asset?.name || ''} ${asset?.browser_download_url || ''}`);
+
+const matchesAbi = (asset: GithubReleaseAsset, abi: string): boolean =>
+  `${asset?.name || ''} ${asset?.browser_download_url || ''}`.includes(abi);
+
+/**
+ * Pick the APK built for the device ABI. arm64-v8a is preferred, armeabi-v7a
+ * is the fallback. An unknown/unlabelled single APK is accepted only when it
+ * is the sole candidate; otherwise no URL is returned instead of blindly
+ * handing back assets[0] with the wrong ABI.
+ */
+export const selectApkDownloadUrl = (
+  assets: unknown,
+  deviceAbis: readonly string[],
+): string => {
+  if (!Array.isArray(assets)) {
+    return '';
+  }
+
+  const apks = assets.filter(
+    (asset: GithubReleaseAsset) =>
+      asset && typeof asset.browser_download_url === 'string' && isApk(asset),
+  );
+  if (apks.length === 0) {
+    return '';
+  }
+
+  const prefersArm64 = deviceAbis.some(
+    abi => abi === ARM64 || abi === 'arm64',
+  );
+  const prefersArmv7 = deviceAbis.some(
+    abi => abi === ARMV7 || abi === 'armeabi',
+  );
+  const preferredAbis: string[] = [];
+  if (prefersArm64) {
+    preferredAbis.push(ARM64);
+  }
+  if (prefersArmv7) {
+    preferredAbis.push(ARMV7);
+  }
+  if (preferredAbis.length === 0) {
+    // No ABI information: still prefer 64-bit, then 32-bit.
+    preferredAbis.push(ARM64, ARMV7);
+  }
+
+  for (const abi of preferredAbis) {
+    const match = apks.find(asset => matchesAbi(asset, abi));
+    if (match) {
+      return match.browser_download_url || '';
+    }
+  }
+
+  const hasLabelledApk = apks.some(
+    asset => matchesAbi(asset, ARM64) || matchesAbi(asset, ARMV7),
+  );
+  return !hasLabelledApk && apks.length === 1
+    ? apks[0].browser_download_url || ''
+    : '';
+};
+
+const getDeviceAbis = async (): Promise<string[]> => {
+  try {
+    return await supportedAbis();
+  } catch {
+    try {
+      return supportedAbisSync();
+    } catch {
+      return [];
+    }
+  }
 };
 
 /**
@@ -49,6 +145,8 @@ const isNightlyBuild = (): boolean => {
  */
 export const fetchUpdateInfo = async (): Promise<GithubUpdate> => {
   try {
+    const deviceAbis = await getDeviceAbis();
+
     // For nightly/beta builds: check the beta release tag
     if (isNightlyBuild()) {
       const res = await fetch(BETA_RELEASE_URL);
@@ -65,7 +163,7 @@ export const fetchUpdateInfo = async (): Promise<GithubUpdate> => {
             latestRelease: {
               tag_name: `beta (${remoteCommitHash})`,
               body: data.body || '',
-              downloadUrl: data.assets?.[0]?.browser_download_url || '',
+              downloadUrl: selectApkDownloadUrl(data.assets, deviceAbis),
               commitHash: remoteCommitHash,
             },
           };
@@ -73,25 +171,21 @@ export const fetchUpdateInfo = async (): Promise<GithubUpdate> => {
       }
     }
 
-    // Also check for stable version bumps (e.g. version > 2.0.3)
+    // Check stable version bumps; non-version tags are ignored entirely.
     const res = await fetch(LATEST_RELEASE_URL);
     if (res.ok) {
       const data = await res.json();
-      if (data?.tag_name) {
-        const currentVersion = `${version}`;
-        const regex = /[^\d.]/g;
-        const newVersion = data.tag_name.replace(regex, '');
+      const newVersion = normalizeReleaseTag(data?.tag_name);
 
-        if (newer(newVersion, currentVersion)) {
-          return {
-            isNewVersion: true,
-            latestRelease: {
-              tag_name: data.tag_name,
-              body: data.body || '',
-              downloadUrl: data.assets?.[0]?.browser_download_url || '',
-            },
-          };
-        }
+      if (newVersion && newer(newVersion, `${version}`)) {
+        return {
+          isNewVersion: true,
+          latestRelease: {
+            tag_name: data.tag_name,
+            body: data.body || '',
+            downloadUrl: selectApkDownloadUrl(data.assets, deviceAbis),
+          },
+        };
       }
     }
   } catch {
@@ -135,89 +229,3 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
 
   return result;
 };
-
-// ---- Old useGithubUpdateChecker (semver-based only, for stable releases) ----
-// This was replaced by the new version above that also supports nightly/beta
-// builds by comparing GIT_HASH with the beta release tag's commit hash.
-//
-// export const useGithubUpdateChecker = (): GithubUpdate => {
-//   const latestReleaseUrl =
-//     `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest`;
-//
-//   const [checking, setChecking] = useState(true);
-//   const [latestRelease, setLatestRelease] = useState<any>();
-//
-//   const shouldCheckForUpdate = (): boolean => {
-//     const lastCheckTime = MMKVStorage.getNumber(LAST_UPDATE_CHECK_KEY);
-//     if (!lastCheckTime) {
-//       return true;
-//     }
-//
-//     const now = Date.now();
-//     const timeSinceLastCheck = now - lastCheckTime;
-//
-//     return timeSinceLastCheck >= ONE_DAY_MS;
-//   };
-//
-//   const checkForRelease = useCallback(async () => {
-//     if (!shouldCheckForUpdate()) {
-//       setChecking(false);
-//       return;
-//     }
-//
-//     try {
-//       const res = await fetch(latestReleaseUrl);
-//
-//       if (!res.ok) {
-//         setChecking(false);
-//         return;
-//       }
-//
-//       const data = await res.json();
-//
-//       if (!data || !data.tag_name) {
-//         setChecking(false);
-//         return;
-//       }
-//
-//       const release = {
-//         tag_name: data.tag_name,
-//         body: data.body,
-//         downloadUrl: data.assets?.[0]?.browser_download_url || undefined,
-//       };
-//
-//       MMKVStorage.set(LAST_UPDATE_CHECK_KEY, Date.now());
-//
-//       setLatestRelease(release);
-//       setChecking(false);
-//     } catch {
-//       // Silently fail in offline mode or on network errors
-//       setChecking(false);
-//     }
-//   }, []);
-//
-//   const isNewVersion = (versionTag: string) => {
-//     const currentVersion = `${version}`;
-//     const regex = /[^\d.]/;
-//
-//     const newVersion = versionTag.replace(regex, '');
-//
-//     return newer(newVersion, currentVersion);
-//   };
-//
-//   useEffect(() => {
-//     checkForRelease();
-//   }, [checkForRelease]);
-//
-//   if (!checking && latestRelease?.tag_name) {
-//     return {
-//       latestRelease,
-//       isNewVersion: isNewVersion(latestRelease.tag_name),
-//     };
-//   }
-//
-//   return {
-//     latestRelease: undefined,
-//     isNewVersion: false,
-//   };
-// };

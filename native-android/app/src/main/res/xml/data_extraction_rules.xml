@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <!-- Room DB (plus WAL/SHM sidecars) and DataStore prefs hold reading data and
+         incognito state, so they must never leave the device. Every other app
+         file stays eligible for cloud backup and device-to-device transfer. -->
+    <cloud-backup>
+        <exclude domain="database" path="sora-reader.db" />
+        <exclude domain="database" path="sora-reader.db-wal" />
+        <exclude domain="database" path="sora-reader.db-shm" />
+        <exclude domain="database" path="sora-reader.db-journal" />
+        <exclude domain="file" path="datastore" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" path="sora-reader.db" />
+        <exclude domain="database" path="sora-reader.db-wal" />
+        <exclude domain="database" path="sora-reader.db-shm" />
+        <exclude domain="database" path="sora-reader.db-journal" />
+        <exclude domain="file" path="datastore" />
+    </device-transfer>
+</data-extraction-rules>

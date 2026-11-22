@@ -38,6 +38,7 @@ import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { showToast } from '@utils/showToast';
 import * as cheerio from 'cheerio';
 import { eq } from 'drizzle-orm';
+
 import {
   isCloudflareOrIPBanError,
   torNewIdentity,
@@ -64,15 +65,34 @@ const createLimiter = (limit: number) => {
   };
 };
 
+/** A cancelled download must be distinguishable from a real failure. */
+const createAbortError = () => {
+  const error = new Error('Download cancelled');
+  error.name = 'AbortError';
+  return error;
+};
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+};
+
+const isAbortError = (error: unknown): boolean =>
+  (error as { name?: string } | null)?.name === 'AbortError';
+
 type ImageOutcome = { ok: boolean; error?: unknown };
 
 const createChapterFolder = async (data: {
   pluginId: string;
   novelId: number;
   chapterId: number;
+  signal?: AbortSignal;
 }): Promise<string> => {
   const chapterFolder = chapterRel(data.pluginId, data.novelId, data.chapterId);
+  throwIfAborted(data.signal);
   await safMkdir(chapterFolder);
+  throwIfAborted(data.signal);
   await safWriteFile(nomediaRel(data.pluginId, data.novelId, data.chapterId), ',');
   return chapterFolder;
 };
@@ -82,9 +102,11 @@ const downloadFiles = async (
   plugin: Plugin,
   novelId: number,
   chapterId: number,
+  signal?: AbortSignal,
 ): Promise<void> => {
   const pluginId = plugin.id;
-  await createChapterFolder({ pluginId, novelId, chapterId });
+  await createChapterFolder({ pluginId, novelId, chapterId, signal });
+  throwIfAborted(signal);
   const loadedCheerio = cheerio.load(html);
   const imgs = loadedCheerio('img').toArray();
 
@@ -100,6 +122,7 @@ const downloadFiles = async (
 
   const writeImage = (url: string, relPath: string): Promise<ImageOutcome> =>
     limit(async () => {
+      throwIfAborted(signal);
       try {
         // Inline payloads can never be fetched by the native HTTP downloader,
         // so write them straight into the chapter folder instead.
@@ -109,18 +132,26 @@ const downloadFiles = async (
           if (!base64) {
             return { ok: false, error: 'Empty data URI image' };
           }
+          throwIfAborted(signal);
           await safWriteFile(relPath, base64, 'base64');
         } else {
+          throwIfAborted(signal);
           await safDownloadFile(url, relPath, plugin.imageRequestInit);
         }
         return { ok: true };
       } catch (e) {
+        // Cancellation must propagate so the chapter is never marked
+        // downloaded; ordinary image failures stay non-fatal.
+        if (isAbortError(e)) {
+          throw e;
+        }
         return { ok: false, error: e };
       }
     });
 
   await Promise.all(
     imgs.map(async (img, i) => {
+      throwIfAborted(signal);
       const elem = loadedCheerio(img);
       const url = elem.attr('src');
       if (!url) {
@@ -155,6 +186,7 @@ const downloadFiles = async (
       }
     }),
   );
+  throwIfAborted(signal);
   await safWriteFile(
     chapterIndexRel(pluginId, novelId, chapterId),
     loadedCheerio.html(),
@@ -208,7 +240,9 @@ export const downloadChapter = async (
   setMeta: (
     transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
   ) => void,
+  signal?: AbortSignal,
 ) => {
+  throwIfAborted(signal);
   setMeta(meta => ({
     ...meta,
     isRunning: true,
@@ -234,11 +268,13 @@ export const downloadChapter = async (
     getMMKVObject<DownloadSettings>(DOWNLOAD_SETTINGS) ||
     initialDownloadSettings;
 
+  throwIfAborted(signal);
   const chapterText = await fetchChapterWithProxyRetry(
     plugin,
     chapter.path,
     downloadSettings,
   );
+  throwIfAborted(signal);
 
   if (chapterText && chapterText.length) {
     let finalHtml = chapterText;
@@ -277,9 +313,13 @@ export const downloadChapter = async (
       }
     }
 
-    await downloadFiles(finalHtml, plugin, novel.id, chapter.id);
+    throwIfAborted(signal);
+    await downloadFiles(finalHtml, plugin, novel.id, chapter.id, signal);
 
+    // A cancelled download must never be persisted as downloaded.
+    throwIfAborted(signal);
     await dbManager.write(async tx => {
+      throwIfAborted(signal);
       // dbManager.write awaits this callback before committing — without the
       // await here the flag can be lost (or reject after the tx has closed).
       await tx

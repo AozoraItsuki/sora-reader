@@ -56,6 +56,15 @@ function getGitHash() {
   return execSync('git rev-parse --short HEAD').toString().trim();
 }
 
+// CI passes the full commit SHA via --git-hash; accept it verbatim (lowercased)
+// and only fall back to git when the value is missing or malformed.
+function resolveGitHash(rawHash) {
+  const candidate = typeof rawHash === 'string' ? rawHash.trim() : '';
+  return /^[a-f0-9]{7,40}$/i.test(candidate)
+    ? candidate.toLowerCase()
+    : getGitHash();
+}
+
 function getHiddenEnvFiles(rootDir) {
   return fs
     .readdirSync(rootDir, { withFileTypes: true })
@@ -90,7 +99,7 @@ const projectRoot = path.join(__dirname, '..');
 
 const buildType = args['build-type'] || 'Beta';
 
-const gitHash = args['git-hash'] || getGitHash();
+const gitHash = resolveGitHash(args['git-hash']);
 const releaseDate = args['release-date'] || formatUtcDate(new Date());
 const nodeEnv =
   args['node-env'] ||

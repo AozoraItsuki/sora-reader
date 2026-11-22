@@ -1,6 +1,6 @@
 {
   "name": "sorareader",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "private": true,
   "scripts": {
     "dev:android:release": "pnpm run generate:env:release && rock run:android --variant \"release\" --active-arch-only",

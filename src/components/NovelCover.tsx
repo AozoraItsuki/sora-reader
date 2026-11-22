@@ -23,7 +23,11 @@ import { ActivityIndicator } from 'react-native-paper';
 
 import { coverPlaceholderColor } from '../theme/colors';
 import ListView from './ListView';
-import { localCoverFileUri, type LocalCoverSource } from './novelCoverUri';
+import {
+  invalidateLocalCoverUri,
+  localCoverFileUri,
+  type LocalCoverSource,
+} from './novelCoverUri';
 
 interface UnreadBadgeProps {
   showDownloadBadges: boolean;
@@ -195,7 +199,12 @@ function NovelCover<
     ? localUri
     : resolveDownloadUrl(item.cover) || defaultCover;
   const handleCoverError = useLocal
-    ? () => setBrokenLocal(localUri)
+    ? () => {
+        // A cached hit can go stale if the file was replaced or removed after
+        // it was resolved; drop it so the next render re-probes the disk.
+        invalidateLocalCoverUri(localCoverSource(item));
+        setBrokenLocal(localUri);
+      }
     : undefined;
   const requestInit = useMemo(() => {
     const init = imageRequestInit || ({} as ImageRequestInit);

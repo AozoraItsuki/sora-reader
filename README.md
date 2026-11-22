@@ -35,7 +35,7 @@ pnpm rock run:android --app-id-suffix "debug" --active-arch-only   # dev
 pnpm rock build:android --variant debug                            # local debug APK
 ```
 
-Releases are built in CI, not locally. `Build` (`.github/workflows/android-build.yml`) is manual-only (`workflow_dispatch` with variant + ABI selector, per-ABI APKs, Gradle/SDK/pnpm caching); pushing never triggers a build. The release build verifies the signing keystore before compiling and attaches its tag to the exact commit that produced the APKs:
+Releases are built in CI, not locally. `package.json` is the single version source: Gradle derives `versionName`/`versionCode` from it, and CI derives semver release tags `v<version>-ci.<run number>` from it. The release build verifies the signing keystore before compiling; a separate write-scoped job attaches the tag to the exact commit that produced the APKs and marks it latest only for `main` + `arch=all` (other runs are prereleases). Build steps use read-only tokens, artifacts carry a short commit SHA, and workflows pass the full commit to the env generator.
 
 ```sh
 # Requires the repository secrets KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD.
@@ -43,16 +43,16 @@ gh workflow run android-build.yml --ref <branch> -f variant=release -f arch=all
 gh run list --workflow=android-build.yml --limit 3
 ```
 
-`arch=all` produces `app-arm64-v8a-release.apk` and `app-armeabi-v7a-release.apk`, uploaded both as workflow artifacts and as assets on a `build-<run number>` GitHub release. Use `arch=arm64-v8a` or `arch=armeabi-v7a` for a single ABI. Debug builds need no signing secrets.
+`arch=all` produces `app-arm64-v8a-release.apk` and `app-armeabi-v7a-release.apk`, uploaded as workflow artifacts and release assets. Use `arch=arm64-v8a` or `arch=armeabi-v7a` for a single ABI. Debug builds need no signing secrets. The in-app updater ignores non-semver tags (e.g. `build-61`), compares versions properly (including `-ci.N`), and picks the APK matching the device ABI (arm64-v8a first, armeabi-v7a fallback). A cached Android SDK is health-checked and reinstalled automatically if a component is missing.
 
-A local release build is possible but requires all four signing variables to be exported (`KEYSTORE_FILE` pointing at a keystore, plus `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`); Gradle now fails fast instead of silently signing with the debug key:
+A local release build requires all four signing variables (`KEYSTORE_FILE` plus `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`); Gradle fails fast instead of silently signing with the debug key:
 
 ```sh
 KEYSTORE_FILE=/path/to/release.keystore KEYSTORE_PASSWORD=... KEY_ALIAS=... KEY_PASSWORD=... \
   pnpm rock build:android --variant release
 ```
 
-Codemagic remains an alternate release path. `Native Android Build` builds the experimental Kotlin/Compose scaffold; its release artifact is explicitly marked `-unsigned` and is for verification only.
+Codemagic remains an alternate release path using the same `v<version>-ci.<build>` tags (always prerelease, never latest). `Native Android Build` runs `:app:testDebugUnitTest` before assembly; native releases are signed with the same keystore secrets and are no longer marked `-unsigned`. Third-party actions are pinned to commit SHAs; Dependabot keeps them updated.
 
 Useful scripts: `pnpm jest` (tests), `pnpm run type-check` (`tsc --noEmit`), `pnpm run lint`, `pnpm run format:check`, `pnpm run generate:string-types`.
 

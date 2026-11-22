@@ -28,49 +28,159 @@ const ASSET_REF = /(\s)(src|href|srcset|data-src)(\s*=\s*)(["'])([^]*?)\4/gi;
 /** `true` when a reference already addresses something on its own. */
 const hasScheme = (ref: string): boolean => /^[a-z][a-z0-9+.-]*:/i.test(ref);
 
+/** One imported asset and the flattened name it is written under. */
+type AssetEntry = {
+  /** Scratch-space path the bytes are read from. */
+  source: string;
+  /** Collision-free filename written next to `index.html`. */
+  destination: string;
+  /** Forward-slash, EPUB-relative path used to disambiguate same-name files. */
+  key: string;
+  basename: string;
+};
+
+type AssetRegistry = Map<string, AssetEntry[]>;
+
+const normalizeSlashes = (path: string): string => path.replace(/\\/g, '/');
+const stripLeadingSlashes = (path: string): string => path.replace(/^\/+/, '');
+
 /**
- * Filename an asset reference points at, or null when it must be left as it is.
- *
- * A reference that already carries a scheme is somebody else's file (a remote
- * image, an inlined `data:` payload) and never lives in the EPUB, so it is kept
- * verbatim instead of being pointed at a copy that does not exist. A comma means
- * the reference is a payload rather than a path, which keeps the `srcset`
- * candidate split from mangling `data:` images.
+ * Short stable digest of a source path (FNV-1a). Only used for assets whose
+ * basename collides, so ordinary EPUBs keep readable bare filenames.
  */
-const localAssetName = (ref: string): string | null => {
-  // A query or fragment is not part of the name the asset is copied under.
+const sourceHash = (value: string): string => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+};
+
+/** Keep only a benign extension from the original name for hashed assets. */
+const safeExtension = (basename: string): string => {
+  const match = /\.([a-z0-9]{1,8})$/i.exec(basename);
+  return match ? `.${match[1].toLowerCase()}` : '';
+};
+
+/**
+ * Index every imported asset by basename. A unique basename keeps its name —
+ * the reader anchors bare references to the chapter folder, and that is what
+ * existing imports look like. When two sources share a basename, both get a
+ * digest derived from their source-relative path so neither can overwrite the
+ * other.
+ */
+const buildAssetRegistry = (
+  sources: string[],
+  epubDirPath: string,
+): AssetRegistry => {
+  const root = normalizeSlashes(epubDirPath).replace(/\/+$/, '');
+  const registry: AssetRegistry = new Map();
+  for (const source of Array.from(new Set(sources))) {
+    const normalized = normalizeSlashes(source);
+    const key = normalized.startsWith(`${root}/`)
+      ? normalized.slice(root.length + 1)
+      : stripLeadingSlashes(normalized);
+    const basename = pathBasename(source);
+    const list = registry.get(basename) ?? [];
+    list.push({ source, key, basename, destination: '' });
+    registry.set(basename, list);
+  }
+
+  const used = new Set<string>();
+  const claim = (preferred: string): string => {
+    let name = preferred;
+    let suffix = 2;
+    while (used.has(name)) {
+      const dot = preferred.lastIndexOf('.');
+      name =
+        dot > 0
+          ? `${preferred.slice(0, dot)}-${suffix++}${preferred.slice(dot)}`
+          : `${preferred}-${suffix++}`;
+    }
+    used.add(name);
+    return name;
+  };
+
+  // Readable names first: a generated digest can never steal a basename that
+  // belongs to a different, non-colliding asset.
+  for (const entries of registry.values()) {
+    if (entries.length === 1) {
+      entries[0].destination = claim(entries[0].basename);
+    }
+  }
+  for (const [basename, entries] of registry) {
+    if (entries.length > 1) {
+      for (const entry of entries) {
+        entry.destination = claim(
+          `${sourceHash(entry.key)}${safeExtension(basename)}`,
+        );
+      }
+    }
+  }
+  return registry;
+};
+
+/**
+ * Resolve a `src`/`href` to the asset it names, or null when it must be left as
+ * it is. A reference that already carries a scheme is somebody else's file (a
+ * remote image, an inlined `data:` payload) and never lives in the EPUB; a
+ * comma means the reference is a payload rather than a path, which keeps the
+ * `srcset` candidate split from mangling `data:` images.
+ *
+ * Only references whose file is actually imported resolve. An EPUB internal
+ * link such as `<a href="../Text/ch2.xhtml">` is not an image/style asset and
+ * is left alone; collapsing it to a basename would point at a file that was
+ * never copied next to `index.html`.
+ */
+const resolveAssetRef = (
+  registry: AssetRegistry,
+  ref: string,
+): AssetEntry | null => {
   const path = ref.split(/[?#]/)[0];
   if (!path || hasScheme(path) || path.includes(',')) {
     return null;
   }
-  return path.split(/[/\\]/).pop() || null;
+  const refPath = normalizeSlashes(path);
+  const candidates = registry.get(pathBasename(refPath));
+  if (!candidates?.length) {
+    return null;
+  }
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+  // Same-name assets: prefer the source whose path ends with the ref path,
+  // e.g. `../images/logo.png` -> `OEBPS/images/logo.png`. Sorting keeps the
+  // fallback deterministic when a bare ref carries no directory information.
+  const tail = stripLeadingSlashes(refPath).replace(/^(?:\.\.\/|\.\/)+/, '');
+  const matches = candidates.filter(
+    entry => entry.key === tail || entry.key.endsWith(`/${tail}`),
+  );
+  return [...(matches.length ? matches : candidates)].sort((a, b) =>
+    a.key.localeCompare(b.key),
+  )[0];
 };
 
 /**
- * Reduce asset references of a chapter document to the bare filename they
- * point at, and report the filenames that is.
- *
- * Only references whose file is actually imported are rewritten. An EPUB
- * internal link such as `<a href="../Text/ch2.xhtml">` is not an image/style
- * asset and is left alone; collapsing it to a basename would point at a file
- * that was never copied next to `index.html`.
+ * Reduce a chapter's asset references to their flattened destination names and
+ * report the sources that have to be copied next to `index.html`.
  */
 const rewriteAssetRefs = (
   html: string,
-  hasAsset: (name: string) => boolean,
-): { html: string; names: string[] } => {
-  const names = new Set<string>();
+  resolve: (ref: string) => AssetEntry | null,
+): { html: string; assets: Map<string, string> } => {
+  const assets = new Map<string, string>();
   const rewriteValue = (value: string, attribute: string): string => {
     // `srcset` holds a comma-separated candidate list of `url descriptor`.
     const candidates = attribute === 'srcset' ? value.split(',') : [value];
     const rewritten = candidates.map(candidate => {
       const url = candidate.trimStart().split(/\s/)[0] ?? '';
-      const name = localAssetName(url);
-      if (!name || !hasAsset(name)) {
+      const entry = resolve(url);
+      if (!entry) {
         return candidate;
       }
-      names.add(name);
-      return candidate.replace(url, () => name);
+      assets.set(entry.destination, entry.source);
+      return candidate.replace(url, () => entry.destination);
     });
     return rewritten.join(',');
   };
@@ -81,7 +191,7 @@ const rewriteAssetRefs = (
       (_, lead: string, attribute: string, eq: string, quote: string, value: string) =>
         `${lead}${attribute}${eq}${quote}${rewriteValue(value, attribute.toLowerCase())}${quote}`,
     ),
-    names: Array.from(names),
+    assets,
   };
 };
 
@@ -160,13 +270,14 @@ export const importEpub = async (
     // directory on the local server. So every referenced asset has to be copied
     // into that chapter's folder next to index.html -- NOT hoisted into the
     // novel root, which is where the pre-SAF absolute `file://` refs pointed.
-    const assetSources = new Map<string, string>();
-    for (const filePath of [...novel.imagePaths, ...novel.cssPaths]) {
-      assetSources.set(pathBasename(filePath), filePath);
-    }
-    if (novel.cover) {
-      assetSources.set(pathBasename(novel.cover), novel.cover);
-    }
+    const assetRegistry = buildAssetRegistry(
+      [
+        ...novel.imagePaths,
+        ...novel.cssPaths,
+        ...(novel.cover ? [novel.cover] : []),
+      ],
+      epubDirPath,
+    );
 
     for (let i = 0; i < chapterResults.length; i++) {
       const result = chapterResults[i];
@@ -182,8 +293,8 @@ export const importEpub = async (
 
       // RELATIVE srcs (bare filenames): the reader resolves them against the
       // local-server baseUrl, so the assets must sit next to index.html.
-      const rewritten = rewriteAssetRefs(chapterText, name =>
-        assetSources.has(name),
+      const rewritten = rewriteAssetRefs(chapterText, ref =>
+        resolveAssetRef(assetRegistry, ref),
       );
       chapterText = rewritten.html;
 
@@ -198,11 +309,8 @@ export const importEpub = async (
         chapterText,
       );
 
-      for (const name of rewritten.names) {
-        const source = assetSources.get(name);
-        if (source) {
-          await importAssetIntoTree(source, `${chapterRelDir}/${name}`);
-        }
+      for (const [destination, source] of rewritten.assets) {
+        await importAssetIntoTree(source, `${chapterRelDir}/${destination}`);
       }
     }
   }

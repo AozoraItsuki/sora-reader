@@ -20,7 +20,12 @@ import app.sorareader.data.local.entity.RepositoryEntity
         NovelCategoryEntity::class, RepositoryEntity::class, ReadingHistoryEntity::class,
     ],
     version = 2,
-    exportSchema = true,
+    // No Room schema JSON is committed in this repo, so exporting schemas would
+    // only create untracked files (the KSP schemaLocation arg was removed too).
+    // No migrations are declared: once the builder-level
+    // fallbackToDestructiveMigration() call is removed, a version bump without a
+    // migration will fail loudly instead of silently discarding user data.
+    exportSchema = false,
 )
 abstract class SoraDatabase : RoomDatabase() {
     abstract fun novelDao(): NovelDao

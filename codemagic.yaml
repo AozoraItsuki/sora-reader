@@ -36,9 +36,11 @@ workflows:
           pnpm install --frozen-lockfile
       - name: Generate release env file
         script: |
+          # Full commit hash keeps env/build-info consistent with CI releases.
           pnpm run generate:env:release \
             --build-type "Release" \
-            --node-env "production"
+            --node-env "production" \
+            --git-hash "$CM_COMMIT"
       - name: Install Android SDK components
         script: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
@@ -78,15 +80,26 @@ workflows:
           pnpm rock build:android --variant release
       - name: Publish to GitHub Releases
         script: |
-          TAG="codemagic-${CM_COMMIT:0:7}-$(date +%Y%m%d%H%M)"
+          # Same semver CI tag scheme as .github/workflows/android-build.yml.
+          # Codemagic builds are always prereleases and never marked latest.
+          VERSION="$(node -p "require('./package.json').version")"
+          SHORT_SHA="${CM_COMMIT:0:7}"
+          TAG="v${VERSION}-ci.${BUILD_NUMBER}"
           FILES=(android/app/build/outputs/apk/release/*.apk android/app/build/outputs/bundle/release/*.aab)
           EXISTING=()
           for f in "${FILES[@]}"; do
             [ -f "$f" ] && EXISTING+=("$f")
           done
+          if [ ${#EXISTING[@]} -eq 0 ]; then
+            echo "No APK/AAB produced for $TAG; refusing to create an empty release."
+            exit 1
+          fi
           GH_TOKEN="$GH_PAT" gh release create "$TAG" "${EXISTING[@]}" \
-            --title "SoraReader $TAG" \
-            --generate-notes
+            --target "$CM_COMMIT" \
+            --latest=false \
+            --prerelease \
+            --title "SoraReader $TAG ($SHORT_SHA)" \
+            --notes "SoraReader ${VERSION} CI build #${BUILD_NUMBER}. Commit: \`${SHORT_SHA}\` (${CM_COMMIT})."
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
       - android/app/build/outputs/bundle/**/*.aab

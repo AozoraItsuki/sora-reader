@@ -64,6 +64,11 @@ const removeIfExists = (path: string) => {
   }
 };
 
+// ArrayBuffer cannot be JSON.stringify'd directly. Back it up as a tagged byte
+// array so the settings file stays plain JSON and restore can rebuild the exact
+// MMKV value type.
+const BACKUP_BUFFER_KEY = '__backupArrayBuffer';
+
 const backupMMKVData = () => {
   const excludeKeys = [
     ServiceManager.manager.STORE_KEY,
@@ -78,15 +83,31 @@ const backupMMKVData = () => {
   const keys = MMKVStorage.getAllKeys().filter(
     key => !excludeKeys.includes(key),
   );
-  const data = {} as any;
+  const data: Record<
+    string,
+    string | number | boolean | { [BACKUP_BUFFER_KEY]: number[] }
+  > = {};
   for (const key of keys) {
-    let value: number | string | boolean | undefined =
-      MMKVStorage.getString(key);
-    if (!value) {
-      value = MMKVStorage.getBoolean(key);
+    const stringValue = MMKVStorage.getString(key);
+    if (stringValue !== undefined) {
+      data[key] = stringValue;
+      continue;
     }
-    if (key && value) {
-      data[key] = value;
+    const booleanValue = MMKVStorage.getBoolean(key);
+    if (booleanValue !== undefined) {
+      data[key] = booleanValue;
+      continue;
+    }
+    const numberValue = MMKVStorage.getNumber(key);
+    if (numberValue !== undefined) {
+      data[key] = numberValue;
+      continue;
+    }
+    const bufferValue = MMKVStorage.getBuffer(key);
+    if (bufferValue !== undefined) {
+      data[key] = {
+        [BACKUP_BUFFER_KEY]: Array.from(new Uint8Array(bufferValue)),
+      };
     }
   }
   return data;
@@ -94,7 +115,22 @@ const backupMMKVData = () => {
 
 const restoreMMKVData = (data: any) => {
   for (const key in data) {
-    MMKVStorage.set(key, data[key]);
+    const value = data[key];
+    const bytes = value?.[BACKUP_BUFFER_KEY];
+    if (
+      Array.isArray(bytes) &&
+      bytes.every(
+        (byte: unknown) =>
+          typeof byte === 'number' &&
+          Number.isInteger(byte) &&
+          byte >= 0 &&
+          byte <= 255,
+      )
+    ) {
+      MMKVStorage.set(key, Uint8Array.from(bytes).buffer);
+    } else {
+      MMKVStorage.set(key, value);
+    }
   }
 };
 

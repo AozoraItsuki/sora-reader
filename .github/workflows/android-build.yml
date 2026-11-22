@@ -21,9 +21,9 @@ on:
           - arm64-v8a
           - armeabi-v7a
 
+# Build jobs only need read access; the separate publish job below gets write.
 permissions:
-  contents: write
-  actions: read
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.variant || 'auto' }}-${{ inputs.arch || 'all' }}
@@ -40,6 +40,14 @@ jobs:
     name: Build Android (${{ inputs.variant || 'debug' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 300
+    outputs:
+      should_publish: ${{ steps.release-info.outputs.should_publish }}
+      tag: ${{ steps.release-info.outputs.tag }}
+      version: ${{ steps.release-info.outputs.version }}
+      short_sha: ${{ steps.release-info.outputs.short_sha }}
+      artifact_name: ${{ steps.release-info.outputs.artifact_name }}
+      make_latest: ${{ steps.release-info.outputs.make_latest }}
+      prerelease: ${{ steps.release-info.outputs.prerelease }}
 
     steps:
       - name: Free Disk Space
@@ -54,27 +62,28 @@ jobs:
           swap-storage: true
 
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: zulu
           java-version: '17'
           cache: gradle
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
         with:
           cache-read-only: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: pnpm
@@ -82,27 +91,88 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      # package.json is canonical; CI tags and artifacts are derived from it.
+      - name: Resolve Release Metadata
+        id: release-info
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          SHOULD_PUBLISH=false
+          MAKE_LATEST=false
+          PRERELEASE=true
+          if [[ "$VARIANT" == "release" ]]; then
+            SHOULD_PUBLISH=true
+            if [[ "$GITHUB_REF" == "refs/heads/main" && "$ARCH" == "all" ]]; then
+              MAKE_LATEST=true
+              PRERELEASE=false
+            fi
+          fi
+          {
+            echo "version=$VERSION"
+            echo "short_sha=$SHORT_SHA"
+            echo "tag=v${VERSION}-ci.${GITHUB_RUN_NUMBER}"
+            echo "artifact_name=sora-reader-${VARIANT}-${ARCH}-${SHORT_SHA}-${GITHUB_RUN_NUMBER}"
+            echo "should_publish=$SHOULD_PUBLISH"
+            echo "make_latest=$MAKE_LATEST"
+            echo "prerelease=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Generate Env File
         run: |
           if [[ "$VARIANT" == "release" ]]; then
             pnpm run generate:env:release \
               --build-type "Release" \
-              --node-env "production"
+              --node-env "production" \
+              --git-hash "${{ github.sha }}"
           else
-            pnpm run generate:env:debug
+            pnpm run generate:env:debug --git-hash "${{ github.sha }}"
           fi
 
       - name: Cache Android SDK
         id: cache-sdk
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/android-sdk
           # Changes to the component list, Gradle config or this workflow
           # invalidate the cache automatically instead of reusing a stale SDK.
           key: android-sdk-${{ hashFiles('.github/workflows/android-build.yml', 'android/build.gradle', 'android/gradle.properties') }}
 
+      - name: Export Android SDK Env
+        run: |
+          {
+            echo "ANDROID_HOME=$HOME/android-sdk"
+            echo "ANDROID_SDK_ROOT=$HOME/android-sdk"
+          } >> "$GITHUB_ENV"
+          {
+            echo "$HOME/android-sdk/cmdline-tools/latest/bin"
+            echo "$HOME/android-sdk/platform-tools"
+          } >> "$GITHUB_PATH"
+
+      # A cache "hit" can still be incomplete (aborted install, partial restore).
+      # Clear it and let the setup step below reinstall instead of failing later
+      # with an opaque NDK/CMake error.
+      - name: Verify Android SDK Components (cache health)
+        id: sdk-health
+        run: |
+          SDK="$ANDROID_HOME"
+          missing=()
+          check_dir() { [[ -d "$1" ]] || missing+=("$2"); }
+          check_dir "$SDK/platforms/android-36" "platform 36"
+          check_dir "$SDK/build-tools/36.0.0" "build-tools 36.0.0"
+          check_dir "$SDK/cmake/3.22.1" "cmake 3.22.1"
+          check_dir "$SDK/ndk/27.1.12297006" "NDK 27.1.12297006"
+          check_dir "$SDK/cmdline-tools/latest/bin" "cmdline-tools/latest"
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "SDK incomplete (missing: ${missing[*]}); clearing for reinstall."
+            rm -rf "$SDK"
+            echo "healthy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "SDK components verified."
+            echo "healthy=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Android SDK
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        if: steps.cache-sdk.outputs.cache-hit != 'true' || steps.sdk-health.outputs.healthy == 'false'
         run: |
           ANDROID_HOME="$HOME/android-sdk"
           mkdir -p "$ANDROID_HOME/cmdline-tools"
@@ -119,17 +189,6 @@ jobs:
             "build-tools;36.0.0" \
             "cmake;3.22.1" \
             "ndk;27.1.12297006"
-
-      - name: Export Android SDK Env
-        run: |
-          {
-            echo "ANDROID_HOME=$HOME/android-sdk"
-            echo "ANDROID_SDK_ROOT=$HOME/android-sdk"
-          } >> "$GITHUB_ENV"
-          {
-            echo "$HOME/android-sdk/cmdline-tools/latest/bin"
-            echo "$HOME/android-sdk/platform-tools"
-          } >> "$GITHUB_PATH"
 
       - name: Decode Keystore (release only)
         if: env.VARIANT == 'release'
@@ -149,6 +208,10 @@ jobs:
             exit 1
           fi
           echo "Release keystore verified."
+
+      - name: Cleanup Decoded Keystore
+        if: always() && env.VARIANT == 'release'
+        run: rm -f android/app/release.keystore
 
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
@@ -180,24 +243,49 @@ jobs:
           ls android/app/build/outputs/apk/release/
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: sora-reader-${{ env.VARIANT }}-${{ env.ARCH }}-${{ github.run_number }}
+          name: ${{ steps.release-info.outputs.artifact_name }}
           path: |
             android/app/build/outputs/apk/**/*.apk
             android/app/build/outputs/bundle/**/*.aab
           if-no-files-found: error
 
-      - name: Create GitHub Release (release only)
-        uses: softprops/action-gh-release@v2
-        if: env.VARIANT == 'release'
+  # Minimal write-scoped job: it only downloads the built artifact and creates
+  # the release, so build steps never hold contents: write.
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-android
+    if: needs.build-android.outputs.should_publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download APK Artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          tag_name: build-${{ github.run_number }}
-          name: SoraReader Build #${{ github.run_number }}
+          name: ${{ needs.build-android.outputs.artifact_name }}
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.build-android.outputs.tag }}
+          name: SoraReader ${{ needs.build-android.outputs.version }} (${{ needs.build-android.outputs.short_sha }})
           # Attach the tag to the exact commit that produced these APKs;
           # otherwise the action defaults to the repo's default branch.
           target_commitish: ${{ github.sha }}
+          make_latest: ${{ needs.build-android.outputs.make_latest }}
+          prerelease: ${{ needs.build-android.outputs.prerelease }}
+          body: |
+            SoraReader ${{ needs.build-android.outputs.version }} — CI build #${{ github.run_number }}
+            - Commit: `${{ needs.build-android.outputs.short_sha }}` (${{ github.sha }})
+            - Variant: `${{ env.VARIANT }}`
+            - Target ABI: `${{ env.ARCH }}`
+            - Artifact: `${{ needs.build-android.outputs.artifact_name }}`
           generate_release_notes: true
           files: |
-            android/app/build/outputs/apk/**/*.apk
-            android/app/build/outputs/bundle/**/*.aab
+            dist/**/*.apk
+            dist/**/*.aab

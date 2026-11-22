@@ -1,4 +1,9 @@
 import { DriveFile } from '@api/drive/types';
+import {
+  DOWNLOAD_SETTINGS,
+  DownloadSettings,
+  initialDownloadSettings,
+} from '@hooks/persisted/useSettings';
 import { getString } from '@strings/translations';
 import { askForPostNotificationsPermission } from '@utils/askForPostNoftificationsPermission';
 import { getMMKVObject, setMMKVObject } from '@utils/mmkv/mmkv';
@@ -6,11 +11,6 @@ import { showToast } from '@utils/showToast';
 import * as Notifications from 'expo-notifications';
 import BackgroundService from 'react-native-background-actions';
 
-import {
-  DOWNLOAD_SETTINGS,
-  DownloadSettings,
-  initialDownloadSettings,
-} from '@hooks/persisted/useSettings';
 import { createDriveBackup, driveRestore } from './backup/drive';
 import { createBackup, restoreBackup } from './backup/local';
 import {
@@ -97,6 +97,8 @@ function makeId() {
   );
 }
 
+const isAbortError = (error: any): boolean => error?.name === 'AbortError';
+
 export default class ServiceManager {
   STORE_KEY = 'APP_SERVICE';
   lastNotifUpdate = 0;
@@ -107,6 +109,9 @@ export default class ServiceManager {
 
   /** Abort controller for the currently executing task */
   private currentAbortController: AbortController | null = null;
+
+  /** Per-task controllers so parallel downloads can be cancelled individually. */
+  private taskAbortControllers = new Map<string, AbortController>();
 
   static get manager() {
     if (!this.instance) {
@@ -267,8 +272,10 @@ export default class ServiceManager {
     this.currentPendingUpdate = 0;
 
     // Create abort controller for this task
-    this.currentAbortController = new AbortController();
-    const { signal } = this.currentAbortController;
+    const controller = new AbortController();
+    this.currentAbortController = controller;
+    this.taskAbortControllers.set(task.id, controller);
+    const { signal } = controller;
 
     try {
       switch (task.task.name) {
@@ -302,10 +309,17 @@ export default class ServiceManager {
         case 'MIGRATE_NOVEL':
           return await migrateNovel(task.task.data, this.setMeta.bind(this));
         case 'DOWNLOAD_CHAPTER':
-          return await downloadChapter(task.task.data, this.setMeta.bind(this));
+          return await downloadChapter(
+            task.task.data,
+            this.setMeta.bind(this),
+            signal,
+          );
       }
     } finally {
-      this.currentAbortController = null;
+      this.taskAbortControllers.delete(task.id);
+      if (this.currentAbortController === controller) {
+        this.currentAbortController = null;
+      }
     }
   }
 
@@ -347,10 +361,19 @@ export default class ServiceManager {
       transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
     ) => this.setMetaById(task.id, transformer);
 
-    return downloadChapter(
-      (task.task as DownloadChapterTask).data,
-      setMetaForTask,
-    );
+    const controller = new AbortController();
+    this.taskAbortControllers.set(task.id, controller);
+    const { signal } = controller;
+
+    try {
+      return await downloadChapter(
+        (task.task as DownloadChapterTask).data,
+        setMetaForTask,
+        signal,
+      );
+    } finally {
+      this.taskAbortControllers.delete(task.id);
+    }
   }
 
   static async launch() {
@@ -439,14 +462,23 @@ export default class ServiceManager {
           await Promise.allSettled(
             tasksToRun.map(async t => {
               let lastError: any;
+              // Only a real success or a real failure is terminal. If the
+              // service stopped before this task ran, it stays queued.
+              let reachedTerminalState = false;
               while (BackgroundService.isRunning()) {
                 try {
                   await manager.executeDownloadTask(t, startingTasks);
-                  doneTasks['DOWNLOAD_CHAPTER'] += 1;
+                  doneTasks.DOWNLOAD_CHAPTER += 1;
+                  reachedTerminalState = true;
                   break;
                 } catch (error: any) {
+                  if (isAbortError(error)) {
+                    // Cancelled: do not retry or show it as a download error.
+                    break;
+                  }
                   lastError = error;
                   if (!downloadSettings.retryOnError) {
+                    reachedTerminalState = true;
                     break;
                   }
                   await new Promise(r => setTimeout(r, retryDelayMs));
@@ -460,10 +492,12 @@ export default class ServiceManager {
                   },
                   trigger: null,
                 });
-              } else if (chapterDelayMs > 0) {
+              } else if (reachedTerminalState && chapterDelayMs > 0) {
                 await new Promise(r => setTimeout(r, chapterDelayMs));
               }
-              completedIds.add(t.id);
+              if (reachedTerminalState) {
+                completedIds.add(t.id);
+              }
             }),
           );
 
@@ -482,6 +516,9 @@ export default class ServiceManager {
             doneTasks[currentTask.task.name] += 1;
             break;
           } catch (error: any) {
+            if (isAbortError(error)) {
+              break;
+            }
             lastError = error;
             if (!downloadSettings.retryOnError) {
               break;
@@ -505,13 +542,15 @@ export default class ServiceManager {
           await manager.executeTask(currentTask, startingTasks);
           doneTasks[currentTask.task.name] += 1;
         } catch (error: any) {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: currentTask.meta?.name || 'Task Error',
-              body: error?.message || String(error),
-            },
-            trigger: null,
-          });
+          if (!isAbortError(error)) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: currentTask.meta?.name || 'Task Error',
+                body: error?.message || String(error),
+              },
+              trigger: null,
+            });
+          }
         }
       }
 
@@ -667,6 +706,9 @@ export default class ServiceManager {
     const taskList = this.getTaskList();
     const isCurrentTask = taskList[0]?.id === id;
 
+    // Abort this task's own controller (parallel tasks each have one).
+    this.taskAbortControllers.get(id)?.abort();
+
     if (isCurrentTask && this.currentAbortController) {
       this.currentAbortController.abort();
     }
@@ -689,6 +731,13 @@ export default class ServiceManager {
   removeTasksByName(name: BackgroundTask['name']) {
     const taskList = this.getTaskList();
     const isCurrentTask = taskList[0]?.task?.name === name;
+
+    // Abort every running task with this name (parallel downloads included).
+    for (const t of taskList) {
+      if (t.task?.name === name) {
+        this.taskAbortControllers.get(t.id)?.abort();
+      }
+    }
 
     // Abort the currently running task if it matches
     if (isCurrentTask && this.currentAbortController) {
