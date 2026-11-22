@@ -44,10 +44,7 @@ import { showToast } from '@utils/showToast';
 import * as cheerio from 'cheerio';
 import { eq } from 'drizzle-orm';
 
-import {
-  isCloudflareOrIPBanError,
-  torNewIdentity,
-} from './torControl';
+import { isCloudflareOrIPBanError, torNewIdentity } from './torControl';
 
 /** `3.b64.png` — the bare filename the reader resolves against its baseUrl. */
 const imageFileName = (index: number) => `${index}.b64.png`;
@@ -118,33 +115,55 @@ const ERROR_SENTINELS = [
 ];
 
 /**
- * True only when the HTML carries visible, non-error text. Tags, scripts and
- * whitespace do not count — a whitespace-only or tag-only parse result (or a
- * degraded translation) must never be persisted as an offline chapter.
+ * True only when the HTML carries visible, non-error content (text or media).
+ * Whitespace-only, empty tags, or error challenge pages (403/404/Cloudflare)
+ * must never be persisted as an offline chapter. Image-heavy or illustration
+ * chapters, and content wrapped in standard HTML5 elements like <template>
+ * or <svg>, are explicitly permitted.
  */
 export const hasMeaningfulChapterText = (html: string): boolean => {
   if (typeof html !== 'string' || html.trim().length === 0) {
     return false;
   }
   let text: string;
+  let hasValidMedia = false;
   try {
     const $ = cheerio.load(html, null, false);
-    $('script, style, noscript, template, svg').remove();
-    text = $.root()
-      .text()
-      .replace(/\s+/g, ' ')
-      .trim();
+    // Strip scripts and styles; preserve template/svg contents which may carry legitimate text or visuals.
+    $('script, style, noscript').remove();
+
+    // Check for valid images or media (illustrations, manga, webtoons, canvas)
+    hasValidMedia =
+      $('img, picture, svg, canvas, audio, video').filter((_, el) => {
+        const src =
+          $(el).attr('src') ||
+          $(el).attr('data-src') ||
+          $(el).attr('href') ||
+          $(el).attr('xlink:href');
+        if (el.tagName === 'svg' || el.tagName === 'canvas') return true;
+        return typeof src === 'string' && src.trim().length > 0;
+      }).length > 0;
+
+    text = $.root().text().replace(/\s+/g, ' ').trim();
   } catch {
     return false;
   }
-  if (text.length === 0) {
+
+  // Reject if there is neither visible text nor media
+  if (text.length === 0 && !hasValidMedia) {
     return false;
   }
+
   const lower = text.toLowerCase();
-  return !(
+  const matchesSentinel =
     text.length <= 200 &&
-    ERROR_SENTINELS.some(sentinel => lower.includes(sentinel))
-  );
+    ERROR_SENTINELS.some(sentinel => lower.includes(sentinel));
+
+  if (matchesSentinel) {
+    return false;
+  }
+
+  return true;
 };
 
 type ImageOutcome = { ok: boolean; error?: unknown };
@@ -159,7 +178,10 @@ const createChapterFolder = async (data: {
   throwIfAborted(data.signal);
   await safMkdir(chapterFolder);
   throwIfAborted(data.signal);
-  await safWriteFile(nomediaRel(data.pluginId, data.novelId, data.chapterId), ',');
+  await safWriteFile(
+    nomediaRel(data.pluginId, data.novelId, data.chapterId),
+    ',',
+  );
   return chapterFolder;
 };
 
@@ -169,8 +191,9 @@ const downloadFiles = async (
   novelId: number,
   chapterId: number,
   signal?: AbortSignal,
+  novelPluginId?: string,
 ): Promise<void> => {
-  const pluginId = plugin.id;
+  const pluginId = novelPluginId || plugin.id;
   await createChapterFolder({ pluginId, novelId, chapterId, signal });
   throwIfAborted(signal);
   const loadedCheerio = cheerio.load(html);
@@ -411,7 +434,14 @@ export const downloadChapter = async (
     }
 
     startedWriting = true;
-    await downloadFiles(finalHtml, plugin, novel.id, chapter.id, signal);
+    await downloadFiles(
+      finalHtml,
+      plugin,
+      novel.id,
+      chapter.id,
+      signal,
+      novel.pluginId,
+    );
 
     // A cancelled download must never be persisted as downloaded.
     throwIfAborted(signal);

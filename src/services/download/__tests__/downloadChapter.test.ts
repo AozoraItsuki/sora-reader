@@ -184,11 +184,15 @@ jest.mock('../../../screens/novel/components/Info/NovelInfoHeader', () => {
   return () => React.createElement(Text, null, 'hdr');
 });
 
-jest.mock('../../../screens/novel/components/PagePaginationControl', () => () =>
-  null,
+jest.mock(
+  '../../../screens/novel/components/PagePaginationControl',
+  () => () => null,
 );
 
-jest.mock('../../../screens/novel/components/NovelBottomSheet', () => () => null);
+jest.mock(
+  '../../../screens/novel/components/NovelBottomSheet',
+  () => () => null,
+);
 jest.mock(
   '../../../screens/novel/components/PageNavigationBottomSheet',
   () => () => null,
@@ -243,14 +247,50 @@ describe('hasMeaningfulChapterText', () => {
     ['whitespace only', '   \n\t  '],
     ['empty body', '<html><body></body></html>'],
     ['tag only', '<div><span>   </span></div>'],
-    ['script/style only', '<script>var a = 1;</script><style>p{color:red}</style>'],
-    ['short scrape error', '<html><body>Error: Chapter not found</body></html>'],
+    [
+      'script/style only',
+      '<script>var a = 1;</script><style>p{color:red}</style>',
+    ],
+    [
+      'short scrape error',
+      '<html><body>Error: Chapter not found</body></html>',
+    ],
   ])('rejects %s', (_label, html) => {
     expect(hasMeaningfulChapterText(html)).toBe(false);
   });
 
   it('accepts html with visible chapter text', () => {
     expect(hasMeaningfulChapterText(VALID_HTML)).toBe(true);
+  });
+
+  it('accepts image-only chapters', () => {
+    expect(
+      hasMeaningfulChapterText('<img src="https://example.com/ch1.png" />'),
+    ).toBe(true);
+  });
+
+  it('accepts template wrapped chapter text', () => {
+    expect(
+      hasMeaningfulChapterText(
+        '<template><p>Legitimate chapter text inside template</p></template>',
+      ),
+    ).toBe(true);
+  });
+
+  it('accepts chapter with image and short title', () => {
+    expect(
+      hasMeaningfulChapterText(
+        '<h1>Ch 1</h1><img src="https://example.com/ch1.png" />',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects error sentinel even if accompanied by logo image', () => {
+    expect(
+      hasMeaningfulChapterText(
+        '<html><body><img src="/cf-logo.png"/><p>Access denied</p></body></html>',
+      ),
+    ).toBe(false);
   });
 });
 
@@ -502,7 +542,9 @@ describe('NovelScreenList download flag sync', () => {
     const view = renderList();
     finishDownload(view);
 
-    await waitFor(() => expect(mockGetChapter).toHaveBeenCalledWith(CHAPTER_ID));
+    await waitFor(() =>
+      expect(mockGetChapter).toHaveBeenCalledWith(CHAPTER_ID),
+    );
     expect(mockUpdateChapter).not.toHaveBeenCalled();
   });
 

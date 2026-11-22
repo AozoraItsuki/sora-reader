@@ -7,6 +7,7 @@ import {
   SourceNovel,
   SourcePage,
 } from '@plugins/types';
+import { directAbsolutePath } from '@services/saf/directStorage';
 import NativeFile from '@specs/NativeFile';
 import { isAbsoluteUri } from '@utils/DownloadPaths';
 import { NOVEL_STORAGE } from '@utils/Storages';
@@ -79,10 +80,22 @@ class LocalPlugin implements Plugin {
 
   async parseChapter(chapterPath: string): Promise<string> {
     // chapterPath format: NOVEL_STORAGE/local/{novelId}/{chapterId}/index.html
-    // or just the directory path
-    const filePath = chapterPath.endsWith('/index.html')
+    // or relative to SAF download root: Novels/local/{novelId}/{chapterId}
+    const normalized = chapterPath.endsWith('/index.html')
       ? chapterPath
       : chapterPath + '/index.html';
+
+    let filePath = normalized;
+    if (!NativeFile.exists(filePath)) {
+      try {
+        const abs = directAbsolutePath(normalized);
+        if (NativeFile.exists(abs)) {
+          filePath = abs;
+        }
+      } catch {
+        // Direct storage might not be initialized or accessible
+      }
+    }
 
     if (!NativeFile.exists(filePath)) {
       return '';
