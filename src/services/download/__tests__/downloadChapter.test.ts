@@ -292,6 +292,58 @@ describe('hasMeaningfulChapterText', () => {
       ),
     ).toBe(false);
   });
+
+  it('accepts noscript wrapped chapter text', () => {
+    expect(
+      hasMeaningfulChapterText(
+        '<noscript><div class="content"><p>Legitimate chapter text in noscript</p></div></noscript>',
+      ),
+    ).toBe(true);
+  });
+
+  it('accepts media chapters using data-original or data-lazy-src', () => {
+    expect(
+      hasMeaningfulChapterText(
+        '<img data-original="https://example.com/ch1.png" />',
+      ),
+    ).toBe(true);
+    expect(
+      hasMeaningfulChapterText(
+        '<img data-lazy-src="https://example.com/ch2.png" />',
+      ),
+    ).toBe(true);
+  });
+
+  it('accepts dialogue containing incidental sentinel words', () => {
+    expect(
+      hasMeaningfulChapterText(
+        '<p>"Wait, just a moment!" shouted the knight as they approached the gate.</p>',
+      ),
+    ).toBe(true);
+    expect(
+      hasMeaningfulChapterText(
+        '<p>The ancient AI warning read: Rate limit exceeded for this sector. Please return tomorrow.</p>',
+      ),
+    ).toBe(true);
+    expect(
+      hasMeaningfulChapterText(
+        '<p>The Cloudflare servers were located deep underground in the story universe.</p>',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects bot challenge pages', () => {
+    expect(
+      hasMeaningfulChapterText(
+        '<html><body><p>cf-browser-verification please wait</p></body></html>',
+      ),
+    ).toBe(false);
+    expect(
+      hasMeaningfulChapterText(
+        '<html><body><p>Attention Required! | Cloudflare</p></body></html>',
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('downloadChapter atomic persistence', () => {

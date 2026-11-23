@@ -84,19 +84,31 @@ const isAbortError = (error: unknown): boolean =>
   (error as { name?: string } | null)?.name === 'AbortError';
 
 /**
- * Short pages that are really scrape errors/challenges. A translator can return
- * one of these (translated or not) without throwing, so they are rejected by
- * the same gate as an empty page. The length bound keeps ordinary chapters that
- * merely mention "error" from being mistaken for an error page.
+ * Bot/challenge markers that definitely indicate an anti-bot challenge page,
+ * regardless of text length.
  */
-const ERROR_SENTINELS = [
-  'chapter is empty',
-  'chapter empty',
-  'chapter not found',
-  'content not found',
-  'no content available',
-  'page not found',
+const BOT_CHALLENGE_SENTINELS = [
+  'cf-browser-verification',
+  'challenge-running',
+  'ray id:',
+  'cloudflare ray',
+  'protected by cloudflare',
+  'enable javascript and cookies to continue',
+  'please complete the turnstile',
+  'ddos protection by',
+  'attention required! | cloudflare',
+  'sorry, you have been blocked',
+];
+
+/**
+ * Generic error phrases. These are ONLY matched when the page is short
+ * (e.g. error banners, 404/403 pages) or when the text is solely or
+ * starts/ends with the error, avoiding false rejections of legitimate
+ * chapter text that happens to contain these words.
+ */
+const GENERIC_ERROR_SENTINELS = [
   '404 not found',
+  'page not found',
   '403 forbidden',
   'access denied',
   'too many requests',
@@ -105,32 +117,35 @@ const ERROR_SENTINELS = [
   'enable javascript and cookies',
   'just a moment',
   'checking your browser',
-  'cloudflare',
-  'turnstile',
   'an error occurred',
   'something went wrong',
   'failed to load',
   'download failed',
   'scrape error',
+  'chapter is empty',
+  'chapter empty',
+  'chapter not found',
+  'content not found',
+  'no content available',
 ];
 
 /**
  * True only when the HTML carries visible, non-error content (text or media).
  * Whitespace-only, empty tags, or error challenge pages (403/404/Cloudflare)
  * must never be persisted as an offline chapter. Image-heavy or illustration
- * chapters, and content wrapped in standard HTML5 elements like <template>
- * or <svg>, are explicitly permitted.
+ * chapters, and content wrapped in standard HTML5 elements like <template>,
+ * <noscript>, or <svg>, are explicitly permitted.
  */
 export const hasMeaningfulChapterText = (html: string): boolean => {
   if (typeof html !== 'string' || html.trim().length === 0) {
     return false;
   }
-  let text: string;
+  let text = '';
   let hasValidMedia = false;
   try {
     const $ = cheerio.load(html, null, false);
-    // Strip scripts and styles; preserve template/svg contents which may carry legitimate text or visuals.
-    $('script, style, noscript').remove();
+    // Strip scripts and styles; preserve template/svg/noscript contents which may carry legitimate text or visuals.
+    $('script, style').remove();
 
     // Check for valid images or media (illustrations, manga, webtoons, canvas)
     hasValidMedia =
@@ -138,6 +153,10 @@ export const hasMeaningfulChapterText = (html: string): boolean => {
         const src =
           $(el).attr('src') ||
           $(el).attr('data-src') ||
+          $(el).attr('data-original') ||
+          $(el).attr('data-lazy-src') ||
+          $(el).attr('data-url') ||
+          $(el).attr('srcset') ||
           $(el).attr('href') ||
           $(el).attr('xlink:href');
         if (el.tagName === 'svg' || el.tagName === 'canvas') return true;
@@ -149,17 +168,45 @@ export const hasMeaningfulChapterText = (html: string): boolean => {
     return false;
   }
 
+  // Fallback regex text extraction if Cheerio extracted nothing but raw HTML has non-tag text
+  if (text.length === 0) {
+    const rawStripped = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (rawStripped.length > 0) {
+      text = rawStripped;
+    }
+  }
+
   // Reject if there is neither visible text nor media
   if (text.length === 0 && !hasValidMedia) {
     return false;
   }
 
   const lower = text.toLowerCase();
-  const matchesSentinel =
-    text.length <= 200 &&
-    ERROR_SENTINELS.some(sentinel => lower.includes(sentinel));
 
-  if (matchesSentinel) {
+  // Definite bot challenge pages are rejected regardless of media
+  if (BOT_CHALLENGE_SENTINELS.some(sentinel => lower.includes(sentinel))) {
+    return false;
+  }
+
+  // Check generic error pages:
+  // 1. If text exactly matches or starts/ends with an error sentinel (e.g. "Access denied", "404 Not Found")
+  // 2. If short (<= 60 chars) and contains a sentinel
+  // (Prevents rejecting regular novel dialogue like "Wait, just a moment!" or chapters discussing rate limits)
+  const isGenericError =
+    text.length <= 150 &&
+    GENERIC_ERROR_SENTINELS.some(sentinel => {
+      if (lower === sentinel) return true;
+      if (lower.startsWith(sentinel) || lower.endsWith(sentinel)) return true;
+      if (text.length <= 60 && lower.includes(sentinel)) return true;
+      return false;
+    });
+
+  if (isGenericError) {
     return false;
   }
 
@@ -242,7 +289,12 @@ const downloadFiles = async (
     imgs.map(async (img, i) => {
       throwIfAborted(signal);
       const elem = loadedCheerio(img);
-      const url = elem.attr('src');
+      const url =
+        elem.attr('src') ||
+        elem.attr('data-src') ||
+        elem.attr('data-original') ||
+        elem.attr('data-lazy-src') ||
+        elem.attr('data-url');
       if (!url) {
         return;
       }
