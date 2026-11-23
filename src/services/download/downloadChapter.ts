@@ -22,8 +22,10 @@ import { getPlugin } from '@plugins/pluginManager';
 import { Plugin } from '@plugins/types';
 import {
   safDownloadFile,
+  safExists,
   safGetFileSize,
   safMkdir,
+  safReadFile,
   safUnlink,
   safWriteFile,
 } from '@services/saf/safFile';
@@ -500,7 +502,17 @@ export const downloadChapter = async (
 
     // The flag may only be set once index.html is actually on disk with bytes.
     const indexRel = chapterIndexRel(novel.pluginId, novel.id, chapter.id);
-    const writtenBytes = await safGetFileSize(indexRel);
+    let writtenBytes = await safGetFileSize(indexRel);
+    if (!(writtenBytes > 0)) {
+      // Re-verify with safExists and safReadFile in case filesystem stat cache is lagging
+      const exists = await safExists(indexRel);
+      if (exists) {
+        const content = await safReadFile(indexRel).catch(() => '');
+        if (content.length > 0) {
+          writtenBytes = content.length;
+        }
+      }
+    }
     if (!(writtenBytes > 0)) {
       throw new Error(getString('downloadScreen.chapterEmptyOrScrapeError'));
     }

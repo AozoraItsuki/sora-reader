@@ -88,9 +88,10 @@ class NativeFile(context: ReactApplicationContext) :
 
     override fun writeFile(path: String, content: String) {
         try {
-            val fw = FileWriter(path)
-            fw.write(content)
-            fw.close()
+            FileOutputStream(path).use { fos ->
+                fos.write(content.toByteArray(Charsets.UTF_8))
+                fos.fd.sync()
+            }
         } catch (e: IOException) {
             throw Exception("Failed to write file '$path': ${e.message}")
         }
@@ -99,7 +100,10 @@ class NativeFile(context: ReactApplicationContext) :
     override fun writeFileBase64(path: String, base64: String) {
         try {
             val bytes = Base64.decode(base64, Base64.DEFAULT)
-            FileOutputStream(path).use { it.write(bytes) }
+            FileOutputStream(path).use { fos ->
+                fos.write(bytes)
+                fos.fd.sync()
+            }
         } catch (e: Exception) {
             throw Exception("Failed to write base64 file '$path': ${e.message}")
         }

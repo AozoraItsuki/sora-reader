@@ -26,6 +26,8 @@ let mockSafWriteFile: jest.Mock;
 let mockSafDownloadFile: jest.Mock;
 let mockSafUnlink: jest.Mock;
 let mockSafGetFileSize: jest.Mock;
+let mockSafExists: jest.Mock;
+let mockSafReadFile: jest.Mock;
 let mockGetMMKVObject: jest.Mock;
 let mockDbWrite: jest.Mock;
 let mockSetPayloads: any[];
@@ -67,6 +69,8 @@ jest.mock('@services/saf/safFile', () => ({
   safDownloadFile: (...args: any[]) => mockSafDownloadFile(...args),
   safUnlink: (...args: any[]) => mockSafUnlink(...args),
   safGetFileSize: (...args: any[]) => mockSafGetFileSize(...args),
+  safExists: (...args: any[]) => mockSafExists(...args),
+  safReadFile: (...args: any[]) => mockSafReadFile(...args),
 }));
 
 jest.mock('@services/translate/TranslateManager', () => ({
@@ -373,6 +377,8 @@ describe('downloadChapter atomic persistence', () => {
     mockSafDownloadFile = jest.fn().mockResolvedValue(true);
     mockSafUnlink = jest.fn().mockResolvedValue(true);
     mockSafGetFileSize = jest.fn().mockResolvedValue(512);
+    mockSafExists = jest.fn().mockResolvedValue(true);
+    mockSafReadFile = jest.fn().mockResolvedValue(VALID_HTML);
     mockSetChapterDownloaded = jest.fn().mockResolvedValue(undefined);
     mockTranslateSettings = { downloadTranslated: false };
     mockGetMMKVObject = jest.fn((key: string) =>
@@ -478,6 +484,8 @@ describe('downloadChapter atomic persistence', () => {
 
   it('does not persist the flag when the written index has zero bytes', async () => {
     mockSafGetFileSize.mockResolvedValue(0);
+    mockSafExists.mockResolvedValue(false);
+    mockSafReadFile.mockResolvedValue('');
 
     await expect(runDownload()).rejects.toThrow('chapterEmptyOrScrapeError');
 
@@ -485,6 +493,21 @@ describe('downloadChapter atomic persistence', () => {
     expect(mockSafUnlink).toHaveBeenCalledWith(CHAPTER_REL);
     expect(mockDbWrite).not.toHaveBeenCalled();
     expect(meta.isRunning).toBe(false);
+  });
+
+  it('persists the flag when safGetFileSize reports 0 but safExists and safReadFile confirm content', async () => {
+    mockSafGetFileSize.mockResolvedValue(0);
+    mockSafExists.mockResolvedValue(true);
+    mockSafReadFile.mockResolvedValue(VALID_HTML);
+
+    await expect(runDownload()).resolves.toBeUndefined();
+
+    expect(mockSafGetFileSize).toHaveBeenCalledWith(INDEX_REL);
+    expect(mockSafExists).toHaveBeenCalledWith(INDEX_REL);
+    expect(mockSafReadFile).toHaveBeenCalledWith(INDEX_REL);
+    expect(mockSetPayloads).toEqual([{ isDownloaded: true }]);
+    expect(mockSafUnlink).not.toHaveBeenCalled();
+    expect(meta).toEqual({ isRunning: false, progress: 1 });
   });
 
   it('sets the DB flag only after a non-empty index was verified', async () => {
